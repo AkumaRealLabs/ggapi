@@ -6,6 +6,25 @@ DO NOT send optional commentary
 
 This is an AI API gateway/proxy built with Go. It aggregates 40+ upstream AI providers (OpenAI, Claude, Gemini, Azure, AWS Bedrock, etc.) behind a unified API, with user management, billing, rate limiting, and an admin dashboard.
 
+## ggapi 二开维护
+
+本仓库为基于上游 new-api 的长期二开维护仓：
+
+| 远程 | 仓库 | 用途 |
+|------|------|------|
+| `origin` | AkumaRealLabs/ggapi | 团队主仓，仅向此推送 |
+| `upstream` | QuantumNous/new-api | 上游源码，只 fetch 不 push |
+
+**定制原则：** 优先配置与独立扩展点；少改上游热点文件（计费、鉴权、relay、model 事务/锁）；凡相对上游的永久差异须登记清单；同步后更新清单基准 commit。
+
+| 文档 | 说明 |
+|------|------|
+| [`docs/fork/README.md`](docs/fork/README.md) | 二开文档索引 |
+| [`docs/fork/diff-inventory.md`](docs/fork/diff-inventory.md) | 二开差异清单模板与填写规范 |
+| [`docs/fork/branch-and-sync-sop.md`](docs/fork/branch-and-sync-sop.md) | 分支命名、日常开发、上游同步、发版回归 SOP |
+
+以下工程规则（JSON、三库兼容、计费安全、前端 i18n 等）对二开与上游贡献同样适用。
+
 ## Tech Stack
 
 - **Backend**: Go 1.22+, Gin web framework, GORM v2 ORM
