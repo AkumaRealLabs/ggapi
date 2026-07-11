@@ -11,7 +11,9 @@ on:
 
 jobs:
   pr-quality:
-    runs-on: ubuntu-latest
+    # ggapi: organization runner group (Linux x64 only)
+    runs-on:
+      group: org-linux
     steps:
       - uses: peakoss/anti-slop@v0.2.1
         with:
