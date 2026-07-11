@@ -24,6 +24,17 @@ git remote -v
 | [差异清单模板](./diff-inventory.md) | 引入/修改/废弃相对上游的定制时；每次上游同步后复核 |
 | [分支命名与同步 SOP](./branch-and-sync-sop.md) | 日常开分支、合入 main、同步 upstream、发版回归 |
 
+## Agent 技能（逐步教练）
+
+仓库内 skill：**`ggapi-fork`**（路径 [`.agents/skills/ggapi-fork/`](../../.agents/skills/ggapi-fork/)）。
+
+在 Grok / 兼容 agent 中可用：
+
+- 斜杠命令：`/ggapi-fork`
+- 自然语言：二开、开分支、push 还是 PR、同步上游、冲突、差异清单、发版回归等
+
+Skill 会按模式（日常开发 / 推送与 PR / 上游同步 / 冲突与清单 / 发版 / 排障）逐步给出命令，并与本目录 SOP 对齐；**流程以本目录文档为准**，skill 负责执行级指引。
+
 ## 核心原则
 
 1. **薄定制层**：能配置解决的不改代码；能独立扩展点解决的不改上游热点文件。

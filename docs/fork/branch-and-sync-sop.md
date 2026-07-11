@@ -234,5 +234,6 @@ make build-web          # 默认前端
 - [差异清单模板](./diff-inventory.md)
 - [二开文档索引](./README.md)
 - [`AGENTS.md`](../../AGENTS.md)
+- [Agent skill：ggapi-fork](../../.agents/skills/ggapi-fork/SKILL.md)（`/ggapi-fork` 逐步教练）
 - [PR 模板](../../.github/PULL_REQUEST_TEMPLATE.md)
 - [安全披露](../../.github/SECURITY.md)

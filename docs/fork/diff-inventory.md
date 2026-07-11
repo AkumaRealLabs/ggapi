@@ -118,6 +118,7 @@
 | ID | 类型 | 路径/范围 | 差异摘要 | 原因 | 上游冲突风险 | 回归要点 | 状态 | 负责人 | 引入日期 | 关联分支/PR |
 |----|------|-----------|----------|------|--------------|----------|------|--------|----------|-------------|
 | GG-001 | docs | `docs/fork/`；`AGENTS.md`（「ggapi 二开维护」小节） | 新增二开文档索引、差异清单、分支与上游同步 SOP；在 `AGENTS.md` 增加短入口与文档链接 | 长期二开需要可追踪差异与同步流程；工程规范仍以 `AGENTS.md` 全文为准 | medium（`AGENTS.md` 上游亦会改动；`docs/fork/` 为 low） | 打开 `docs/fork/README.md` 与三份文档内链；`AGENTS.md` 二开段落与表格链接可访问；同步冲突时优先保留本仓二开入口再合入上游工程规则 | active | Akuma-real | 2026-07-11 | `docs/fork-sop` |
+| GG-002 | docs | `.agents/skills/ggapi-fork/`；`docs/fork/README.md` / `AGENTS.md` 入口链接 | 新增 `/ggapi-fork` agent skill（模式路由 + workflows/troubleshooting/checklists），覆盖日常开发、push/PR、上游同步、冲突与清单、发版、排障 | 二开过程需要逐步命令级教练，避免只靠静态 SOP 仍不知下一步 | low（独立 skill 目录；入口链接触及 `AGENTS.md`/`docs/fork` 为 medium 旁路） | `/ggapi-fork` 可发现；`references/*` 与 `docs/fork/*` 不冲突；链接可打开 | active | Akuma-real | 2026-07-11 | `docs/fork-sop` |
 
 ### 已关闭（可选归档）
 
