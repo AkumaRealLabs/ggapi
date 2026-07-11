@@ -190,8 +190,28 @@ This is **required** before a PR can exist. Pushing a topic branch ≠ landing o
 
 ### C4. Open PR
 
+**Critical:** `gh` may default to **upstream** `QuantumNous/new-api` in this
+clone (module path / prior checkout). Always target **AkumaRealLabs/ggapi**.
+
 ```bash
-gh pr create --base main --head "$(git branch --show-current)" --title "<title>" --body "$(cat <<'EOF'
+# Prefer one-time fix for this clone:
+gh repo set-default AkumaRealLabs/ggapi
+
+# Verify before create:
+gh repo view --json nameWithOwner -q .nameWithOwner
+# must print: AkumaRealLabs/ggapi
+```
+
+If `gh pr create` fails with *No commits between main and docs/…* or blank SHAs
+while `git log origin/main..HEAD` shows commits, **do not** open the PR against
+upstream. Use the REST API against the team repo:
+
+```bash
+gh api repos/AkumaRealLabs/ggapi/pulls \
+  -f title='…' \
+  -f head="$(git branch --show-current)" \
+  -f base='main' \
+  -f body="$(cat <<'EOF'
 ## 摘要
 - …
 
@@ -207,21 +227,36 @@ EOF
 )"
 ```
 
+Optional after set-default works:
+
+```bash
+gh pr create --repo AkumaRealLabs/ggapi --base main --head "$(git branch --show-current)" --title "<title>" --body "…"
+```
+
 Use `.github/PULL_REQUEST_TEMPLATE.md` structure when contributing **upstream**;
 for internal ggapi PRs, keep the checklist above at minimum.
 
-### C5. After merge
+### C5. Merge + clean branches (only when user asks)
 
 ```bash
+# Merge (example: PR number N)
+gh pr merge <N> --repo AkumaRealLabs/ggapi --merge --delete-branch
+
 git fetch origin
 git checkout main
 git pull origin main
-git branch -d <topic-branch>
-git push origin --delete <topic-branch>   # if remote branch still exists
+git branch -d <topic-branch>              # local; ignore if already gone
+git remote prune origin                   # drop origin/<topic> tracking
+# if remote branch still listed:
+# git push origin --delete <topic-branch>
 ```
 
 Update inventory status if the PR introduced/changed permanent diffs and that
 update was not already in the merged PR.
+
+User phrases like「开 PR 并合并清理」mean: create PR → merge → delete remote/local
+topic branch → leave `main` clean. Still require explicit merge wording; do not
+merge on open alone.
 
 ### Decision table (teach the user)
 
@@ -400,4 +435,5 @@ Never push ggapi-only branding or private config to upstream.
 4. **L1：** 一句话告知后可改文件 + CHANGELOG + bump version；**不**自动提交。  
 5. **L2/L3：** 先出方案，用户确认后再改；L3 必须独立说明规则变更。  
 6. **入库：** `docs/ggapi-fork-*` 分支 → 用户授权后 commit → push → PR → merge → 删分支。  
-7. **真相源：** `docs/fork/*` > skill > 会话临时话。
+7. **真相源：** `docs/fork/*` > skill > 会话临时话。  
+8. **对齐清单：** 升级后核对 GG-002 摘要与 `skill_version`；提及的永久差异（如 GG-003/004）须与 inventory 一致。
