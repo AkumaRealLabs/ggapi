@@ -387,3 +387,17 @@ Do not run production deploy commands without explicit user request and environm
 6. After upstream merges: remove fork patch, set inventory status `upstreamed`, delete dead code in a ggapi PR.
 
 Never push ggapi-only branding or private config to upstream.
+
+---
+
+## §I — Skill self-upgrade（可控）
+
+完整策略见 `references/self-upgrade.md`。此处仅执行摘要：
+
+1. **分级：** L0 只诊断 → L1 安全小补 → L2 扩展能力 → L3 动硬规则。  
+2. **可主动：** 文档漂移、实战证明 skill 错、用户要求升级/自检。  
+3. **不可乱来：** 业务 PR 顺手大改 skill、削弱 Hard rules、自动 commit/push、无文档依据发明流程。  
+4. **L1：** 一句话告知后可改文件 + CHANGELOG + bump version；**不**自动提交。  
+5. **L2/L3：** 先出方案，用户确认后再改；L3 必须独立说明规则变更。  
+6. **入库：** `docs/ggapi-fork-*` 分支 → 用户授权后 commit → push → PR → merge → 删分支。  
+7. **真相源：** `docs/fork/*` > skill > 会话临时话。

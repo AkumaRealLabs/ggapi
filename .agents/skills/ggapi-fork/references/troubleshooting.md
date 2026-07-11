@@ -36,6 +36,8 @@ git fetch upstream 2>&1
 | Afraid of breaking protected branding | §12 |
 | Inventory out of date / unknown baseline | §13 |
 | Working on wrong remote or fork | §14 |
+| Skill keeps rewriting itself / user fears chaotic upgrades | §15 |
+| Skill out of date vs docs/fork | §16 |
 
 ---
 
@@ -259,6 +261,23 @@ If `origin` is not `AkumaRealLabs/ggapi`:
 
 ---
 
+## §15 Skill self-upgrade felt chaotic
+
+1. Open `references/self-upgrade.md` and `references/CHANGELOG.md`.  
+2. Check last entries: were they L1 noise or L3 without consent?  
+3. Recovery: `git log -- .agents/skills/ggapi-fork` / revert the skill-only PR.  
+4. Remind gates: no auto-commit; L2/L3 need plan; Hard rules frozen without explicit L3.  
+5. If agent upgraded mid-feature: separate skill commit or revert skill hunks from the feature PR.
+
+## §16 Skill teaches steps that contradict docs/fork
+
+1. **Trust docs** for what you do now.  
+2. Diff the relevant section vs skill Mode.  
+3. Mode I **L1**: patch skill to match docs (do not “fix” docs unless SOP change is intended).  
+4. Bump version + CHANGELOG; ship via docs branch when user wants it on main.
+
+---
+
 ## Emergency "I already ran a dangerous command"
 
 | Already did | Mitigation |
@@ -267,6 +286,7 @@ If `origin` is not `AkumaRealLabs/ggapi`:
 | Force-pushed topic branch | Coordinate with anyone who pulled; avoid force on `main` |
 | Pushed secrets | Rotate credentials; history purge only with team process |
 | Merged bad sync to main | Fix-forward PR; inventory note; avoid another hard reset on shared main |
+| Skill auto-edited and confused you | See §15; discard uncommitted skill diffs or revert commit |
 
 Always show reflog recovery options before declaring data lost:
 
