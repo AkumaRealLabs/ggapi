@@ -4,16 +4,18 @@ description: >
   End-to-end playbook for maintaining the ggapi fork of QuantumNous/new-api:
   daily feature/fix workflow, branch naming, push-vs-PR decisions, upstream
   sync/merge, conflict resolution, diff-inventory updates, release regression,
-  contributing back upstream, common git/remote/billing/hotspot pitfalls, and
-  controlled self-upgrade of this skill (Mode I) without chaotic rewrites.
+  contributing back upstream, org-linux CI runners, private-repo update-check
+  PAT, common git/remote/billing/hotspot pitfalls, and controlled self-upgrade
+  of this skill (Mode I) without chaotic rewrites.
   Use when the user runs /ggapi-fork, asks how to 二开, fork 开发, 开分支,
   提 PR, push 还是 PR, 同步上游, merge upstream, 冲突解决, 差异清单,
-  diff-inventory, 发版回归, origin/upstream 远程, 升级 skill, 改进 ggapi-fork,
-  skill 自升级, 自检 skill, 或 any long-term fork maintenance question on this
-  repository. Always load this skill before advising or executing fork workflow
-  steps. When improving this skill itself, follow Mode I / self-upgrade policy.
+  diff-inventory, 发版回归, origin/upstream 远程, org-linux, runner group,
+  检查更新, GitHub PAT, 升级 skill, 改进 ggapi-fork, skill 自升级, 自检 skill,
+  或 any long-term fork maintenance question on this repository. Always load
+  this skill before advising or executing fork workflow steps. When improving
+  this skill itself, follow Mode I / self-upgrade policy.
 metadata:
-  skill_version: "1.1.0"
+  skill_version: "1.2.0"
 ---
 
 # ggapi Fork Maintenance Playbook
@@ -158,11 +160,23 @@ Prefer this order when implementing 二开 features:
 
 Never "drive-by" edit billing/auth/relay core without inventory + dual review plan.
 
+## Fork inventory anchors (read, do not invent)
+
+Permanent fork deltas live in `docs/fork/diff-inventory.md`. Skill must stay
+aligned with active rows (not replace them):
+
+| ID | Topic |
+|----|--------|
+| GG-001 | `docs/fork/` + `AGENTS.md` 二开入口 |
+| GG-002 | this skill (`/ggapi-fork`) |
+| GG-003 | CI `runs-on.group: org-linux`, Linux amd64 only |
+| GG-004 | Server-side update check URL + GitHub PAT |
+
 ## Related skills (hand off, do not reimplement)
 
 | Topic | Skill |
 |-------|--------|
-| Frontend i18n keys | `i18n-translate` |
+| Frontend i18n keys (all locales incl. **zh-TW**) | `i18n-translate` |
 | classic → default UI port | `classic-to-default-sync` |
 | shadcn/ui in `web/default` | `shadcn-ui` |
 | React performance | `vercel-react-best-practices` |

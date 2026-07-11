@@ -38,6 +38,10 @@ git fetch upstream 2>&1
 | Working on wrong remote or fork | §14 |
 | Skill keeps rewriting itself / user fears chaotic upgrades | §15 |
 | Skill out of date vs docs/fork | §16 |
+| `gh pr create` says no commits / wrong repo | §17 |
+| CI jobs stuck / not on org-linux | §18 |
+| Update check 401/404 on private repo | §19 |
+| i18n sync report missingCount on zh-TW | §20 |
 
 ---
 
@@ -275,6 +279,86 @@ If `origin` is not `AkumaRealLabs/ggapi`:
 2. Diff the relevant section vs skill Mode.  
 3. Mode I **L1**: patch skill to match docs (do not “fix” docs unless SOP change is intended).  
 4. Bump version + CHANGELOG; ship via docs branch when user wants it on main.
+
+---
+
+## §17 `gh pr create` targets wrong repo (upstream)
+
+**Symptom:** GraphQL *No commits between main and …* / blank head/base SHA, while
+local `git log origin/main..HEAD` shows commits on a pushed topic branch.
+
+**Cause:** `gh` default repo is `QuantumNous/new-api` (upstream), not
+`AkumaRealLabs/ggapi`.
+
+```bash
+gh repo view --json nameWithOwner -q .nameWithOwner
+# bad:  QuantumNous/new-api
+# good: AkumaRealLabs/ggapi
+
+gh repo set-default AkumaRealLabs/ggapi
+
+# Create PR against team repo explicitly:
+gh api repos/AkumaRealLabs/ggapi/pulls \
+  -f title='…' -f head='<branch>' -f base='main' -f body='…'
+```
+
+Never open ggapi feature PRs against upstream unless the user is doing Mode G
+(contribute upstream) on purpose.
+
+---
+
+## §18 CI not using org-linux / jobs queued forever
+
+**Expected (GG-003):** workflows use:
+
+```yaml
+runs-on:
+  group: org-linux
+```
+
+Linux **amd64 only** (no arm64 multi-arch, no macOS/Windows release, Electron disabled).
+
+| Check | Action |
+|-------|--------|
+| Workflow still `ubuntu-latest` | Inventory/sync may have reverted; restore GG-003 |
+| Jobs queued | Org **Settings → Actions → Runner groups → org-linux**: runners Online; group includes private `ggapi` |
+| Public repo | Group “excluding public” cannot run on public repos |
+| Docker build fails | Runner needs Docker + Buildx |
+
+---
+
+## §19 Private-repo update check fails (401/404)
+
+**Expected (GG-004):** Root configures:
+
+- `UpdateCheckRepoAPIURL` — e.g. `https://api.github.com/repos/AkumaRealLabs/ggapi/releases/latest`
+- `UpdateCheckGitHubToken` — PAT with **Contents: Read** (never returned by GET `/api/option/`)
+
+Browser no longer calls GitHub directly; use `GET /api/option/check_update`.
+
+| Status | Likely cause |
+|--------|----------------|
+| 404 | Wrong URL, no releases, or token lacks access |
+| 401/403 | Missing/expired PAT or wrong scopes |
+| Token field always empty after save | Normal — suffix `Token` is stripped from GetOptions; leave blank to keep existing |
+
+---
+
+## §20 i18n missingCount on zh-TW (or other locales)
+
+`bun run i18n:sync` may copy English into `zh-TW.json` without real translations.
+When adding keys via `add-missing-keys` style scripts, **include every locale file
+the project ships** (`en`, `zh`, `zh-TW`, `fr`, `ja`, `ru`, `vi` as applicable).
+
+```bash
+cd web/default
+bun run i18n:sync
+# inspect src/i18n/locales/_reports/_sync-report.json
+# missingCount and untranslatedCount should be 0 for locales you claim complete
+```
+
+Hand off bulk translation work to **i18n-translate** skill; never leave zh-TW as
+English-only for user-facing strings you just introduced.
 
 ---
 

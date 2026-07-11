@@ -38,9 +38,13 @@ Copy into PR bodies or walk verbally with the user. Keep items checkable.
 ### Ship
 
 - [ ] `git push -u origin HEAD` (branch only)
-- [ ] PR base = `main`
+- [ ] `gh` targets **AkumaRealLabs/ggapi** (`gh repo view` / `gh repo set-default`)
+- [ ] PR base = `main` on team repo (not QuantumNous/new-api)
 - [ ] PR describes what / why / how tested
 - [ ] No `git push upstream`
+- [ ] If UI strings added: **i18n-translate** for all locales including **zh-TW**; sync report clean
+- [ ] If CI/workflows: still `runs-on.group: org-linux` unless intentional change + inventory update (GG-003)
+- [ ] If update-check: server proxy + PAT write-only (GG-004); no PAT in frontend
 
 ---
 
