@@ -119,6 +119,7 @@
 |----|------|-----------|----------|------|--------------|----------|------|--------|----------|-------------|
 | GG-001 | docs | `docs/fork/`；`AGENTS.md`（「ggapi 二开维护」小节） | 新增二开文档索引、差异清单、分支与上游同步 SOP；在 `AGENTS.md` 增加短入口与文档链接 | 长期二开需要可追踪差异与同步流程；工程规范仍以 `AGENTS.md` 全文为准 | medium（`AGENTS.md` 上游亦会改动；`docs/fork/` 为 low） | 打开 `docs/fork/README.md` 与三份文档内链；`AGENTS.md` 二开段落与表格链接可访问；同步冲突时优先保留本仓二开入口再合入上游工程规则 | active | Akuma-real | 2026-07-11 | `docs/fork-sop` |
 | GG-002 | docs | `.agents/skills/ggapi-fork/`；`docs/fork/README.md` / `AGENTS.md` 入口链接 | `/ggapi-fork` 教练 skill（Modes A–I：日常开发、push/PR、同步、冲突/清单、发版、排障、**可控自升级**）；`self-upgrade.md` 规定 L0–L3 与禁止乱改 | 二开需要命令级教练，且 skill 须能跟进文档/实战而不静默削弱安全规则 | low（独立 skill 目录；入口链接触及 `AGENTS.md`/`docs/fork` 为 medium 旁路） | `/ggapi-fork` 可发现；自升级遵循 L1 可小补、L2/L3 须确认、不自动 commit；与 `docs/fork/*` 冲突时文档优先 | active | Akuma-real | 2026-07-11 | `docs/fork-sop` / `docs/ggapi-fork-self-upgrade` |
+| GG-003 | infra | `.github/workflows/*` | CI 统一 `runs-on.group: org-linux`；仅构建 **Linux amd64**（去掉 arm64 矩阵、macOS/Windows release、Electron 自动构建） | 使用组织 runner group `org-linux`；本仓只需 Linux x64 产物 | medium（上游常改 workflow） | 新 PR/tag 的 job 出现在 `org-linux` runner 上；Docker/Release 无 arm/mac/win job；仓库须在 group 可见范围内（当前 group 为「All repositories, excluding public」时，**公开仓无法用**） | active | Akuma-real | 2026-07-11 | `chore/org-linux-runner` |
 
 ### 已关闭（可选归档）
 
