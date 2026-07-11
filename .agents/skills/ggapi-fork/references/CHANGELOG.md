@@ -2,6 +2,19 @@
 
 格式：`## version — YYYY-MM-DD` + 级别 + 摘要。最新在上。
 
+## 1.3.0 — 2026-07-11
+
+- **级别:** L2 / minor（发车流程 / Ship quality gate；**未**改 Hard rules 表与 origin/main/upstream/品牌/计费语义 → 非 L3；self-upgrade §2 + §6 已对齐「质量门禁≠安全语义 major」）  
+- **原因:** 用户要求每次最终提交前跑 `/codex:review`，有问题则修复后再审  
+- **变更:**
+  - Mode C 新增 **C2-pre** + SKILL「Ship quality gate」（审查环，**不在** Hard rules 表内）  
+  - 触发：`提交`/`commit` 进入 Mode C；agent 用 **companion CLI**（不依赖 slash）  
+  - 范围：**单次** base→最终树审查；混合「已提交 + 脏工作区」时先 **materialize** 再 `--base origin/main`  
+  - 文档/skill **不可**单方面跳过（须用户明确 opt-out）  
+  - checklists / troubleshooting **§21**；`docs/fork` README+SOP；GG-002 → v1.3.0  
+  - `skill_version` → 1.3.0  
+- **未改:** Hard rules 表（origin-only / 禁直推 main / 品牌 / 计费 / 自升级红线）；不自动 commit/push；审查本身仍为 review-only  
+
 ## 1.2.0 — 2026-07-11
 
 - **级别:** L2（含 L1 实战条目）  

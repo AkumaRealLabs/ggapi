@@ -42,6 +42,7 @@ git fetch upstream 2>&1
 | CI jobs stuck / not on org-linux | §18 |
 | Update check 401/404 on private repo | §19 |
 | i18n sync report missingCount on zh-TW | §20 |
+| Pre-commit Codex review fails / loops / skip? | §21 |
 
 ---
 
@@ -359,6 +360,75 @@ bun run i18n:sync
 
 Hand off bulk translation work to **i18n-translate** skill; never leave zh-TW as
 English-only for user-facing strings you just introduced.
+
+---
+
+## §21 Pre-commit Codex gate (`/codex:review` / companion)
+
+Mode C **C2-pre** requires a Codex review before the final commit. Review is
+**review-only**; this skill applies fixes and re-runs review.
+
+### Agent cannot “run the slash command”
+
+`/codex:review` may have `disable-model-invocation: true` → only the **user**
+can fire that slash entry. Agents should call the companion instead:
+
+```bash
+export CLAUDE_PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$HOME/.grok/installed-plugins/codex-807cef0a}"
+node "${CLAUDE_PLUGIN_ROOT}/scripts/codex-companion.mjs" review --wait
+# mixed ship unit also needs branch coverage:
+node "${CLAUDE_PLUGIN_ROOT}/scripts/codex-companion.mjs" review --wait --base origin/main
+```
+
+If the install directory name differs, list `~/.grok/installed-plugins/codex-*`.
+Fallback: `codex review --help` for CLI-equivalent invocation.
+
+### Codex unavailable / CLI not ready
+
+1. Confirm plugin/CLI: `/codex:setup` or companion readiness if present.  
+2. Do **not** mark the gate as passed.  
+3. Tell the user options in 中文:
+
+| Option | When |
+|--------|------|
+| 修好 Codex 后重试 | Preferred |
+| 跳过审查并提交 | User must say so explicitly |
+| 先不提交 | Default if unclear |
+
+### Partial review of mixed committed + dirty work
+
+Symptom: only uncommitted files were reviewed, or only `origin/main...HEAD`, or
+two disjoint reviews were treated as “full unit.”  
+Fix: **materialize** (temp commit of staged intentional files) then **one**
+`review --wait --base origin/main` so Codex sees base→final tree (workflows
+C2-pre). On findings: `git reset --soft HEAD~1`, fix, re-materialize.
+
+### Review ↔ fix loop spinning
+
+- Cap at **3** cycles (review → fix → re-review).  
+- After 3: stop, paste/summarize remaining findings, ask whether to continue fixing or commit with known issues.  
+- Do not weaken findings just to “get green.”  
+- If Codex repeats the same false positive twice, document why it is wrong and ask the user once before skipping that item.
+
+### “Nothing to review” vs empty commit
+
+- Empty working tree **and** no commits to land → skip with reason.  
+- Untracked files count as reviewable even when `git diff` is empty (plugin rule).  
+- Full ship unit = single combined review of final tree vs `origin/main` (materialize when mixed).
+
+### User wants skip
+
+Accept only clear phrases:「跳过 Codex」「不审了直接提交」「skip review」。  
+Docs/skill-only is **not** an automatic skip. Record the skip in the coach reply.
+Still refuse secrets / broken branding / hard-rule violations.
+
+### Optional tools
+
+| Tool | Role |
+|------|------|
+| Companion `review --wait` / user `/codex:review` | **Default gate** |
+| `/codex:adversarial-review` | Extra depth when user asks |
+| Bundled `/review` | Optional second opinion; not a substitute for the Codex gate |
 
 ---
 

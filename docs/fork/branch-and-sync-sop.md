@@ -55,8 +55,10 @@ git checkout -b feat/your-topic
 ## 3. 日常开发闭环
 
 ```
-Issue/任务 → 分支 → 实现 → 本地验证 → PR → Review → 合入 main → 更新差异清单（如有）
+Issue/任务 → 分支 → 实现 → 本地验证 → 最终提交前 /codex:review（有问题则修后再审）→ commit → push 分支 → PR → Review → 合入 main → 更新差异清单（如有）
 ```
+
+提交前 Codex 门禁由 skill **ggapi-fork** Mode C（C2-pre）执行：审查本身只读；通过后再 commit。详见 skill `references/workflows.md` 与 `docs/fork/README.md` Agent 技能小节。
 
 ### 3.1 实现约束（摘要）
 

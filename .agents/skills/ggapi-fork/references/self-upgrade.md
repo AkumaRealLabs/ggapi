@@ -26,8 +26,10 @@
 |------|------|------|------------------|------------------|
 | **L0** | 诊断-only | 发现过时链接、缺模式，仅口头说明 | 否 | 否（可提示「可升级」） |
 | **L1** | 安全修补 | 错别字、坏链接、与已合并 `docs/fork` 对齐的措辞、补交叉引用、补刚踩过的排障条目（不改规则） | 是（见 §4 触发） | **改文件前简短说明意图**；commit/push/PR 仍要用户点头 |
-| **L2** | 能力扩展 | 新 Mode、新检查清单段、新决策表、补 workflow 步骤 | 仅在用户授权「升级 skill / Mode I」或明确「把这个记进 skill」后 | **是**（方案 → 确认 → 再改） |
-| **L3** | 规则/安全面 | 改 Hard rules、放宽 main/push/upstream、改品牌/计费红线、改默认语言策略、大段重写 SKILL | 否（禁止静默） | **必须**；且应用独立 `docs/` 分支 + PR 说明「规则变更」 |
+| **L2** | 能力扩展 | 新 Mode、新检查清单段、新决策表、补 workflow 步骤、**Mode C 发车质量门禁**（如 C2-pre Codex 环：不改 Hard rules 表、不放宽 origin/main/upstream/品牌/计费） | 仅在用户授权「升级 skill / Mode I」或明确「把这个记进 skill」后 | **是**（方案 → 确认 → 再改） |
+| **L3** | 规则/安全面 | **改 Hard rules 表**、放宽 main/push/upstream、改品牌/计费红线、改默认语言策略、大段重写 SKILL、削弱审查/绕过 PR 等安全语义 | 否（禁止静默） | **必须**；且应用独立 `docs/` 分支 + PR 说明「规则变更」 |
+
+说明：把「最终提交前跑 Codex」写成 Mode C 步骤 / Ship quality gate = **L2**（用户已确认方案即可 minor 版本）。若把同类门禁**写进 Hard rules 表**或改为可静默跳过安全红线，才升 **L3** + major。
 
 **乱升级的典型样子（禁止）：**
 
@@ -115,8 +117,10 @@ L3 额外：
 | 版本位 | 何时加 |
 |--------|--------|
 | patch (x.y.**Z**) | L1：对齐文档、排障条目、错链 |
-| minor (x.**Y**.0) | L2：新 Mode/清单/工作流能力 |
-| major (**X**.0.0) | L3：Hard rules 或默认安全/治理语义变化 |
+| minor (x.**Y**.0) | L2：新 Mode/清单/工作流能力、Mode C **发车质量门禁**（C2-pre 等；不改 Hard rules 表、不放宽 origin/main/upstream/品牌/计费） |
+| major (**X**.0.0) | L3：**Hard rules 表**变更，或放宽/削弱 origin·main·upstream·品牌·计费·审查红线等**安全语义**（不是「多了一步可 opt-out 的质量检查」） |
+
+与 §2 表一致：mandatory-but-opt-out 的 Codex 发车步骤 = L2/minor；写进 Hard rules 或削弱安全红线 = L3/major。
 
 ---
 

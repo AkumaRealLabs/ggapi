@@ -28,6 +28,8 @@ Copy into PR bodies or walk verbally with the user. Keep items checkable.
 - [ ] Scoped `go test` for touched packages
 - [ ] Frontend typecheck/lint if applicable
 - [ ] Manual smoke for user-visible behavior
+- [ ] **Pre-commit Codex gate (C2-pre):** companion/`codex review` (or user `/codex:review`) on **combined** base→final tree; mixed committed+dirty → materialize then one `--base origin/main`; findings fixed; re-reviewed until clean **or** explicit user skip/override recorded
+- [ ] If Codex unavailable: user chose retry / skip — not silent pass; docs/skill not auto-skipped
 
 ### Fork governance
 
@@ -137,6 +139,7 @@ Risk cheat sheet:
 - [ ] Mode router still matches workflows
 - [ ] Chinese coaching defaults intact
 - [ ] No auto-commit / auto-push language introduced
+- [ ] Pre-commit Codex gate (C2-pre) still documented if ship-path changed
 - [ ] User shown summary; commit only if they asked
 
 ### Skill PR

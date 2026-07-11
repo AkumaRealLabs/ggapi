@@ -2,20 +2,23 @@
 name: ggapi-fork
 description: >
   End-to-end playbook for maintaining the ggapi fork of QuantumNous/new-api:
-  daily feature/fix workflow, branch naming, push-vs-PR decisions, upstream
-  sync/merge, conflict resolution, diff-inventory updates, release regression,
-  contributing back upstream, org-linux CI runners, private-repo update-check
-  PAT, common git/remote/billing/hotspot pitfalls, and controlled self-upgrade
-  of this skill (Mode I) without chaotic rewrites.
+  daily feature/fix workflow, branch naming, push-vs-PR decisions, pre-commit
+  Codex review loop (/codex:review → fix → re-review), upstream sync/merge,
+  conflict resolution, diff-inventory updates, release regression, contributing
+  back upstream, org-linux CI runners, private-repo update-check PAT, common
+  git/remote/billing/hotspot pitfalls, and controlled self-upgrade of this
+  skill (Mode I) without chaotic rewrites.
   Use when the user runs /ggapi-fork, asks how to 二开, fork 开发, 开分支,
-  提 PR, push 还是 PR, 同步上游, merge upstream, 冲突解决, 差异清单,
-  diff-inventory, 发版回归, origin/upstream 远程, org-linux, runner group,
-  检查更新, GitHub PAT, 升级 skill, 改进 ggapi-fork, skill 自升级, 自检 skill,
-  或 any long-term fork maintenance question on this repository. Always load
-  this skill before advising or executing fork workflow steps. When improving
-  this skill itself, follow Mode I / self-upgrade policy.
+  提 PR, push 还是 PR, 提交, commit, 最终提交, 提交前审查, codex review,
+  同步上游, merge upstream, 冲突解决, 差异清单, diff-inventory, 发版回归,
+  origin/upstream 远程, org-linux, runner group, 检查更新, GitHub PAT, 升级
+  skill, 改进 ggapi-fork, skill 自升级, 自检 skill, 或 any long-term fork
+  maintenance question on this repository. Always load this skill before
+  advising or executing fork workflow steps — including plain “提交/commit”
+  on this repo (Mode C C2-pre). When improving this skill itself, follow
+  Mode I / self-upgrade policy.
 metadata:
-  skill_version: "1.2.0"
+  skill_version: "1.3.0"
 ---
 
 # ggapi Fork Maintenance Playbook
@@ -69,6 +72,15 @@ git rev-parse --short upstream/main 2>/dev/null || true
 | Commit/PR policy | Only commit/push/open PR when the user explicitly asks. Follow repo commit/PR rules. |
 | Skill self-upgrade | May improve `.agents/skills/ggapi-fork/**` only per `references/self-upgrade.md`. **Never** silent L2/L3 rewrites; **never** auto-commit/push; **never** weaken Hard rules to “make it easier”. Prefer aligning skill → docs, not docs → bad skill. |
 
+### Ship quality gate (Mode C — not a Hard rule)
+
+Before the **final** commit of a ship unit (user said 提交 / commit / 最终提交 —
+even without `/ggapi-fork`), run the **C2-pre Codex gate**: companion CLI
+(preferred) or user `/codex:review`, review the **combined** final tree vs
+`origin/main` (see workflows), fix findings, re-review until clean or escalate.
+Docs/skill not auto-exempt. Does **not** auto-commit or replace Hard rules.
+Full procedure: Mode C **C2-pre**.
+
 ## Mode router
 
 Detect intent from the user message. If ambiguous, ask **one** clarifying
@@ -79,7 +91,7 @@ workflow end-to-end.
 |------|--------------|------|
 | **A. Bootstrap** | 首次配置, remote, 环境, 怎么开始二开 | `references/workflows.md` §A |
 | **B. Daily feature/fix** | 新功能, bug, 开分支, 实现, 本地验证 | `references/workflows.md` §B |
-| **C. Ship (push + PR)** | push, PR, 合入, push 还是 PR | `references/workflows.md` §C + `references/checklists.md` §Pre-PR |
+| **C. Ship (commit + push + PR)** | 提交, commit, 最终提交, push, PR, 合入, push 还是 PR | `references/workflows.md` §C + `references/checklists.md` §Pre-PR |
 | **D. Upstream sync** | 同步上游, merge upstream, sync | `references/workflows.md` §D + `references/checklists.md` §Post-sync |
 | **E. Conflict / inventory** | 冲突, 差异清单, GG-xxx, needs-rebase | `references/workflows.md` §E + `references/troubleshooting.md` |
 | **F. Release** | 发版, 部署, 回归 | `references/workflows.md` §F + `references/checklists.md` §Release |
@@ -168,7 +180,7 @@ aligned with active rows (not replace them):
 | ID | Topic |
 |----|--------|
 | GG-001 | `docs/fork/` + `AGENTS.md` 二开入口 |
-| GG-002 | this skill (`/ggapi-fork`) |
+| GG-002 | this skill (`/ggapi-fork`, v1.3.0+ pre-commit Codex gate) |
 | GG-003 | CI `runs-on.group: org-linux`, Linux amd64 only |
 | GG-004 | Server-side update check URL + GitHub PAT |
 
@@ -176,6 +188,9 @@ aligned with active rows (not replace them):
 
 | Topic | Skill |
 |-------|--------|
+| Pre-commit / final-ship code review (Codex) | **`/codex:review`** (Codex plugin; review-only — this skill owns the fix→re-review loop) |
+| Adversarial / custom-focus Codex review | `/codex:adversarial-review` (optional; not the default gate) |
+| Bundled local/PR reviewer (non-Codex) | `review` / `/review` — optional extra; does **not** replace `/codex:review` for the pre-commit gate |
 | Frontend i18n keys (all locales incl. **zh-TW**) | `i18n-translate` |
 | classic → default UI port | `classic-to-default-sync` |
 | shadcn/ui in `web/default` | `shadcn-ui` |

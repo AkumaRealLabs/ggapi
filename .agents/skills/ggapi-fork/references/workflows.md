@@ -169,7 +169,161 @@ git checkout <prefix>/<topic>
 
 Prefer safer alternative if unsure: ask user before any hard reset.
 
+### C2-pre. Final-commit Codex review gate (required before C2)
+
+**When:** User asked to **commit / 提交 / 最终提交** (or “改完并提交…”, plain
+`/commit`, “提交这些改动”) for a ship unit on this repo. **Mode C applies even
+if the user did not say `/ggapi-fork`** — load this skill and run C2-pre before
+any final commit. There must be reviewable work (dirty tree and/or commits not
+on `origin/main`).
+
+**Why:** Catch real defects before they enter history. Codex review is
+**review-only** (does not patch). **This skill** owns the fix → re-review loop.
+
+#### How to invoke (agent-callable — do not rely on slash alone)
+
+The installed `/codex:review` slash command is often marked
+`disable-model-invocation: true` (user-only). **Agents must not stall waiting
+for the user to type the slash command.** Prefer the companion (same backend
+as the slash command):
+
+```bash
+# Plugin root: installed Codex plugin path (e.g. ~/.grok/installed-plugins/codex-*)
+export CLAUDE_PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$HOME/.grok/installed-plugins/codex-807cef0a}"
+# Adjust codex-* dir if the install id differs; or discover:
+# ls "$HOME/.grok/installed-plugins" | grep -E '^codex'
+
+# Prefer foreground for the gate:
+node "${CLAUDE_PLUGIN_ROOT}/scripts/codex-companion.mjs" review --wait
+```
+
+If companion path is wrong, fall back to `codex review` CLI with equivalent
+scope flags per `codex review --help`. If **both** fail → troubleshooting §21
+(not a silent pass).
+
+User may still run `/codex:review --wait` themselves; treat that output as the
+gate result for this round.
+
+#### Scope: one combined target (base → final tree)
+
+Plugin `auto` reviews **only** the working tree when dirty, and **only**
+branch commits when clean. Two disjoint runs (worktree vs `HEAD` **plus**
+`origin/main...HEAD`) **do not** equal one review of `origin/main` → final
+worktree: interactions across commits + dirty fixes can be missed.
+
+**Base freshness (before the gate counts as “vs current main”):**
+
+```bash
+git fetch origin
+# commits on origin/main not in this branch:
+git rev-list --count HEAD..origin/main
+```
+
+| `HEAD..origin/main` | Action |
+|---------------------|--------|
+| `0` | Proceed with scope table |
+| `> 0` | **Prefer** merge `origin/main` into the topic branch (or rebase **only** if user allows), resolve, re-test, **then** review. If user declines update: still review, but coach must say gate is only vs **merge-base** of current tip, not a rebased-on-latest-main tree |
+
+Do not claim “完整相对最新 main” unless the branch contains current `origin/main` (count was 0 after fetch, or merge/rebase done).
+
+| Situation | What to run |
+|-----------|-------------|
+| Dirty only (no unique commits vs `origin/main`) | One review: working tree (default / `auto`) |
+| Clean tree, commits on branch | One review: `review --wait --base origin/main` (or `--scope branch`) |
+| **Both** dirty **and** commits not on `origin/main` | **Materialize** then **one** branch review (below) — do not stop at two disjoint reviews |
+| Empty tree and nothing to land | Skip with reason |
+
+**Materialize (mixed committed + dirty), only after user already authorized 提交:**
+
+Goal: one Codex pass sees the full patch that will land (`origin/main` → final tree).
+
+```bash
+# 1) Stage only intentional ship files (never secrets)
+git add <paths…>
+
+# 2) Ephemeral commit so branch tip == intended final tree
+git commit -m "chore: temp codex gate snapshot"
+
+# 3) Single combined review
+node "${CLAUDE_PLUGIN_ROOT}/scripts/codex-companion.mjs" review --wait --base origin/main
+```
+
+| Review result | Next |
+|---------------|------|
+| Findings | `git reset --soft HEAD~1` → fix in worktree → re-materialize from step 1 (counts as one cycle) |
+| Clean | Keep tip; in **C2** amend to a proper why-focused message (`git commit --amend`) **only if** not pushed and hooks OK; or reset soft + one final commit with the real message |
+
+Do not invent staged-only flags the plugin does not support. Do not leave the
+temp message on a pushed branch.
+
+#### Loop
+
+```text
+用户授权「提交」（含纯 commit 话术，不要求先说 /ggapi-fork）
+        │
+        ▼
+  有可审 diff？（dirty 和/或 origin/main...HEAD）
+        │ 无 → 跳过并说明 → C2
+        ▼
+  用 companion（或用户 slash）跑 **一次** Codex review
+  覆盖完整 ship unit（见上表；混合时先 materialize 再
+  `--base origin/main`，禁止两段割裂审查当通过）
+  优先 --wait
+        │
+        ├─ 无实质问题 / 仅 nit → 进入 C2
+        │
+        └─ 有实质问题
+                │
+                ▼
+          修复（可再跑测试）
+                │
+                ▼
+          再审（同样覆盖完整 ship unit）
+                │
+                └─ 仍有问题 → 再修再审
+                   默认最多 3 轮；仍卡 → 停，展示报告，
+                   不擅自 commit；用户可「带问题提交」或继续改
+```
+
+#### Rules
+
+| Rule | Detail |
+|------|--------|
+| Trigger | Any final-commit intent on this repo → Mode C + C2-pre (not only “push/PR” wording). |
+| Prefer wait | Small/medium diffs: `--wait` so the gate completes in-session. |
+| Invocation | Agent uses **companion / `codex review` CLI**; slash is optional UX for humans. |
+| Full unit | Always one combined base→final-tree review; mixed → materialize then `--base origin/main`. |
+| Fix owner | **ggapi-fork agent** applies fixes; never claim review will edit code. |
+| Round limit | Default **3** full cycles (review → fix → re-review). Then stop and escalate. |
+| No silent skip | Skipping requires an allowed case below **and** a one-line reason. Docs/skill changes are **not** auto-exempt. |
+| Still need auth | Passing the gate does **not** auto-commit; C2 still needs explicit commit intent. |
+| Optional extra | `/codex:adversarial-review` or bundled `/review` only if user asks; not a substitute. |
+
+#### Allowed skip (must state reason)
+
+| Case | Skip? |
+|------|--------|
+| Empty tree and nothing to land | Yes — nothing to review |
+| Codex plugin / CLI / companion unavailable or auth failure | Do **not** pretend passed: stop, §21; **default = 先不提交** until user chooses retry / install / 「跳过审查并提交」 |
+| User explicitly:「跳过 Codex / 不审了直接提交」 / skip review | Yes — record in reply; still do normal git hygiene |
+
+Gate is a **Mode C quality step** (user-confirmed L2 playbook), not a Hard-rule rewrite: user may always opt out with clear language; agent never auto-skip docs/skill.
+
+**Not** an allowed unilateral skip: pure docs, skill-only, or “small wording”
+changes — including changes to this gate. Same gate unless the user opts out.
+
+#### Coach frame after gate
+
+```text
+当前模式: C（发车）
+Codex 审查: 通过 / 已修 N 轮后通过 / 跳过（原因）/ 阻塞（见报告）
+范围: working-tree | branch vs origin/main | materialized combined
+下一步: commit（C2）或按报告继续改
+```
+
 ### C2. Commit (only if user asked)
+
+**Only after C2-pre** (passed, allowed skip, or user override).
 
 Follow repo commit rules:
 
