@@ -4,12 +4,16 @@ description: >
   End-to-end playbook for maintaining the ggapi fork of QuantumNous/new-api:
   daily feature/fix workflow, branch naming, push-vs-PR decisions, upstream
   sync/merge, conflict resolution, diff-inventory updates, release regression,
-  contributing back upstream, and common git/remote/billing/hotspot pitfalls.
+  contributing back upstream, common git/remote/billing/hotspot pitfalls, and
+  controlled self-upgrade of this skill (Mode I) without chaotic rewrites.
   Use when the user runs /ggapi-fork, asks how to 二开, fork 开发, 开分支,
   提 PR, push 还是 PR, 同步上游, merge upstream, 冲突解决, 差异清单,
-  diff-inventory, 发版回归, origin/upstream 远程, 或 any long-term fork
-  maintenance question on this repository. Always load this skill before
-  advising or executing fork workflow steps.
+  diff-inventory, 发版回归, origin/upstream 远程, 升级 skill, 改进 ggapi-fork,
+  skill 自升级, 自检 skill, 或 any long-term fork maintenance question on this
+  repository. Always load this skill before advising or executing fork workflow
+  steps. When improving this skill itself, follow Mode I / self-upgrade policy.
+metadata:
+  skill_version: "1.1.0"
 ---
 
 # ggapi Fork Maintenance Playbook
@@ -18,6 +22,10 @@ This skill is the **agent operating manual** for long-term ggapi 二开.
 Human-facing canonical docs live under `docs/fork/`; **do not invent process**
 that contradicts them. Prefer acting as a step-by-step coach: state the current
 mode, the next concrete command, and the stop/confirm points.
+
+**Self-upgrade:** This skill may improve its own files under a **controlled**
+policy (`references/self-upgrade.md`, Mode **I**). It must **not** randomly
+rewrite rules, weaken safety, auto-commit, or invent process not in `docs/fork/`.
 
 ## Mandatory preflight (every invocation)
 
@@ -57,6 +65,7 @@ git rev-parse --short upstream/main 2>/dev/null || true
 | Engineering rules | JSON via `common/*`, three DBs, billing safety, frontend i18n — all still apply. |
 | Confirm before risk | Force-push, `reset --hard`, deploy, production DB, or anything shared: **ask user first**. |
 | Commit/PR policy | Only commit/push/open PR when the user explicitly asks. Follow repo commit/PR rules. |
+| Skill self-upgrade | May improve `.agents/skills/ggapi-fork/**` only per `references/self-upgrade.md`. **Never** silent L2/L3 rewrites; **never** auto-commit/push; **never** weaken Hard rules to “make it easier”. Prefer aligning skill → docs, not docs → bad skill. |
 
 ## Mode router
 
@@ -74,9 +83,19 @@ workflow end-to-end.
 | **F. Release** | 发版, 部署, 回归 | `references/workflows.md` §F + `references/checklists.md` §Release |
 | **G. Contribute upstream** | 回馈官方, 向上游 PR | `references/workflows.md` §G |
 | **H. Stuck / diagnose** | 报错, 推不了, 分叉乱了, 不知道下一步 | `references/troubleshooting.md` first, then re-route |
+| **I. Skill self-upgrade** | 升级 skill, 改进 ggapi-fork, 自升级, 自检 skill, skill 与文档不一致 | `references/self-upgrade.md` + `references/CHANGELOG.md` |
 
 If the user only asks a conceptual question ("到底应该 PR 还是 push？"), answer
 from Mode C hard decision table **without** running push/PR unless they ask.
+
+### Mode I quick gate (self-upgrade)
+
+1. Load `references/self-upgrade.md` fully before editing this skill.  
+2. Classify change **L0 / L1 / L2 / L3**.  
+3. **L0:** explain gap only. **L1:** may edit skill files after one-line notice; no commit. **L2/L3:** written plan → user confirms → then edit.  
+4. Always bump `metadata.skill_version` + `references/CHANGELOG.md` when files change.  
+5. Ship skill changes via `docs/…` branch + PR like any other docs change; do not mix with unrelated features unless user insists.  
+6. If `docs/fork` must change for truth: edit docs first (or same PR), skill second.
 
 ## Coaching language (user-facing)
 
@@ -161,7 +180,9 @@ Never "drive-by" edit billing/auth/relay core without inventory + dual review pl
 | `.github/PULL_REQUEST_TEMPLATE.md` | Official-style PR structure when contributing upstream |
 | `.github/SECURITY.md` | Vulnerability disclosure |
 
-If skill text and `docs/fork/*` disagree, **docs win** — then offer to patch the skill.
+If skill text and `docs/fork/*` disagree, **docs win** — then offer Mode **I**
+(L1 align skill to docs). Do not “fix” docs to match a wrong skill unless the
+user explicitly wants an SOP change.
 
 ## After completing a mode
 
@@ -170,4 +191,5 @@ Always leave the user with:
 1. Current branch + whether it is pushed  
 2. Whether `diff-inventory` needs an update  
 3. Exact next command **or** "done for this mode"  
-4. If they finished a permanent customization: remind GG-xxx registration before merge to `main`
+4. If they finished a permanent customization: remind GG-xxx registration before merge to `main`  
+5. If a skill gap was found: optional one-line Mode I offer (do not force upgrade)

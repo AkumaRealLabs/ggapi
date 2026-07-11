@@ -112,3 +112,31 @@ Risk cheat sheet:
 - [ ] Inventory date not stale after last sync
 - [ ] No long-lived topic branches abandoned without PR
 - [ ] No open sync PR older than the agreed window without update
+
+---
+
+## §Skill self-upgrade (Mode I)
+
+### Before editing skill files
+
+- [ ] Read `references/self-upgrade.md`
+- [ ] Level decided: L0 / L1 / L2 / L3
+- [ ] L2/L3: user confirmed written plan
+- [ ] Change is grounded in `docs/fork/*` or a verified session fix
+- [ ] Not weakening Hard rules / branding / billing safety
+- [ ] Not mixing with unrelated feature work (unless user insisted)
+
+### After editing skill files
+
+- [ ] `metadata.skill_version` bumped (semver per self-upgrade.md)
+- [ ] `references/CHANGELOG.md` entry added
+- [ ] Mode router still matches workflows
+- [ ] Chinese coaching defaults intact
+- [ ] No auto-commit / auto-push language introduced
+- [ ] User shown summary; commit only if they asked
+
+### Skill PR
+
+- [ ] Branch `docs/ggapi-fork-…` from latest main
+- [ ] PR describes level + why + what not changed
+- [ ] GG-002 inventory note still accurate (update if role changed)
