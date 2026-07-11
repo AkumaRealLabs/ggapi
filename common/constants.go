@@ -22,6 +22,8 @@ var TopUpLink = ""
 var themeValue atomic.Value // stores string; safe for concurrent read/write
 
 func init() {
+	// ggapi fork ships a third shell; keep classic as the historic fallback
+	// when no theme option is loaded yet.
 	themeValue.Store("classic")
 }
 
@@ -30,20 +32,22 @@ func GetTheme() string {
 }
 
 // SetTheme updates the frontend theme atomically.
-// Only "default" and "classic" are accepted; other values are silently ignored.
+// Accepted values: "default", "classic", "ggapi" (fork shell under web/ggapi).
+// Other values are silently ignored.
 func SetTheme(t string) {
-	if t == "default" || t == "classic" {
+	if t == "default" || t == "classic" || t == "ggapi" {
 		themeValue.Store(t)
 	}
 }
 
-// ThemeAwarePath rewrites legacy /console/* paths to the default-theme
-// equivalents when the active theme is "default".  For "classic" (or any
-// other theme) the path is returned unchanged.  The function only touches
+// ThemeAwarePath rewrites legacy /console/* paths to modern SPA routes when
+// the active theme is "default" or "ggapi" (both share default's route map).
+// For "classic" the path is returned unchanged. The function only touches
 // known prefixes so it is safe to call with arbitrary suffixes and query
 // strings.
 func ThemeAwarePath(suffix string) string {
-	if GetTheme() != "default" {
+	theme := GetTheme()
+	if theme != "default" && theme != "ggapi" {
 		return suffix
 	}
 	switch {

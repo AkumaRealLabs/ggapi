@@ -69,7 +69,7 @@ Issue/任务 → 分支 → 实现 → 本地验证 → 最终提交前 /codex:r
 - 少改热点：`service/*quota*`、`model/` 锁与事务、`relay/` 核心、鉴权 middleware
 - 计费改动先读 `pkg/billingexpr/expr.md`，并走完整预扣 → 结算 → 退款链路自检
 - 数据库改动必须 SQLite / MySQL / PostgreSQL 三端可接受
-- 前端（`web/default`）：Bun、i18n、`typecheck` / lint 通过
+- 前端：产品壳为 `web/ggapi`（见 §3.5）；`web/default` 尽量保持与上游一致以便同步。Bun、i18n、`typecheck` / lint 在**正在改的壳**上跑通
 
 ### 3.2 本地验证（按改动范围）
 
@@ -79,15 +79,41 @@ go test ./service/...
 go test ./model/...
 go test ./relay/...
 
-# 前端
-cd web/default && bun run typecheck
+# 前端（二开产品壳）
+cd web/ggapi && bun run typecheck
 # 以及项目约定的 lint 脚本
+# 仅改上游壳对照时：cd web/default && bun run typecheck
 
 # 本地联调
-make dev-api    # Docker 开发 API 栈
-make dev-web    # 默认前端
+make dev-api         # Docker 开发 API 栈
+make dev-web-ggapi   # ggapi 第三壳（推荐）
+# make dev-web       # 上游 default 壳
+# make dev           # API + ggapi 壳
 ```
 
+### 3.5 前端第三壳：`web/ggapi` 与功能追 `default`
+
+**策略（长期）：**
+
+| 壳 | 角色 |
+|----|------|
+| `web/default` | 跟踪上游 UI/功能，同步时优先合入；**不在此做本仓视觉大改** |
+| `web/classic` | 上游经典 Semi 壳，按需保留 |
+| `web/ggapi` | **本仓产品壳**（默认 `theme.frontend=ggapi`）；视觉与产品定制落在这里；**功能上追 `default`** |
+
+**日常开发：**
+
+1. 新页面/新交互/本仓皮肤 → 改 `web/ggapi`（`make dev-web-ggapi`）。
+2. 上游只改了 `web/default` 的功能 → 在同步或独立 `chore/port-default-*` 分支里，把等价改动 **port 到 `web/ggapi`**（可参考 skill `classic-to-default-sync` 的 diff 审阅思路：对 commit 做路径映射 `web/default` → `web/ggapi`）。
+3. 禁止只改 `web/default` 却期望生产默认壳生效；生产默认是 `ggapi`。
+4. 共用依赖版本放在 `web/package.json` 的 `catalog` / workspaces；三壳各自 `package.json` 名称独立（`ggapi-web`）。
+5. 构建：`make build-web-ggapi`；全量 `make build-all-web`；Docker 含 `builder-ggapi` 阶段。
+
+**上游同步时前端注意：**
+
+1. `web/default`、`web/classic` 冲突按上游意图解决，再评估是否需 port 到 `web/ggapi`。
+2. `web/ggapi` 为**本仓独占树**，上游不会直接改；勿在 `sync/upstream-*` 里夹带大视觉重构。
+3. 同步 PR 合并后，若 `web/default` 有用户可见功能 diff，开 follow-up：`chore/port-default-<topic>`，清单可备注关联 GG-005。
 ### 3.3 Review 要求
 
 | 变更类型 | 要求 |

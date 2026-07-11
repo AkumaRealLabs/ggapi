@@ -48,12 +48,23 @@ Skill 会按模式（日常开发 / 推送与 PR / 上游同步 / 冲突与清�
 5. **品牌与许可**：遵守 AGPLv3；不得删除或替换 new-api / QuantumNous 等受保护标识（见 `AGENTS.md` Project Governance）。
 6. **`AGENTS.md` 冲突策略**：该文件上游也会改；同步时优先保留本仓「ggapi 二开维护」入口，再合入上游工程规则变更。
 
+## 前端壳（ggapi 第三壳）
+
+| 路径 | 角色 | 本地命令 |
+|------|------|----------|
+| `web/ggapi` | **本仓产品壳**（默认主题） | `make dev-web-ggapi` / `make build-web-ggapi` |
+| `web/default` | 上游 default，同步用；功能源 | `make dev-web` |
+| `web/classic` | 上游经典壳 | `make dev-web-classic` |
+
+功能策略：**产品与视觉在 `web/ggapi`；功能追 `web/default`**（同步后 port，见 [SOP §3.5](./branch-and-sync-sop.md)）。清单项 [GG-005](./diff-inventory.md)。
+
 ## 快速入口
 
 ```bash
-# 日常前端 + API 开发
+# 日常前端 + API 开发（产品壳）
 make dev-api
-make dev-web
+make dev-web-ggapi
+# 或：make dev   # API + ggapi 壳
 
 # 同步上游（详见 SOP）
 git fetch upstream

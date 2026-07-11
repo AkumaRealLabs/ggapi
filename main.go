@@ -52,6 +52,12 @@ var classicBuildFS embed.FS
 //go:embed web/classic/dist/index.html
 var classicIndexPage []byte
 
+//go:embed web/ggapi/dist
+var ggapiBuildFS embed.FS
+
+//go:embed web/ggapi/dist/index.html
+var ggapiIndexPage []byte
+
 func main() {
 	startTime := time.Now()
 
@@ -204,6 +210,8 @@ func main() {
 		DefaultIndexPage: indexPage,
 		ClassicBuildFS:   classicBuildFS,
 		ClassicIndexPage: classicIndexPage,
+		GgapiBuildFS:     ggapiBuildFS,
+		GgapiIndexPage:   ggapiIndexPage,
 	})
 	var port = os.Getenv("PORT")
 	if port == "" {
@@ -263,6 +271,7 @@ func InjectUmamiAnalytics() {
 	placeholder := []byte("<!--umami-->\n")
 	indexPage = bytes.ReplaceAll(indexPage, placeholder, analyticsInject)
 	classicIndexPage = bytes.ReplaceAll(classicIndexPage, placeholder, analyticsInject)
+	ggapiIndexPage = bytes.ReplaceAll(ggapiIndexPage, placeholder, analyticsInject)
 }
 
 func InjectGoogleAnalytics() {
@@ -287,6 +296,7 @@ func InjectGoogleAnalytics() {
 	placeholder := []byte("<!--Google Analytics-->\n")
 	indexPage = bytes.ReplaceAll(indexPage, placeholder, analyticsInject)
 	classicIndexPage = bytes.ReplaceAll(classicIndexPage, placeholder, analyticsInject)
+	ggapiIndexPage = bytes.ReplaceAll(ggapiIndexPage, placeholder, analyticsInject)
 }
 
 func InitResources() error {

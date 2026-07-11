@@ -1,8 +1,10 @@
 WEB_DIR = ./web/default
 WEB_CLASSIC_DIR = ./web/classic
+WEB_GGAPI_DIR = ./web/ggapi
 API_DIR = .
 DEV_WEB_DEFAULT_PORT ?= 5173
 DEV_WEB_CLASSIC_PORT ?= 5174
+DEV_WEB_GGAPI_PORT ?= 5175
 DEV_COMPOSE_FILE = docker-compose.dev.yml
 DEV_POSTGRES_SERVICE = postgres
 DEV_API_SERVICE = new-api
@@ -10,7 +12,7 @@ DEV_POSTGRES_DB = new-api
 DEV_POSTGRES_USER = root
 DEV_SQLITE_PATH ?= one-api.db
 
-.PHONY: all build-web build-web-classic build-all-web start-api dev dev-api dev-api-rebuild dev-web dev-web-classic reset-setup
+.PHONY: all build-web build-web-classic build-web-ggapi build-all-web start-api dev dev-api dev-api-rebuild dev-web dev-web-classic dev-web-ggapi reset-setup
 
 all: build-all-web start-api
 
@@ -24,7 +26,12 @@ build-web-classic:
 	@cd ./web && bun install --frozen-lockfile
 	@cd $(WEB_CLASSIC_DIR) && VITE_REACT_APP_VERSION=$(cat ../../VERSION) bun run build
 
-build-all-web: build-web build-web-classic
+build-web-ggapi:
+	@echo "Building ggapi web (fork shell)..."
+	@cd ./web && bun install --frozen-lockfile
+	@cd $(WEB_GGAPI_DIR) && DISABLE_ESLINT_PLUGIN='true' VITE_REACT_APP_VERSION=$(cat ../../VERSION) bun run build
+
+build-all-web: build-web build-web-classic build-web-ggapi
 
 start-api:
 	@echo "Starting api dev server..."
@@ -46,10 +53,18 @@ dev-web:
 
 dev-web-classic:
 	@echo "Starting classic web dev server..."
+	@echo "Classic web: http://localhost:$(DEV_WEB_CLASSIC_PORT)"
 	@cd ./web && bun install --filter ./classic
 	@cd $(WEB_CLASSIC_DIR) && bun run dev -- --host 0.0.0.0 --port $(DEV_WEB_CLASSIC_PORT)
 
-dev: dev-api dev-web
+dev-web-ggapi:
+	@echo "Starting ggapi web dev server (fork shell)..."
+	@echo "ggapi web: http://localhost:$(DEV_WEB_GGAPI_PORT)"
+	@cd ./web && bun install --filter ./ggapi
+	@cd $(WEB_GGAPI_DIR) && bun run dev -- --host 0.0.0.0 --port $(DEV_WEB_GGAPI_PORT)
+
+# Local full stack prefers the ggapi shell for fork work.
+dev: dev-api dev-web-ggapi
 
 reset-setup:
 	@echo "Resetting local setup wizard state..."
