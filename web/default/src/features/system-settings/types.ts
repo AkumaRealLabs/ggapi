@@ -347,6 +347,10 @@ export type OperationsSettings = {
   WorkerUrl: string
   WorkerValidKey: string
   WorkerAllowHttpImageRequestEnabled: boolean
+  /** Full GitHub Releases API URL; empty falls back to server default */
+  UpdateCheckRepoAPIURL: string
+  /** Write-only; never returned by GET /api/option/ (suffix Token) */
+  UpdateCheckGitHubToken: string
   LogConsumeEnabled: boolean
   'performance_setting.disk_cache_enabled': boolean
   'performance_setting.disk_cache_threshold_mb': number

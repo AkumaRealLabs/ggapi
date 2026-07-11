@@ -54,6 +54,9 @@ const OtherSetting = () => {
     Footer: '',
     About: '',
     HomePageContent: '',
+    UpdateCheckRepoAPIURL:
+      'https://api.github.com/repos/AkumaRealLabs/ggapi/releases/latest',
+    UpdateCheckGitHubToken: '',
   });
   let [loading, setLoading] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
@@ -61,6 +64,7 @@ const OtherSetting = () => {
   const [updateData, setUpdateData] = useState({
     tag_name: '',
     content: '',
+    html_url: '',
   });
 
   const updateOption = async (key, value) => {
@@ -88,6 +92,7 @@ const OtherSetting = () => {
     About: false,
     Footer: false,
     CheckUpdate: false,
+    UpdateCheckSettings: false,
     FrontendTheme: false,
   });
   const handleInputChange = async (value, e) => {
@@ -235,49 +240,62 @@ const OtherSetting = () => {
     }
   };
 
+  const submitUpdateCheckSettings = async () => {
+    try {
+      setLoadingInput((loadingInput) => ({
+        ...loadingInput,
+        UpdateCheckSettings: true,
+      }));
+      const url = (inputs.UpdateCheckRepoAPIURL || '').trim();
+      if (url) {
+        await updateOption('UpdateCheckRepoAPIURL', url);
+      }
+      const token = (inputs.UpdateCheckGitHubToken || '').trim();
+      if (token) {
+        await updateOption('UpdateCheckGitHubToken', token);
+        setInputs((prev) => ({ ...prev, UpdateCheckGitHubToken: '' }));
+      }
+      showSuccess(t('检查更新设置已保存'));
+    } catch (error) {
+      console.error(error);
+      showError(t('检查更新设置保存失败'));
+    } finally {
+      setLoadingInput((loadingInput) => ({
+        ...loadingInput,
+        UpdateCheckSettings: false,
+      }));
+    }
+  };
+
   const checkUpdate = async () => {
     try {
       setLoadingInput((loadingInput) => ({
         ...loadingInput,
         CheckUpdate: true,
       }));
-      // Use a CORS proxy to avoid direct cross-origin requests to GitHub API
-      // Option 1: Use a public CORS proxy service
-      // const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
-      // const res = await API.get(
-      //   `${proxyUrl}https://api.github.com/repos/Calcium-Ion/new-api/releases/latest`,
-      // );
-
-      // Option 2: Use the JSON proxy approach which often works better with GitHub API
-      const res = await fetch(
-        'https://api.github.com/repos/Calcium-Ion/new-api/releases/latest',
-        {
-          headers: {
-            Accept: 'application/json',
-            'Content-Type': 'application/json',
-            // Adding User-Agent which is often required by GitHub API
-            'User-Agent': 'new-api-update-checker',
-          },
-        },
-      ).then((response) => response.json());
-
-      // Option 3: Use a local proxy endpoint
-      // Create a cached version of the response to avoid frequent GitHub API calls
-      // const res = await API.get('/api/status/github-latest-release');
-
-      const { tag_name, body } = res;
-      if (tag_name === statusState?.status?.version) {
+      // Server-side proxy: supports private repos via PAT configured in options.
+      const res = await API.get('/api/option/check_update');
+      const { success, message, data } = res.data;
+      if (!success || !data?.tag_name) {
+        showError(message || t('检查更新失败，请稍后再试'));
+        return;
+      }
+      const { tag_name, body, html_url } = data;
+      if (tag_name === statusState?.status?.version || data.is_latest) {
         showSuccess(`已是最新版本：${tag_name}`);
       } else {
         setUpdateData({
           tag_name: tag_name,
-          content: marked.parse(body),
+          content: marked.parse(body || ''),
+          html_url: html_url || '',
         });
         setShowUpdateModal(true);
       }
     } catch (error) {
       console.error('Failed to check for updates:', error);
-      showError('检查更新失败，请稍后再试');
+      showError(
+        error?.response?.data?.message || t('检查更新失败，请稍后再试'),
+      );
     } finally {
       setLoadingInput((loadingInput) => ({
         ...loadingInput,
@@ -321,10 +339,10 @@ const OtherSetting = () => {
 
   // Function to open GitHub release page
   const openGitHubRelease = () => {
-    window.open(
-      `https://github.com/Calcium-Ion/new-api/releases/tag/${updateData.tag_name}`,
-      '_blank',
-    );
+    const url =
+      updateData.html_url ||
+      `https://github.com/AkumaRealLabs/ggapi/releases/tag/${updateData.tag_name}`;
+    window.open(url, '_blank');
   };
 
   const getStartTimeString = () => {
@@ -368,6 +386,42 @@ const OtherSetting = () => {
                       {t('切换到新版前端')}
                     </Button>
                   </Space>
+                </Col>
+              </Row>
+              <Row style={{ marginTop: 12 }}>
+                <Col span={16}>
+                  <Form.Input
+                    field='UpdateCheckRepoAPIURL'
+                    label={t('检查更新 Release API 地址')}
+                    placeholder='https://api.github.com/repos/AkumaRealLabs/ggapi/releases/latest'
+                    value={inputs.UpdateCheckRepoAPIURL}
+                    onChange={(value) =>
+                      setInputs((prev) => ({
+                        ...prev,
+                        UpdateCheckRepoAPIURL: value,
+                      }))
+                    }
+                  />
+                  <Form.Input
+                    field='UpdateCheckGitHubToken'
+                    label={t('检查更新 GitHub PAT（私有仓）')}
+                    mode='password'
+                    placeholder={t('留空则保留已有 Token')}
+                    value={inputs.UpdateCheckGitHubToken}
+                    onChange={(value) =>
+                      setInputs((prev) => ({
+                        ...prev,
+                        UpdateCheckGitHubToken: value,
+                      }))
+                    }
+                  />
+                  <Button
+                    onClick={submitUpdateCheckSettings}
+                    loading={loadingInput['UpdateCheckSettings']}
+                    style={{ marginTop: 8 }}
+                  >
+                    {t('保存检查更新设置')}
+                  </Button>
                 </Col>
               </Row>
               <Row>
