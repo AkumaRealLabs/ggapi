@@ -43,6 +43,9 @@ const defaultOperationsSettings: OperationsSettings = {
   WorkerUrl: '',
   WorkerValidKey: '',
   WorkerAllowHttpImageRequestEnabled: false,
+  UpdateCheckRepoAPIURL:
+    'https://api.github.com/repos/AkumaRealLabs/ggapi/releases/latest',
+  UpdateCheckGitHubToken: '',
   LogConsumeEnabled: false,
   'performance_setting.disk_cache_enabled': false,
   'performance_setting.disk_cache_threshold_mb': 10,
