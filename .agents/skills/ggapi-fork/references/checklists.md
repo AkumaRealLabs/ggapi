@@ -12,7 +12,7 @@ Copy into PR bodies or walk verbally with the user. Keep items checkable.
 - [ ] Branched from latest `origin/main` (or rebased/merged main if long-lived)
 - [ ] `git status` clean except intended commits
 - [ ] No secrets, `.env`, customer data, production connection strings
-- [ ] No accidental upstream branding removals
+- [ ] No accidental upstream branding removals (**New API** / QuantumNous protected identity intact)
 
 ### Implementation
 
@@ -21,21 +21,32 @@ Copy into PR bodies or walk verbally with the user. Keep items checkable.
 - [ ] Billing changes: read `pkg/billingexpr/expr.md`; full pre-consume→settle path checked
 - [ ] DB changes: SQLite + MySQL + PostgreSQL considered
 - [ ] JSON via `common.Marshal/Unmarshal*` (not raw `encoding/json` calls)
-- [ ] Frontend: i18n keys via **i18n-translate** skill; `bun run typecheck` if TS changed
+- [ ] Frontend product work in **`web/ggapi`** (not only `web/default`); typecheck on the shell you edited
+- [ ] Frontend: i18n keys via **i18n-translate** skill; keys under `translation`; all locales incl. **zh-TW**
 
 ### Verification
 
 - [ ] Scoped `go test` for touched packages
-- [ ] Frontend typecheck/lint if applicable
+- [ ] Frontend typecheck/lint if applicable (`(cd web/ggapi && bun run typecheck)`; make targets from **repo root**)
 - [ ] Manual smoke for user-visible behavior
+- [ ] **C1b** third-shell/embed checks done **before** C2-pre when GG-005 wiring touched; any resulting edits re-run C2-pre
 - [ ] **Pre-commit Codex gate (C2-pre):** companion/`codex review` (or user `/codex:review`) on **combined** base→final tree; mixed committed+dirty → materialize then one `--base origin/main`; findings fixed; re-reviewed until clean **or** explicit user skip/override recorded
 - [ ] If Codex unavailable: user chose retry / skip — not silent pass; docs/skill not auto-skipped
+- [ ] If materialize used: temp commit message **amended** before push
 
 ### Fork governance
 
 - [ ] Permanent delta? `docs/fork/diff-inventory.md` updated (or explicitly N/A)
-- [ ] Inventory risk level honest (`high` if billing/auth/relay core)
+- [ ] Inventory risk level honest (`high` if billing/auth/relay core **or** third-shell wiring GG-005)
 - [ ] Regression points written so next sync can re-verify
+
+### Third shell / embed (GG-005 — when `web/ggapi`, theme, embed, Docker, makefile, or release touched)
+
+- [ ] Backend + shipped admin surfaces accept `theme.frontend=ggapi`: `web/ggapi` + `web/default` (enum / select / normalize) **and** classic theme helpers that write the option
+- [ ] `makefile` / `Dockerfile` / **`release.yml`** build ggapi dist before go embed
+- [ ] Local bare `go build` / tag binary: `make build-all-web` (all three embed trees; not ggapi-only)
+- [ ] Protected title/meta/logo identity not replaced with bare fork product name
+- [ ] Locale key parity across en/zh/fr/ja/ru/vi/zh-TW for new strings
 
 ### Ship
 
@@ -44,9 +55,10 @@ Copy into PR bodies or walk verbally with the user. Keep items checkable.
 - [ ] PR base = `main` on team repo (not QuantumNous/new-api)
 - [ ] PR describes what / why / how tested
 - [ ] No `git push upstream`
-- [ ] If UI strings added: **i18n-translate** for all locales including **zh-TW**; sync report clean
+- [ ] If UI strings added: **i18n-translate** on active shell for all locales including **zh-TW**; `i18n:sync` report clean **and** no English left in `zh-TW` (sync treats zh-TW as non-Latin; if unsure, run skill `find-untranslated` path). Classic strings → classic `i18n:*` scripts, not default/ggapi locale JSON.
 - [ ] If CI/workflows: still `runs-on.group: org-linux` unless intentional change + inventory update (GG-003)
 - [ ] If update-check: server proxy + PAT write-only (GG-004); no PAT in frontend
+- [ ] If third shell / theme wiring: GG-005 checks above
 
 ---
 
@@ -59,6 +71,7 @@ Copy into PR bodies or walk verbally with the user. Keep items checkable.
 - [ ] `AGENTS.md` still contains ggapi 二开 section if it was present
 - [ ] Inventory meta: baseline commit + date updated
 - [ ] `needs-rebase` rows restored or still marked with reason
+- [ ] No large `web/ggapi` skin refactors mixed into the sync commit
 - [ ] Tests: `common` `service` `model` `relay` (and frontend if needed)
 - [ ] Smoke: login/token, chat+billing, admin basic page, inventory `active` items
 - [ ] Push to **origin** only; PR title `sync: merge upstream/main @ <sha>`
@@ -71,6 +84,7 @@ Copy into PR bodies or walk verbally with the user. Keep items checkable.
 - [ ] Sync remote branch deleted
 - [ ] Inventory baseline matches what actually landed
 - [ ] Any emergency fix during sync registered as GG-xxx
+- [ ] If `web/default` gained user-visible features: follow-up `chore/port-default-*` planned or opened (GG-005)
 - [ ] Team notified if `high` behavior changed
 - [ ] Optional: note next sync window
 
@@ -81,7 +95,8 @@ Copy into PR bodies or walk verbally with the user. Keep items checkable.
 - [ ] DB backup completed
 - [ ] Version string strategy (`x.y.z-ggapi.N`) recorded
 - [ ] Migrations reviewed for target DB
-- [ ] Build: `make build-web` (and image/compose as used in prod)
+- [ ] Build: `make build-all-web` before local go binary (all three embed trees); image/compose includes ggapi stage
+- [ ] Release workflow builds **ggapi** (and other embedded shells) before go embed
 - [ ] Regression: login/token
 - [ ] Regression: main model path + billing correctness
 - [ ] Regression: quota/top-up paths if customized

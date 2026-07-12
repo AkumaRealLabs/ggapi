@@ -50,11 +50,13 @@ git status -sb
 5. Optional local stack:
 
 ```bash
-make dev-api    # API + docker dev stack
-make dev-web    # default frontend
+make dev-api         # API + docker dev stack
+make dev-web-ggapi   # product shell (fork default; GG-005)
+# make dev           # API + ggapi shell (makefile convenience)
+# make dev-web       # upstream default shell only (sync/compare)
 ```
 
-6. Point the user at `docs/fork/README.md` and Mode B for first feature work.
+6. Point the user at `docs/fork/README.md` (含第三壳) and Mode B for first feature work.
 
 ### Done when
 
@@ -98,7 +100,10 @@ Never start work on a dirty `main` with unrelated files — stash or finish firs
 1. Search for existing extension points before editing hotspots.  
 2. Prefer new files under own dirs.  
 3. Follow `AGENTS.md` (JSON wrappers, 3 DBs, pointer optional DTO fields, billing math helpers).  
-4. Frontend `web/default`: Bun, `t('English key')`, hand off i18n to **i18n-translate** skill.  
+4. **Frontend shell (GG-005 / SOP §3.5):**
+   - Product UI, skin, paper-sketch, operator-facing copy → **`web/ggapi`** (Bun, `t('English key')`, **i18n-translate**).  
+   - Keep `web/default` close to upstream for sync; do **not** land permanent product skin only in default and expect prod to show it (default theme is `ggapi`).  
+   - After upstream/`web/default` gains user-visible features: plan `chore/port-default-<topic>` into `web/ggapi` (path map `web/default` → `web/ggapi`; same review idea as **classic-to-default-sync**).  
 5. If permanent delta: draft inventory row mentally (ID, path, risk, regression).
 
 ### B3. Local verification (scoped)
@@ -112,14 +117,21 @@ go test ./relay/...
 # or narrower: go test ./path/to/pkg -count=1
 ```
 
-Frontend (if UI/TS touched):
+Frontend (if UI/TS touched — run on the shell you edited; keep make at **repo root**):
 
 ```bash
-cd web/default && bun run typecheck
+(cd web/ggapi && bun run typecheck)     # product shell (usual)
+# (cd web/default && bun run typecheck) # only if you intentionally changed default
 # lint if project scripts require it for the change
+# when ship/embed risk (optional mid-feature); always from repo root.
+# Build the shell you actually edited (not only the product shell by habit):
+make build-web-ggapi   # if web/ggapi changed
+# make build-web       # if web/default changed
+# make build-web-classic  # if web/classic changed
+# make build-all-web   # before bare go build / full embed verification
 ```
 
-Manual smoke when behavior is user-visible: login/token, one chat path, admin page.
+Manual smoke when behavior is user-visible: login/token, one chat path, admin page (`make dev` or `make dev-web-ggapi` + API).
 
 ### B4. Diff-inventory draft (if permanent)
 
@@ -168,6 +180,20 @@ git checkout <prefix>/<topic>
 ```
 
 Prefer safer alternative if unsure: ask user before any hard reset.
+
+### C1b. Third-shell / embed ship checks (when `web/ggapi` or theme wiring touched)
+
+Run **before C2-pre** for any GG-005-related unit (or theme/embed/Docker/makefile/release changes). If checks force code edits, finish those edits **then** run C2-pre so the gate covers the complete final tree (re-run C2-pre after any post-check fix).
+
+| Check | Why (from #7 lessons) |
+|-------|------------------------|
+| `theme.frontend` accepts `ggapi` in backend **and** every shipped admin surface that can change theme: `web/ggapi` + `web/default` (schema / select / normalize) **and** classic helpers that write `theme.frontend` (e.g. `web/classic/src/helpers/frontendTheme.js` — today only switches to `default`; must not leave operators stuck off the product shell) | Admin on `default` or `classic` must still be able to reach product shell `ggapi` |
+| Default theme remains intentional (`setting/.../theme.go` / constants) | Prod default is product shell |
+| `makefile` + `Dockerfile` + **`.github/workflows/release.yml`** all build **ggapi** dist before go embed | Missing release step → empty/missing embed at tag release |
+| Protected branding: `index.html` title/meta and logo accessible name stay **New API** / QuantumNous policy | Fork skin ≠ stripping protected identity |
+| New i18n keys live under locale `translation`; all shipped locales (incl. **zh-TW**) have key parity | Orphan top-level keys + missing locales caused review findings |
+
+Canonical policy: `docs/fork` §第三壳 / SOP §3.5; inventory **GG-005**.
 
 ### C2-pre. Final-commit Codex review gate (required before C2)
 
@@ -254,7 +280,9 @@ node "${CLAUDE_PLUGIN_ROOT}/scripts/codex-companion.mjs" review --wait --base or
 | Clean | Keep tip; in **C2** amend to a proper why-focused message (`git commit --amend`) **only if** not pushed and hooks OK; or reset soft + one final commit with the real message |
 
 Do not invent staged-only flags the plugin does not support. Do not leave the
-temp message on a pushed branch.
+temp message on a pushed branch. Temp message must not reach a pushed tip:
+amend to a proper why-focused message in **C2**, or soft-reset and recommit,
+**before** `git push`.
 
 #### Loop
 
@@ -320,6 +348,8 @@ Codex 审查: 通过 / 已修 N 轮后通过 / 跳过（原因）/ 阻塞（见�
 范围: working-tree | branch vs origin/main | materialized combined
 下一步: commit（C2）或按报告继续改
 ```
+
+If C1b (or any other check) still finds work after the gate and you edit files, **re-run C2-pre** before C2.
 
 ### C2. Commit (only if user asked)
 
@@ -518,10 +548,13 @@ inventory rows without code removal, `reset --hard` without backup/consent.
 | Fork-only path (`docs/fork/`, own `pkg/`, own channel) | Keep fork |
 | Both changed same logic | Read upstream commit message; minimal merge; never whole-file blind pick |
 | `AGENTS.md` | Keep ggapi 「二开维护」 section; merge upstream engineering rule edits |
+| `web/default` / `web/classic` | Prefer upstream intent for shared shells; then assess **port** into `web/ggapi` (SOP §3.5) |
+| `web/ggapi/**` | Fork-only product tree — upstream will not edit it; do **not** fold large skin refactors into the sync commit |
 
 3. Build/test.  
 4. Restore inventory rows to `active` (or update summary).  
-5. Update baseline SHA/date.
+5. Update baseline SHA/date.  
+6. If `web/default` gained user-visible features: open or queue follow-up `chore/port-default-<topic>` (GG-005); do not assume prod shell already has them.
 
 ### Inventory when-to-write
 
@@ -558,10 +591,16 @@ Risk: `low` | `medium` | `high`
 - Watch logs for quota saturation / auth errors  
 
 ```bash
-make build-web
-# image/compose per repo Dockerfile / docker-compose.yml
+# Local go binary embeds default + classic + ggapi (dist dirs are gitignored).
+# Always build all three before go build / tag release on a clean tree:
+make build-all-web
+# image/compose per repo Dockerfile / docker-compose.yml (must include builder-ggapi)
+# Docker multi-stage may build shells separately; still require ggapi stage.
+# Do NOT use "make build-web-ggapi only" before a bare `go build` — missing
+# default/classic dist breaks go:embed on clean checkouts.
 ```
 
+Confirm release workflow still builds **ggapi** (and the other shells the binary embeds) before `go build` (GG-005 / #7).  
 Do not run production deploy commands without explicit user request and environment confirmation.
 
 ---
@@ -590,4 +629,5 @@ Never push ggapi-only branding or private config to upstream.
 5. **L2/L3：** 先出方案，用户确认后再改；L3 必须独立说明规则变更。  
 6. **入库：** `docs/ggapi-fork-*` 分支 → 用户授权后 commit → push → PR → merge → 删分支。  
 7. **真相源：** `docs/fork/*` > skill > 会话临时话。  
-8. **对齐清单：** 升级后核对 GG-002 摘要与 `skill_version`；提及的永久差异（如 GG-003/004）须与 inventory 一致。
+8. **对齐清单：** 升级后核对 GG-002 摘要与 `skill_version`；提及的永久差异（GG-003/004/005 等）须与 inventory 一致。  
+9. **触发词：** 「自提升」与「自升级 / 升级 skill / Mode I」同等进入本模式。

@@ -3,17 +3,46 @@ name: i18n-translate
 description: >-
   Complete and maintain frontend i18n translations for this project. Covers
   finding missing translation keys, detecting untranslated entries, and adding
-  translations for all supported locales (en, zh, fr, ja, ru, vi). Use for any
-  task involving frontend locale files, missing translation keys, untranslated
-  UI text, `t(...)` keys, `useTranslation()`, static i18n keys, button/label/
-  toast/dialog/placeholder/validation copy, or adding/fixing even a single
-  i18n key. Use when review findings mention missing i18n, when new UI text
-  needs translation, or when the user asks to add translations, fix i18n, or
-  complete missing translations. Always load and follow this skill before
+  translations for all supported locales (en, zh, zh-TW, fr, ja, ru, vi).
+  Shell-aware: product work uses web/ggapi; upstream default uses web/default.
+  Use for any task involving frontend locale files, missing translation keys,
+  untranslated UI text, `t(...)` keys, `useTranslation()`, static i18n keys,
+  button/label/toast/dialog/placeholder/validation copy, or adding/fixing even
+  a single i18n key. Use when review findings mention missing i18n, when new UI
+  text needs translation, or when the user asks to add translations, fix i18n,
+  or complete missing translations. Always load and follow this skill before
   translating, adding locale keys, or editing frontend i18n files.
 ---
 
 # Frontend i18n Translation Workflow
+
+## Active shell (required)
+
+This monorepo has **two** React shells with the same i18n layout. Always pick
+**one** active shell before any script or path, and keep all commands under it.
+
+| When | Active shell root |
+|------|-------------------|
+| Product / paper-sketch / default theme `ggapi` UI (GG-005) | `web/ggapi` |
+| Upstream-tracking default shell only | `web/default` |
+| Classic shell (`web/classic`) | **Not** this skill's Bun locale workflow — classic uses `i18next-cli` under `web/classic` (`bun run i18n:extract` / `i18n:sync` / `i18n:status`) and locales including `zh-CN` / `zh-TW`. Edit classic copy with classic tooling; do **not** set `WEB_SHELL=web/classic` here. |
+| Unclear | Prefer `web/ggapi` for operator-facing product copy; use `web/default` only when that tree is the intentional edit target |
+
+**Pick one shell root for the whole task** and **repeat the full path in every
+command** (agent shells do not keep `export` across tool calls):
+
+| Role | Shell root constant |
+|------|---------------------|
+| Product (usual) | `web/ggapi` |
+| Upstream default | `web/default` |
+
+Examples use `web/ggapi`; substitute `web/default` when that tree is the target.
+Do **not** write product-shell keys only into `web/default` (prod theme is ggapi).
+Do **not** skip `zh-TW.json`.
+
+Supported locale files under `<shell>/src/i18n/locales/`:
+`en`, `zh`, `zh-TW`, `fr`, `ja`, `ru`, `vi`.
+
 
 ## Mandatory Preflight
 
@@ -24,12 +53,12 @@ description: >-
 
 ### Hard Constraint: Locale Writes Go Through the Script
 
-- You MUST NOT edit `web/default/src/i18n/locales/*.json` directly with text-editing tools (StrReplace, Write, search-and-replace, manual JSON edits, etc.). This applies even to a single key.
+- You MUST NOT edit `<shell>/src/i18n/locales/*.json` (hard-coded `web/ggapi` or `web/default` locale paths) directly with text-editing tools (StrReplace, Write, search-and-replace, manual JSON edits, etc.). This applies even to a single key.
 - ALL locale writes MUST go through the `add-missing-keys.mjs` script, followed by `bun run i18n:sync`. The script is the only sanctioned way to add or change locale values.
 - Why this is mandatory, not optional:
-  - Hand-editing reliably drops one or more of the six locales (`en`, `zh`, `fr`, `ja`, `ru`, `vi`), leaving keys missing in some languages.
+  - Hand-editing reliably drops one or more of the seven locales (`en`, `zh`, `zh-TW`, `fr`, `ja`, `ru`, `vi`), leaving keys missing in some languages.
   - Hand-editing breaks the required alphabetical key order and introduces JSON syntax errors (trailing commas, mismatched quotes).
-  - The script writes all six files atomically with consistent sorting, so the locale set stays in sync by construction.
+  - The script writes all seven locale files atomically with consistent sorting, so the locale set stays in sync by construction.
 - The script does not do the translation for you. You still must reason out each locale's copy and populate the script's `newKeys` object; the script only handles insertion, sorting, and writing. Do not skip the script just because the thinking happens regardless.
 
 ## Scope Checklist
@@ -45,10 +74,10 @@ Do not skip this workflow because the fix is "just one key".
 
 ## Overview
 
-- Locale files: `web/default/src/i18n/locales/{en,zh,fr,ja,ru,vi}.json`
+- Locale files: `web/ggapi/src/i18n/locales/{en,zh,zh-TW,fr,ja,ru,vi}.json`
 - Format: flat JSON under `"translation"` key, keys are English source strings
-- Base locale: `en.json` (most keys), fallback: `zh` (Chinese)
-- Sync script: `bun run i18n:sync` (from `web/default/`)
+- Base locale: `en.json` (most keys), fallback: `zh` (Chinese); also keep **zh-TW**
+- Sync script: `bun run i18n:sync` (from `web/ggapi/`)
 - All `t()` calls must have corresponding keys in every locale file
 
 ## Small Fix Path
@@ -56,7 +85,7 @@ Do not skip this workflow because the fix is "just one key".
 For a single known missing key (still script-only, no direct JSON edits):
 
 1. Confirm the exact key at the call site and verify it is absent from all locale files.
-2. Add the key via `add-missing-keys.mjs`, populating its `newKeys` object for every supported locale: `en`, `zh`, `fr`, `ja`, `ru`, `vi`. Even one key goes through the script; do not hand-edit the JSON.
+2. Add the key via `add-missing-keys.mjs`, populating its `newKeys` object for every supported locale: `en`, `zh`, `zh-TW`, `fr`, `ja`, `ru`, `vi`. Even one key goes through the script; do not hand-edit the JSON.
 3. The script preserves the flat `"translation"` object and keeps keys alphabetically sorted automatically.
 4. Run a targeted search for the key in code and locale files.
 5. Run `bun run i18n:sync` to normalize file order. This step is mandatory, not optional.
@@ -66,14 +95,14 @@ For a single known missing key (still script-only, no direct JSON edits):
 ### Step 1: Run sync and read report
 
 ```bash
-cd web/default && bun run i18n:sync
+cd "web/ggapi" && bun run i18n:sync
 ```
 
-Read `web/default/src/i18n/locales/_reports/_sync-report.json` to see per-locale status (missingCount, extrasCount, untranslatedCount).
+Read `web/ggapi/src/i18n/locales/_reports/_sync-report.json` to see per-locale status (missingCount, extrasCount, untranslatedCount).
 
 ### Step 2: Find missing keys (used in code but not in locale files)
 
-Create and run `web/default/scripts/find-missing-keys.mjs`:
+Create and run `web/ggapi/scripts/find-missing-keys.mjs`:
 
 ```javascript
 import fs from 'node:fs/promises'
@@ -136,7 +165,7 @@ if (missingKeys.size === 0) {
 
 ### Step 3: Find untranslated entries (value equals English)
 
-Create and run `web/default/scripts/find-untranslated.mjs`:
+Create and run `web/ggapi/scripts/find-untranslated.mjs` (mirror product literals from `sync-i18n.mjs` allowlist so results do not contradict `i18n:sync`):
 
 ```javascript
 import fs from 'node:fs/promises'
@@ -157,17 +186,19 @@ const skipPatterns = [
   /^New API/, /^Baidu V2$/, /^Zhipu V4$/, /^Quota:$/,
 ]
 
+// Keep aligned with web/{ggapi,default}/scripts/sync-i18n.mjs BRAND_AND_LITERAL_KEYS
+// (subset is OK for the helper; must include product literals that stay English).
 const brandNames = new Set([
   'AIGC2D','Anthropic','API2GPT','Claude','Cloudflare','Cohere','DeepSeek',
-  'Discord','DoubaoVideo','FastGPT','Gemini','GitHub','Jimeng','JustSong',
+  'Discord','DoubaoVideo','FastGPT','Gemini','GitHub','Gotify','Jimeng','JustSong',
   'LingYiWanWu','LinuxDO','Midjourney','MidjourneyPlus','MiniMax','Mistral',
   'MokaAI','Moonshot','NewAPI','OhMyGPT','Ollama','OpenAI','OpenAIMax',
   'OpenRouter','Passkey','Perplexity','QuantumNous','Replicate','SiliconFlow',
   'Stripe','Submodel','SunoAPI','Telegram','Tencent','Vertex AI','VolcEngine',
-  'WeChat','Xinference','Xunfei','AI Proxy','One API',
+  'WeChat','Webhook','Webhook URL','Webhook URL:','Xinference','Xunfei','AI Proxy','One API',
 ])
 
-const locales = ['fr', 'ja', 'ru', 'zh', 'vi']
+const locales = ['fr', 'ja', 'ru', 'zh', 'zh-TW', 'vi']
 
 for (const locale of locales) {
   const locFile = JSON.parse(await fs.readFile(path.join(LOCALES_DIR, `${locale}.json`), 'utf8'))
@@ -196,7 +227,7 @@ for (const locale of locales) {
 
 ### Step 4: Add translations
 
-This script is the ONLY sanctioned way to write locale values. You MUST NOT bypass it by hand-filling the JSON files. Create `web/default/scripts/add-missing-keys.mjs` with this exact structure:
+This script is the ONLY sanctioned way to write locale values. You MUST NOT bypass it by hand-filling the JSON files. Create `web/ggapi/scripts/add-missing-keys.mjs` with this exact structure:
 
 ```javascript
 import fs from 'node:fs/promises'
@@ -211,6 +242,7 @@ function stableStringify(obj) {
 const newKeys = {
   en: { /* "key": "English value" */ },
   zh: { /* "key": "中文翻译" */ },
+  'zh-TW': { /* "key": "繁體中文翻譯" */ },
   fr: { /* "key": "Traduction française" */ },
   ja: { /* "key": "日本語翻訳" */ },
   ru: { /* "key": "Русский перевод" */ },
@@ -257,7 +289,7 @@ Populate the `newKeys` object with actual translations for each locale.
 ### Step 5: Verify and clean up
 
 ```bash
-cd web/default
+cd "web/ggapi"
 node scripts/add-missing-keys.mjs   # apply translations
 node scripts/find-missing-keys.mjs  # verify: should say "All t() keys found"
 bun run i18n:sync                   # normalize file order
@@ -285,6 +317,7 @@ Delete temporary scripts after completion.
 |----------|------|-------|
 | English | en | Base locale, key = value |
 | Chinese | zh | Fallback locale, must be complete |
+| Traditional Chinese | zh-TW | Must stay key-complete with en (do not leave English-only when claiming complete) |
 | French | fr | Many English cognates are valid (e.g., "Configuration") |
 | Japanese | ja | Use katakana for technical loanwords |
 | Russian | ru | Use formal register |
@@ -303,7 +336,7 @@ Delete temporary scripts after completion.
 
 ## Key Rules
 
-1. All scripts run from `web/default/` directory
+1. All scripts run from the **chosen shell root** (`web/ggapi` or `web/default`)
 2. Use `node scripts/xxx.mjs` (ESM format with top-level await)
 3. Sort keys alphabetically when writing locale files
 4. Always run `bun run i18n:sync` as the final step
