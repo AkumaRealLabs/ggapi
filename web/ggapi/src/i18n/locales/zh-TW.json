@@ -5235,6 +5235,7 @@
     "Sign in on paper — same gateway, quieter surface.": "在纸面上登录——同一网关，更安静的表面。",
     "Paper-sketch AI gateway for operators.": "面向运维的纸笔风 AI 网关。",
     "ggapi (Paper-sketch Frontend)": "ggapi（紙筆風前端）",
-    "Switch between default, classic, and ggapi frontends. Changes take effect after page reload.": "在 default、classic 與 ggapi 前端之間切換。變更於頁面重新載入後生效。"
+    "Switch between default, classic, and ggapi frontends. Changes take effect after page reload.": "在 default、classic 與 ggapi 前端之間切換。變更於頁面重新載入後生效。",
+    "Save update check settings": "儲存更新檢查設定"
   }
 }

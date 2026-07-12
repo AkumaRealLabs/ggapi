@@ -25,6 +25,8 @@ import { Link } from '@tanstack/react-router'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { LanguageSwitcher } from '@/components/language-switcher'
+import { ThemeSwitch } from '@/components/theme-switch'
 import { useSystemConfig } from '@/hooks/use-system-config'
 
 import {
@@ -385,6 +387,8 @@ export function ExplainerHome(props: ExplainerHomeProps) {
             {brand}
           </Link>
           <div className='top-actions'>
+            <LanguageSwitcher />
+            <ThemeSwitch />
             <Link to='/pricing' className='nav-btn'>
               {t('Pricing')}
             </Link>

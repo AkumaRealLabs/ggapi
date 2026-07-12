@@ -449,7 +449,22 @@
 .gg-explainer .top-actions {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 8px;
+}
+
+/* Language / theme icon controls in sketch chrome (ghost buttons from design system) */
+.gg-explainer .top-actions button {
+  color: var(--ink-soft);
+  border: 1.6px solid transparent;
+  border-radius: var(--wobble-b);
+  background: transparent;
+}
+
+.gg-explainer .top-actions button:hover {
+  color: var(--ink);
+  background: var(--paper-alt);
+  border-color: var(--ink);
 }
 
 .gg-explainer .panel-rule {

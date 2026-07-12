@@ -5235,6 +5235,7 @@
     "Sign in on paper — same gateway, quieter surface.": "Sign in on paper — same gateway, quieter surface.",
     "Paper-sketch AI gateway for operators.": "Paper-sketch AI gateway for operators.",
     "ggapi (Paper-sketch Frontend)": "ggapi (interface papier-croquis)",
-    "Switch between default, classic, and ggapi frontends. Changes take effect after page reload.": "Basculez entre les interfaces default, classic et ggapi. Les changements prennent effet après rechargement de la page."
+    "Switch between default, classic, and ggapi frontends. Changes take effect after page reload.": "Basculez entre les interfaces default, classic et ggapi. Les changements prennent effet après rechargement de la page.",
+    "Save update check settings": "Enregistrer les paramètres de vérification des mises à jour"
   }
 }

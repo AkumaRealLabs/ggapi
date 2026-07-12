@@ -5235,6 +5235,7 @@
     "Sign in on paper — same gateway, quieter surface.": "Sign in on paper — same gateway, quieter surface.",
     "Paper-sketch AI gateway for operators.": "Paper-sketch AI gateway for operators.",
     "ggapi (Paper-sketch Frontend)": "ggapi (giao diện phác thảo giấy)",
-    "Switch between default, classic, and ggapi frontends. Changes take effect after page reload.": "Chuyển giữa giao diện default, classic và ggapi. Thay đổi có hiệu lực sau khi tải lại trang."
+    "Switch between default, classic, and ggapi frontends. Changes take effect after page reload.": "Chuyển giữa giao diện default, classic và ggapi. Thay đổi có hiệu lực sau khi tải lại trang.",
+    "Save update check settings": "Lưu cài đặt kiểm tra cập nhật"
   }
 }
