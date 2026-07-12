@@ -243,7 +243,7 @@ v<上游基线>.N
 | `N` 何时归 1 | **仅当清单「基准 upstream 版本」相对上一发本仓 tag 发生变化时** 才把 `N` 重置为 `1`。多次 `sync/upstream-*` 若仍对齐同一上游 tag/版本串，则继续 `N+1`，**不要**重复打已有的 `.1` |
 | 基线必须真实包含 | 发版 commit 必须 **祖先包含** 所选上游基线：用下方校验；禁止用「上游已有、但尚未合入本仓」的 tag 当基线做文案 |
 | **钉在 origin/main** | 正式 release tag **只打在** `origin/main` 当前 tip 上：`git fetch origin` 后 `HEAD` 必须等于 `origin/main`（见下方校验）。禁止在本地未推送的 main、topic 分支、或与 `origin/main` 分叉的 tip 上打正式 tag |
-| CI（默认：镜像 + Release 元数据） | 推 **origin** 的正式 fork tag（**`<上游 tag>.N`**，例 `v1.0.0-rc.20.1`；BASE 可从 origin 或 `QuantumNous/new-api` 校验且为发版 commit 祖先）→ **`ghcr.io/<owner>/<repo>:<tag>`** + **GitHub Release 元数据**（无强制二进制，供后台「检查更新」读 `releases/latest`）。发版 commit 须在 **`origin/main` 历史内**；cosign 后用**已签名 digest** 在 tip 仍匹配时更新 `:latest`。手动 rebuild **不**动 `:latest`。分支镜像 `branch-*-<hash>`。**禁止** Docker Hub `calciumion/new-api`（见 GG-003） |
+| CI（默认：镜像 + Release 元数据） | 推 **origin** 的正式 fork tag（**`<上游 tag>.N`**，例 `v1.0.0-rc.20.1`；BASE 可从 origin 或 `QuantumNous/new-api` 校验且为发版 commit 祖先）→ **`ghcr.io/<owner>/<repo>:<tag>`**（仅此版本号 tag；**不再**打 `:<tag>-amd64`）+ **GitHub Release 元数据**（无强制二进制，供后台「检查更新」读 `releases/latest`）。发版 commit 须在 **`origin/main` 历史内**；cosign 后用**已签名 digest** 在 tip 仍匹配时更新 **`:latest`**（同样不打 `latest-amd64`）。手动 rebuild **不**动 `:latest`。GHA build cache 导出失败 **不**拖垮已成功的 push（`cache-to … ignore-error=true`）。分支镜像 `branch-*-<hash>`。**禁止** Docker Hub `calciumion/new-api`（见 GG-003） |
 | CI（可选：裸二进制） | `release.yml` **不**在 tag push 时跑；需要 bare `go` 附件时 **workflow_dispatch 且必填 fork tag** |
 | 只推 origin | 永远不要把本仓 tag push 到 `upstream` |
 | 与 skill 版本无关 | `/ggapi-fork` 的 `skill_version`（如 1.5.0）**不是**业务二进制 / 镜像 tag |
