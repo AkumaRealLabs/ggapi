@@ -1,16 +1,19 @@
 name: Publish Docker image (manual branch)
 
-# ggapi (GG-003): fail-closed while images still target upstream Docker Hub.
-# Same policy as docker-build.yml — do not push calciumion/new-api from this fork
-# until retargeted to a fork-owned registry/namespace.
+# ggapi (GG-003): manual branch → GHCR under branch-* tags only.
+# Never overwrites formal release tags (v*.N) or :latest.
 
 on:
   workflow_dispatch:
     inputs:
       branch:
-        description: "Branch name to build (e.g. alpha, nightly)"
+        description: "Branch name to build (must be refs/heads/*; e.g. main, alpha). Not a release tag."
         required: true
         type: string
+
+concurrency:
+  group: ghcr-branch-${{ inputs.branch }}
+  cancel-in-progress: true
 
 jobs:
   prepare:
@@ -21,8 +24,9 @@ jobs:
     outputs:
       branch: ${{ steps.version.outputs.branch }}
       sha: ${{ steps.version.outputs.sha }}
-      tag_prefix: ${{ steps.version.outputs.tag_prefix }}
+      image_tag: ${{ steps.version.outputs.image_tag }}
       version: ${{ steps.version.outputs.version }}
+      image: ${{ steps.version.outputs.image }}
     permissions:
       contents: read
     steps:
@@ -36,24 +40,68 @@ jobs:
         id: version
         env:
           BRANCH_NAME: ${{ inputs.branch }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
-          TAG_PREFIX=$(printf '%s' "$BRANCH_NAME" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9_.-]+/-/g; s/^[.-]+//; s/[.-]+$//')
-          TAG_PREFIX=${TAG_PREFIX:0:105}
-          TAG_PREFIX=$(printf '%s' "$TAG_PREFIX" | sed -E 's/[.-]+$//')
-          if [ -z "$TAG_PREFIX" ]; then
-            echo "::error::Branch '$BRANCH_NAME' cannot be converted to a valid Docker tag prefix"
+          set -euo pipefail
+
+          # Normalize documented form refs/heads/<name>
+          case "$BRANCH_NAME" in
+            refs/heads/*) BRANCH_NAME="${BRANCH_NAME#refs/heads/}" ;;
+          esac
+
+          # Must be a real branch head only (reject tags, SHAs, other refs)
+          if git show-ref --verify --quiet "refs/tags/${BRANCH_NAME}"; then
+            echo "::error::Refusing tag name as branch input; use docker-build.yml for release tags"
+            exit 1
+          fi
+          if ! git show-ref --verify --quiet "refs/heads/${BRANCH_NAME}" \
+            && ! git show-ref --verify --quiet "refs/remotes/origin/${BRANCH_NAME}"; then
+            echo "::error::Ref is not a branch head (refs/heads/* or origin/*)"
             exit 1
           fi
 
+          case "$BRANCH_NAME" in
+            latest|LATEST)
+              echo "::error::Refusing branch name latest (would collide with production alias)"
+              exit 1
+              ;;
+          esac
+          if printf '%s' "$BRANCH_NAME" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+'; then
+            echo "::error::Refusing version-like branch name; use a non-v* branch"
+            exit 1
+          fi
+
+          SAFE=$(printf '%s' "$BRANCH_NAME" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9_.-]+/-/g; s/^[.-]+//; s/[.-]+$//')
+          SAFE=${SAFE:0:60}
+          SAFE=$(printf '%s' "$SAFE" | sed -E 's/[.-]+$//')
+          if [ -z "$SAFE" ]; then
+            echo "::error::Branch cannot be converted to a valid Docker tag fragment"
+            exit 1
+          fi
+
+          # Hash original branch name so feature/foo vs feature-foo cannot collide
+          NAME_HASH=$(printf '%s' "$BRANCH_NAME" | sha256sum | cut -c1-8)
+
+          # Namespace: never collide with formal release tags or :latest
+          IMAGE_TAG="branch-${SAFE}-${NAME_HASH}"
           SHA=$(git rev-parse HEAD)
           SHORT_SHA=$(git rev-parse --short HEAD)
-          VERSION="${TAG_PREFIX}-$(date +'%Y%m%d')-${SHORT_SHA}"
+          VERSION="${IMAGE_TAG}-$(date +'%Y%m%d')-${SHORT_SHA}"
+          IMAGE="ghcr.io/$(printf '%s' "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')"
+
+          case "$IMAGE" in
+            *calciumion/new-api*|docker.io/calciumion/*)
+              echo "::error::Refusing upstream Docker Hub image namespace: $IMAGE"
+              exit 1
+              ;;
+          esac
 
           echo "branch=$BRANCH_NAME" >> "$GITHUB_OUTPUT"
           echo "sha=$SHA" >> "$GITHUB_OUTPUT"
-          echo "tag_prefix=$TAG_PREFIX" >> "$GITHUB_OUTPUT"
+          echo "image_tag=$IMAGE_TAG" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "Prepared Docker tags for $BRANCH_NAME at $SHORT_SHA"
+          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+          echo "Prepared GHCR branch image ${IMAGE}:${IMAGE_TAG} / ${IMAGE}:${VERSION}"
 
   build_amd64:
     name: Build & push (amd64)
@@ -63,6 +111,7 @@ jobs:
       group: org-linux
     permissions:
       contents: read
+      packages: write
       id-token: write
     steps:
       - name: Check out branch
@@ -74,37 +123,25 @@ jobs:
       - name: Write VERSION
         run: |
           echo "${{ needs.prepare.outputs.version }}" > VERSION
-          echo "Publishing version: ${{ needs.prepare.outputs.version }} for amd64"
-
-      # Fail closed until images: is retargeted away from upstream Docker Hub.
-      - name: Guard upstream image namespace
-        run: |
-          echo "::error::docker-image-branch.yml still targets calciumion/new-api (upstream)."
-          echo "::error::Retarget images/tags to a fork-owned registry before enabling a real push."
-          exit 1
+          echo "Publishing ${{ needs.prepare.outputs.image }}:${{ needs.prepare.outputs.version }} for amd64"
 
       - name: Set up Docker Buildx
-        if: false
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
-      - name: Log in to Docker Hub
-        if: false
+      - name: Log in to GHCR
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Extract metadata (labels)
-        if: false
         id: meta
         uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5
         with:
-          # UPSTREAM — do not push from this fork until replaced
-          images: |
-            calciumion/new-api
+          images: ${{ needs.prepare.outputs.image }}
 
       - name: Build & push amd64
-        if: false
         id: build
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
@@ -112,10 +149,10 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: |
-            calciumion/new-api:${{ needs.prepare.outputs.tag_prefix }}
-            calciumion/new-api:${{ needs.prepare.outputs.tag_prefix }}-amd64
-            calciumion/new-api:${{ needs.prepare.outputs.version }}
-            calciumion/new-api:${{ needs.prepare.outputs.version }}-amd64
+            ${{ needs.prepare.outputs.image }}:${{ needs.prepare.outputs.image_tag }}
+            ${{ needs.prepare.outputs.image }}:${{ needs.prepare.outputs.image_tag }}-amd64
+            ${{ needs.prepare.outputs.image }}:${{ needs.prepare.outputs.version }}
+            ${{ needs.prepare.outputs.image }}:${{ needs.prepare.outputs.version }}-amd64
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -123,19 +160,18 @@ jobs:
           sbom: true
 
       - name: Install cosign
-        if: false
         uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3
 
       - name: Sign image with cosign
-        if: false
-        run: cosign sign --yes calciumion/new-api@${{ steps.build.outputs.digest }}
+        run: cosign sign --yes "${{ needs.prepare.outputs.image }}@${{ steps.build.outputs.digest }}"
 
       - name: Output digest
-        if: false
         run: |
-          echo "### Docker Image Digest (amd64)" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          echo "calciumion/new-api:${{ needs.prepare.outputs.tag_prefix }}" >> $GITHUB_STEP_SUMMARY
-          echo "calciumion/new-api:${{ needs.prepare.outputs.version }}" >> $GITHUB_STEP_SUMMARY
-          echo "${{ steps.build.outputs.digest }}" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
+          {
+            echo "### GHCR image (amd64, branch-*)"
+            echo '```'
+            echo "${{ needs.prepare.outputs.image }}:${{ needs.prepare.outputs.image_tag }}"
+            echo "${{ needs.prepare.outputs.image }}:${{ needs.prepare.outputs.version }}"
+            echo "${{ steps.build.outputs.digest }}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

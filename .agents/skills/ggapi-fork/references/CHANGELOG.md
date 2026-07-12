@@ -2,15 +2,23 @@
 
 格式：`## version — YYYY-MM-DD` + 级别 + 摘要。最新在上。
 
+## 1.5.1 — 2026-07-12
+
+- **级别:** L1 / patch（Mode F 对齐 docs：默认 tag→GHCR；**未**改 Hard rules）  
+- **原因:** 用户要 tag 推 GHCR，且默认不构建裸二进制  
+- **变更:**
+  - Mode F / Release checklist：默认产物 **GHCR**；`release.yml` 仅手动；禁 Docker Hub  
+  - 锚点 GG-003 文案；`skill_version` → **1.5.1**  
+- **未改:** Hard rules；不自动 commit/push  
+
 ## 1.5.0 — 2026-07-12
 
 - **级别:** L2 / minor（Mode F 发版 tag 流程 + SOP §5.1；**未**改 Hard rules）  
 - **原因:** 用户确认本仓 git tag 采用 `v<上游基线>.N`（例 `v1.0.0-rc.20.1`），不再推荐 `x.y.z-ggapi.N`  
 - **变更:**
-  - `docs/fork/branch-and-sync-sop.md` 新增 **§5.1**（格式、禁撞名、`N` 递增/仅基线版本串变化时归 1、ancestry 校验、**正式 tag 钉 `origin/main` tip**、打 tag 命令；Docker 与二进制发版路径分离）  
-  - `docs/fork/diff-inventory.md`：当前基线记为 **`v1.0.0-rc.20`**（`ad900bbb`；`rc.21` 尚非 main 祖先）+「本仓版本策略」；GG-003 记 docker-build 防护  
-  - `.github/workflows/docker-build.yml` + `docker-image-branch.yml`：**关闭 tag 自动触发**（前者）；两文件在 image 仍为上游 `calciumion/new-api` 时 **fail-closed**（避免 fork 推上游 Hub / 覆盖 `:latest`）  
-  - Mode F / Release checklist 与 SOP 对齐；`N` **不**因每次 sync 无条件归 1  
+  - `docs/fork/branch-and-sync-sop.md` 新增 **§5.1**  
+  - 清单基线 **`v1.0.0-rc.20`**；GG-003 Docker 防护（后续 1.5.1 / GHCR PR 再演进）  
+  - Mode F / Release checklist 与 SOP 对齐  
   - `skill_version` → **1.5.0**  
 - **未改:** Hard rules；不自动 commit/push；不自动打 tag  
 

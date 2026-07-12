@@ -20,7 +20,7 @@ description: >
   C2-pre). When improving this skill itself, follow Mode I / self-upgrade
   policy.
 metadata:
-  skill_version: "1.5.0"
+  skill_version: "1.5.1"
 ---
 
 # ggapi Fork Maintenance Playbook
@@ -182,8 +182,8 @@ aligned with active rows (not replace them):
 | ID | Topic |
 |----|--------|
 | GG-001 | `docs/fork/` + `AGENTS.md` 二开入口 |
-| GG-002 | this skill (`/ggapi-fork`, v1.5.0+; Modes A–I + C2-pre Codex gate; release tag `v<upstream>.N`) |
-| GG-003 | CI `runs-on.group: org-linux`, Linux amd64 only; docker-build no tag auto-push to upstream Hub |
+| GG-002 | this skill (`/ggapi-fork`, v1.5.1+; Modes A–I + C2-pre; release tag `v<upstream>.N` → GHCR) |
+| GG-003 | CI org-linux Linux amd64; **tag → GHCR**; no Docker Hub `calciumion/new-api`; bare binary optional (manual) |
 | GG-004 | Server-side update check URL + GitHub PAT |
 | GG-005 | Third frontend shell `web/ggapi` (default `theme.frontend=ggapi`; feature tracks `web/default`) |
 
