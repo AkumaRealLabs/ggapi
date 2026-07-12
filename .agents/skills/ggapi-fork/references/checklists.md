@@ -93,7 +93,8 @@ Copy into PR bodies or walk verbally with the user. Keep items checkable.
 ## §Release
 
 - [ ] DB backup completed
-- [ ] Version string strategy (`x.y.z-ggapi.N`) recorded
+- [ ] Version / tag strategy recorded: `v<upstream-baseline>.N` (e.g. `v1.0.0-rc.20.1` under current baseline); not colliding with upstream tags; formal tags only on `origin/main` tip
+- [ ] Docker: tag/manual publish must **not** write `calciumion/new-api` / overwrite `:latest` (`docker-build.yml` + `docker-image-branch.yml` fail-closed until fork registry retarget)
 - [ ] Migrations reviewed for target DB
 - [ ] Build: `make build-all-web` before local go binary (all three embed trees); image/compose includes ggapi stage
 - [ ] Release workflow builds **ggapi** (and other embedded shells) before go embed

@@ -2,6 +2,18 @@
 
 格式：`## version — YYYY-MM-DD` + 级别 + 摘要。最新在上。
 
+## 1.5.0 — 2026-07-12
+
+- **级别:** L2 / minor（Mode F 发版 tag 流程 + SOP §5.1；**未**改 Hard rules）  
+- **原因:** 用户确认本仓 git tag 采用 `v<上游基线>.N`（例 `v1.0.0-rc.20.1`），不再推荐 `x.y.z-ggapi.N`  
+- **变更:**
+  - `docs/fork/branch-and-sync-sop.md` 新增 **§5.1**（格式、禁撞名、`N` 递增/仅基线版本串变化时归 1、ancestry 校验、**正式 tag 钉 `origin/main` tip**、打 tag 命令；Docker 与二进制发版路径分离）  
+  - `docs/fork/diff-inventory.md`：当前基线记为 **`v1.0.0-rc.20`**（`ad900bbb`；`rc.21` 尚非 main 祖先）+「本仓版本策略」；GG-003 记 docker-build 防护  
+  - `.github/workflows/docker-build.yml` + `docker-image-branch.yml`：**关闭 tag 自动触发**（前者）；两文件在 image 仍为上游 `calciumion/new-api` 时 **fail-closed**（避免 fork 推上游 Hub / 覆盖 `:latest`）  
+  - Mode F / Release checklist 与 SOP 对齐；`N` **不**因每次 sync 无条件归 1  
+  - `skill_version` → **1.5.0**  
+- **未改:** Hard rules；不自动 commit/push；不自动打 tag  
+
 ## 1.4.0 — 2026-07-12
 
 - **级别:** L2 / minor（第三壳教练 + #7 发车实战；**未**改 Hard rules 表与 origin/main/upstream/品牌/计费语义）  

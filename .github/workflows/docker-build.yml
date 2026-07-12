@@ -1,14 +1,16 @@
 name: Publish Docker image (Linux amd64)
 
+# ggapi (GG-003): do NOT auto-build on git tags.
+# Upstream still pushes calciumion/new-api:* and overwrites :latest on every tag.
+# Until this workflow is retargeted to a fork-owned registry/namespace, only
+# workflow_dispatch is allowed (and operators must still change `images` below
+# before a real push). Release binaries stay on release.yml (GitHub Release).
+
 on:
-  push:
-    tags:
-      - '*'
-      - '!nightly*'
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Tag name to build (e.g., v0.10.8-alpha.3)'
+        description: 'Tag name to build (e.g., v1.0.0-rc.20.1). Must exist on the repo.'
         required: true
         type: string
 
@@ -30,42 +32,51 @@ jobs:
       - name: Check out
         uses: actions/checkout@v4
         with:
-          fetch-depth: ${{ github.event_name == 'workflow_dispatch' && 0 || 1 }}
-          ref: ${{ github.event.inputs.tag || github.ref }}
+          fetch-depth: 0
+          ref: ${{ github.event.inputs.tag }}
 
       - name: Resolve tag & write VERSION
         id: version
         run: |
-          if [ -n "${{ github.event.inputs.tag }}" ]; then
-            TAG="${{ github.event.inputs.tag }}"
-            if ! git rev-parse "refs/tags/$TAG" >/dev/null 2>&1; then
-              echo "::error::Tag '$TAG' does not exist"
-              exit 1
-            fi
-          else
-            TAG=${GITHUB_REF#refs/tags/}
+          TAG="${{ github.event.inputs.tag }}"
+          if ! git rev-parse "refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "::error::Tag '$TAG' does not exist"
+            exit 1
           fi
           echo "TAG=${TAG}" >> $GITHUB_ENV
           echo "tag=${TAG}" >> $GITHUB_OUTPUT
           echo "${TAG}" > VERSION
           echo "Building tag: ${TAG} for amd64"
 
+      # Fail closed until images: is retargeted away from upstream Docker Hub.
+      - name: Guard upstream image namespace
+        run: |
+          echo "::error::docker-build.yml still targets calciumion/new-api (upstream)."
+          echo "::error::Retarget images/tags to a fork-owned registry before enabling a real push."
+          echo "::error::Tag-triggered auto-publish is disabled; release binaries use release.yml."
+          exit 1
+
       - name: Set up Docker Buildx
+        if: false
         uses: docker/setup-buildx-action@v3
 
       - name: Log in to Docker Hub
+        if: false
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Extract metadata (labels)
+        if: false
         id: meta
         uses: docker/metadata-action@v5
         with:
+          # UPSTREAM — do not push from this fork until replaced
           images: calciumion/new-api
 
       - name: Build & push
+        if: false
         id: build
         uses: docker/build-push-action@v6
         with:
@@ -84,13 +95,16 @@ jobs:
           sbom: true
 
       - name: Install cosign
+        if: false
         uses: sigstore/cosign-installer@v3
 
       - name: Sign image with cosign
+        if: false
         run: |
           cosign sign --yes calciumion/new-api@${{ steps.build.outputs.digest }}
 
       - name: Image summary
+        if: false
         run: |
           echo "### Docker Image Digest (amd64)" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY

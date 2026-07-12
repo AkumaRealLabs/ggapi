@@ -581,7 +581,7 @@ Risk: `low` | `medium` | `high`
 
 1. Backup DB before binary/image upgrade.  
 2. Migrations must be acceptable on SQLite / MySQL / PostgreSQL thinking even if prod uses one.  
-3. Version suggestion: `x.y.z-ggapi.N` aligned with inventory baseline upstream version.  
+3. Version / git tag: **`v<upstream-baseline>.N`** (e.g. current inventory baseline → `v1.0.0-rc.20.1`) — see `docs/fork/branch-and-sync-sop.md` §5.1. Never reuse an exact upstream tag name. Bump `N` while the inventory baseline **version string** is unchanged; reset `N` to **1 only when that baseline version string changes** (not on every `sync/upstream-*` if still the same upstream release). Before tagging: `git fetch origin` and require `HEAD == origin/main`; ancestry check; `git tag -a` must succeed; `git ls-remote` tip re-check then push tag only (no rewrite of `refs/heads/main`); post-push tip warning if main moved (SOP §5.1). Tag → `release.yml` (GitHub Release binaries). **Do not** treat Docker Hub as default path: both Docker workflows fail-closed until retargeted off `calciumion/new-api` (GG-003).  
 4. Minimum regression:
 
 - Login + API token  

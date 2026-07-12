@@ -213,13 +213,99 @@ cd web/default && bun run typecheck
 
 1. **备份数据库**后再升级二进制/镜像。
 2. 确认迁移在 SQLite / MySQL / PostgreSQL 目标环境可接受（本项目需三库思维，即使生产只用其一）。
-3. 版本号建议带本仓后缀，例如 `x.y.z-ggapi.N`，并与清单「基准 upstream 版本」可对照。
+3. **版本号 / git tag** 按 §5.1；发版后更新清单「基准 upstream 版本」与本仓最近 tag（若登记）。
 4. 发版回归最小集：
    - 登录与 Token
    - 主链路推理 + 计费
    - 充值/额度变更（若有相关定制）
    - 清单 `active` 项
 5. 观察错误日志与额度异常（含 `quota_saturation` 类审计，若启用）。
+
+### 5.1 版本号与 git tag 规则
+
+**正式格式（本仓约定）：**
+
+```text
+v<上游基线>.N
+```
+
+| 段 | 含义 | 示例 |
+|----|------|------|
+| `v` + 上游基线 | 清单「基准 upstream 版本」：最近一次完整同步所对齐的 **upstream 版本串**（优先 upstream release tag 名去掉仅用于说明的装饰后，与官方 tag 主体一致） | 若清单记为 `v1.0.0-rc.20` → 基线串 `1.0.0-rc.20` |
+| `.N` | 在**同一上游基线版本串**上，本仓第几次发版（从 `1` 起） | `.1` `.2` |
+
+**完整 tag 示例（格式示意，非「当前 main 必打」）：** `v1.0.0-rc.20.1`、`v1.0.0-rc.20.2`、`v1.0.0-rc.21.1`（仅当清单基线已切到 `rc.21` 且 main 已包含该 tag）
+
+| 规则 | 说明 |
+|------|------|
+| 禁止撞名 | **不要**打与 upstream 已有 tag **完全相同** 的名字（例如官方已有 `v1.0.0-rc.20` 时，本仓至少用 `v1.0.0-rc.20.1`） |
+| 仅本仓改动再发 | 上游基线版本串不变，`N` +1 |
+| `N` 何时归 1 | **仅当清单「基准 upstream 版本」相对上一发本仓 tag 发生变化时** 才把 `N` 重置为 `1`。多次 `sync/upstream-*` 若仍对齐同一上游 tag/版本串，则继续 `N+1`，**不要**重复打已有的 `.1` |
+| 基线必须真实包含 | 发版 commit 必须 **祖先包含** 所选上游基线：用下方校验；禁止用「上游已有、但尚未合入本仓」的 tag 当基线做文案 |
+| **钉在 origin/main** | 正式 release tag **只打在** `origin/main` 当前 tip 上：`git fetch origin` 后 `HEAD` 必须等于 `origin/main`（见下方校验）。禁止在本地未推送的 main、topic 分支、或与 `origin/main` 分叉的 tip 上打正式 tag |
+| CI（二进制） | `release.yml` 用 `git describe --tags` 注入 `VERSION`；推 **origin** 的 tag 触发 GitHub Release（排除 `*-alpha*` 形态，见 workflow） |
+| CI（Docker 镜像） | **不要**假设 `git push origin <tag>` 会安全发布本仓镜像。上游 `docker-build.yml` 曾在任意 tag 上推 `calciumion/new-api:*` 并覆盖 `:latest`。本仓已 **关闭 tag 自动触发**；`docker-build.yml` 与 `docker-image-branch.yml` 在重定向到 fork 自有 registry 前均 **fail-closed**（见 GG-003）。镜像发版须另开任务改 image 名后再启用 |
+| 只推 origin | 永远不要把本仓 tag push 到 `upstream` |
+| 与 skill 版本无关 | `/ggapi-fork` 的 `skill_version`（如 1.5.0）**不是**业务二进制 tag |
+
+**打 tag 前校验与示例（把 `BASE` / `N` 换成清单与递增结果）：**
+
+```bash
+git fetch origin
+git checkout main && git pull --ff-only origin main
+git fetch upstream
+git fetch origin --tags
+
+# 0) 正式 tag 必须钉在 origin/main tip（禁止仅本地 main / 分叉 tip）
+MAIN_SHA=$(git rev-parse origin/main)
+test "$(git rev-parse HEAD)" = "$MAIN_SHA" || {
+  echo "ERROR: HEAD != origin/main; push/merge first, then re-fetch"
+  exit 1
+}
+
+# 1) 从清单读「基准 upstream 版本」，例如记为 v1.0.0-rc.20 → BASE=v1.0.0-rc.20
+#    或用：git describe --tags --abbrev=0 <清单基准 commit>
+#    校验：git merge-base --is-ancestor <tag> <清单基准 commit>
+BASE=v1.0.0-rc.20   # 示例占位：必须换成清单中真实、且已被 origin/main 包含的基线
+
+# 2) 确认发版点（origin/main）包含该上游 tag（ancestry）
+git merge-base --is-ancestor "$BASE" HEAD || {
+  echo "ERROR: $BASE is not an ancestor of HEAD; update inventory baseline or sync first"
+  exit 1
+}
+
+# 3) 选 N：同 BASE 已有本仓 tag 则取最大 N+1，否则 N=1
+#    本仓 tag 形如 ${BASE}.N （例 v1.0.0-rc.20.1）
+N=1   # 按 origin 已有 tags 递增后填写
+REL_TAG="${BASE}.${N}"
+
+# 4) 打本地 annotated tag（失败必须中止：同名 tag 已存在时勿继续 push）
+git tag -a "$REL_TAG" -m "release based on upstream ${BASE}" "$MAIN_SHA" || {
+  echo "ERROR: cannot create $REL_TAG (already exists locally?). Fix N or delete wrong local tag"
+  exit 1
+}
+
+# 5) 推 tag 前用 ls-remote 再确认 tip（缩小 TOCTOU；仍非服务端严格 CAS）
+#    勿 push ${MAIN_SHA}:refs/heads/main —— 在 main 被 force/删建时可能改写远端 main
+REMOTE_MAIN=$(git ls-remote origin refs/heads/main | awk '{print $1}')
+test -n "$REMOTE_MAIN" && test "$REMOTE_MAIN" = "$MAIN_SHA" || {
+  git tag -d "$REL_TAG"
+  echo "ERROR: origin/main is '${REMOTE_MAIN:-missing}', expected $MAIN_SHA; restart from step 0"
+  exit 1
+}
+git push origin "refs/tags/${REL_TAG}:refs/tags/${REL_TAG}" || {
+  git tag -d "$REL_TAG" 2>/dev/null || true
+  echo "ERROR: tag push failed (remote tag exists?); restart after git fetch --tags"
+  exit 1
+}
+# 6) 推后抽检：main 若已前进，tag 仍钉在 MAIN_SHA（当时 tip）；由人决定是否删 tag 重发
+POST_MAIN=$(git ls-remote origin refs/heads/main | awk '{print $1}')
+if [ "$POST_MAIN" != "$MAIN_SHA" ]; then
+  echo "WARNING: origin/main moved to $POST_MAIN after tag push; $REL_TAG still points at $MAIN_SHA"
+fi
+```
+
+历史曾讨论过的 `x.y.z-ggapi.N` **不再作为推荐格式**；新 tag 一律用本节 `v<上游基线>.N`。
 
 构建参考（本仓 `main.go` embed **default + classic + ggapi** 三壳；`dist` 被 gitignore，干净检出后须先构建再 `go build`）：
 
