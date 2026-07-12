@@ -189,7 +189,7 @@ Run **before C2-pre** for any GG-005-related unit (or theme/embed/Docker/makefil
 |-------|------------------------|
 | `theme.frontend` accepts `ggapi` in backend **and** every shipped admin surface that can change theme: `web/ggapi` + `web/default` (schema / select / normalize) **and** classic helpers that write `theme.frontend` (e.g. `web/classic/src/helpers/frontendTheme.js` — today only switches to `default`; must not leave operators stuck off the product shell) | Admin on `default` or `classic` must still be able to reach product shell `ggapi` |
 | Default theme remains intentional (`setting/.../theme.go` / constants) | Prod default is product shell |
-| `makefile` + `Dockerfile` + **`.github/workflows/release.yml`** all build **ggapi** dist before go embed | Missing release step → empty/missing embed at tag release |
+| `makefile` + **`Dockerfile`** (+ optional `release.yml` if dispatching binaries) build **ggapi** dist before go embed | Missing Dockerfile ggapi stage → empty/missing embed in GHCR image |
 | Protected branding: `index.html` title/meta and logo accessible name stay **New API** / QuantumNous policy | Fork skin ≠ stripping protected identity |
 | New i18n keys live under locale `translation`; all shipped locales (incl. **zh-TW**) have key parity | Orphan top-level keys + missing locales caused review findings |
 
@@ -581,8 +581,10 @@ Risk: `low` | `medium` | `high`
 
 1. Backup DB before binary/image upgrade.  
 2. Migrations must be acceptable on SQLite / MySQL / PostgreSQL thinking even if prod uses one.  
-3. Version / git tag: **`v<upstream-baseline>.N`** (e.g. current inventory baseline → `v1.0.0-rc.20.1`) — see `docs/fork/branch-and-sync-sop.md` §5.1. Never reuse an exact upstream tag name. Bump `N` while the inventory baseline **version string** is unchanged; reset `N` to **1 only when that baseline version string changes** (not on every `sync/upstream-*` if still the same upstream release). Before tagging: `git fetch origin` and require `HEAD == origin/main`; ancestry check; `git tag -a` must succeed; `git ls-remote` tip re-check then push tag only (no rewrite of `refs/heads/main`); post-push tip warning if main moved (SOP §5.1). Tag → `release.yml` (GitHub Release binaries). **Do not** treat Docker Hub as default path: both Docker workflows fail-closed until retargeted off `calciumion/new-api` (GG-003).  
-4. Minimum regression:
+3. Version / git tag: **`v<upstream-baseline>.N`** (e.g. `v1.0.0-rc.20.1`) — see `docs/fork/branch-and-sync-sop.md` §5.1. Never reuse an exact upstream tag name. Bump `N` while the inventory baseline **version string** is unchanged; reset `N` to **1 only when that baseline version string changes**. Before tagging: `git fetch origin` and require `HEAD == origin/main`; ancestry check; `git tag -a` must succeed; `git ls-remote` tip re-check then push tag only; post-push tip warning if main moved (SOP §5.1).  
+4. **Default tag product = GHCR image** via `docker-build.yml` → `ghcr.io/<owner>/<repo>:<tag>` **plus metadata GitHub Release** (for update-checker `releases/latest`); `:latest` only when tip still matches after sign. Manual rebuild does not move `:latest`. Fork form `<upstream-tag>.N` only. **Never** Docker Hub `calciumion/new-api` (GG-003).  
+5. **Bare binary is optional:** `release.yml` is **workflow_dispatch + required tag** (attaches go binaries to the Release).  
+6. Minimum regression:
 
 - Login + API token  
 - Main inference path + billing  
@@ -591,16 +593,15 @@ Risk: `low` | `medium` | `high`
 - Watch logs for quota saturation / auth errors  
 
 ```bash
-# Local go binary embeds default + classic + ggapi (dist dirs are gitignored).
-# Always build all three before go build / tag release on a clean tree:
+# Default: after tag push, pull GHCR (package may be private — docker login ghcr.io)
+# docker pull ghcr.io/akumareallabs/ggapi:v1.0.0-rc.20.1
+
+# Local bare binary (not default CI path): embeds need all three dist trees
 make build-all-web
-# image/compose per repo Dockerfile / docker-compose.yml (must include builder-ggapi)
-# Docker multi-stage may build shells separately; still require ggapi stage.
-# Do NOT use "make build-web-ggapi only" before a bare `go build` — missing
-# default/classic dist breaks go:embed on clean checkouts.
+# Dockerfile already builds default + classic + ggapi (builder-ggapi) then go
 ```
 
-Confirm release workflow still builds **ggapi** (and the other shells the binary embeds) before `go build` (GG-005 / #7).  
+Confirm Dockerfile still builds **ggapi** (and other embedded shells) on image path (GG-005 / #7).  
 Do not run production deploy commands without explicit user request and environment confirmation.
 
 ---

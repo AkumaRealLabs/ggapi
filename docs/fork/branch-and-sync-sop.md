@@ -243,10 +243,10 @@ v<上游基线>.N
 | `N` 何时归 1 | **仅当清单「基准 upstream 版本」相对上一发本仓 tag 发生变化时** 才把 `N` 重置为 `1`。多次 `sync/upstream-*` 若仍对齐同一上游 tag/版本串，则继续 `N+1`，**不要**重复打已有的 `.1` |
 | 基线必须真实包含 | 发版 commit 必须 **祖先包含** 所选上游基线：用下方校验；禁止用「上游已有、但尚未合入本仓」的 tag 当基线做文案 |
 | **钉在 origin/main** | 正式 release tag **只打在** `origin/main` 当前 tip 上：`git fetch origin` 后 `HEAD` 必须等于 `origin/main`（见下方校验）。禁止在本地未推送的 main、topic 分支、或与 `origin/main` 分叉的 tip 上打正式 tag |
-| CI（二进制） | `release.yml` 用 `git describe --tags` 注入 `VERSION`；推 **origin** 的 tag 触发 GitHub Release（排除 `*-alpha*` 形态，见 workflow） |
-| CI（Docker 镜像） | **不要**假设 `git push origin <tag>` 会安全发布本仓镜像。上游 `docker-build.yml` 曾在任意 tag 上推 `calciumion/new-api:*` 并覆盖 `:latest`。本仓已 **关闭 tag 自动触发**；`docker-build.yml` 与 `docker-image-branch.yml` 在重定向到 fork 自有 registry 前均 **fail-closed**（见 GG-003）。镜像发版须另开任务改 image 名后再启用 |
+| CI（默认：镜像 + Release 元数据） | 推 **origin** 的正式 fork tag（**`<上游 tag>.N`**，例 `v1.0.0-rc.20.1`；BASE 可从 origin 或 `QuantumNous/new-api` 校验且为发版 commit 祖先）→ **`ghcr.io/<owner>/<repo>:<tag>`** + **GitHub Release 元数据**（无强制二进制，供后台「检查更新」读 `releases/latest`）。发版 commit 须在 **`origin/main` 历史内**；cosign 后用**已签名 digest** 在 tip 仍匹配时更新 `:latest`。手动 rebuild **不**动 `:latest`。分支镜像 `branch-*-<hash>`。**禁止** Docker Hub `calciumion/new-api`（见 GG-003） |
+| CI（可选：裸二进制） | `release.yml` **不**在 tag push 时跑；需要 bare `go` 附件时 **workflow_dispatch 且必填 fork tag** |
 | 只推 origin | 永远不要把本仓 tag push 到 `upstream` |
-| 与 skill 版本无关 | `/ggapi-fork` 的 `skill_version`（如 1.5.0）**不是**业务二进制 tag |
+| 与 skill 版本无关 | `/ggapi-fork` 的 `skill_version`（如 1.5.0）**不是**业务二进制 / 镜像 tag |
 
 **打 tag 前校验与示例（把 `BASE` / `N` 换成清单与递增结果）：**
 
@@ -303,17 +303,24 @@ POST_MAIN=$(git ls-remote origin refs/heads/main | awk '{print $1}')
 if [ "$POST_MAIN" != "$MAIN_SHA" ]; then
   echo "WARNING: origin/main moved to $POST_MAIN after tag push; $REL_TAG still points at $MAIN_SHA"
 fi
+
+# 7) 默认产物：GHCR 镜像（docker-build.yml）。拉取示例：
+#    docker pull ghcr.io/akumareallabs/ggapi:${REL_TAG}
+# 可选裸二进制：Actions → Release (Linux amd64 binaries) → Run workflow → 填 tag
 ```
 
 历史曾讨论过的 `x.y.z-ggapi.N` **不再作为推荐格式**；新 tag 一律用本节 `v<上游基线>.N`。
 
-构建参考（本仓 `main.go` embed **default + classic + ggapi** 三壳；`dist` 被 gitignore，干净检出后须先构建再 `go build`）：
+构建参考（本仓 `main.go` embed **default + classic + ggapi** 三壳；`dist` 被 gitignore；**镜像 Dockerfile 已含三壳 builder**）：
 
 ```bash
-make build-all-web      # 发版 / 本地二进制：三壳齐全（推荐默认）
+# 默认发版：推 tag → CI 构建 GHCR 镜像（Dockerfile 内 build 三壳 + go）
+# 本地验证镜像：
+# docker build -t ggapi:local .
+# 本地裸二进制（非默认 CI 路径）：
+make build-all-web
 # make build-web-ggapi  # 仅验证产品壳时
 # make build-web        # 仅验证 upstream default 壳时
-# 镜像构建按仓库 Dockerfile / compose 执行（须含 builder-ggapi；release.yml 亦须构建 ggapi）
 ```
 
 ---

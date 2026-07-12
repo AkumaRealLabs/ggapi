@@ -43,7 +43,7 @@ Copy into PR bodies or walk verbally with the user. Keep items checkable.
 ### Third shell / embed (GG-005 — when `web/ggapi`, theme, embed, Docker, makefile, or release touched)
 
 - [ ] Backend + shipped admin surfaces accept `theme.frontend=ggapi`: `web/ggapi` + `web/default` (enum / select / normalize) **and** classic theme helpers that write the option
-- [ ] `makefile` / `Dockerfile` / **`release.yml`** build ggapi dist before go embed
+- [ ] `makefile` / **`Dockerfile`** build ggapi dist (image path); `release.yml` only if dispatching bare binaries
 - [ ] Local bare `go build` / tag binary: `make build-all-web` (all three embed trees; not ggapi-only)
 - [ ] Protected title/meta/logo identity not replaced with bare fork product name
 - [ ] Locale key parity across en/zh/fr/ja/ru/vi/zh-TW for new strings
@@ -93,11 +93,11 @@ Copy into PR bodies or walk verbally with the user. Keep items checkable.
 ## §Release
 
 - [ ] DB backup completed
-- [ ] Version / tag strategy recorded: `v<upstream-baseline>.N` (e.g. `v1.0.0-rc.20.1` under current baseline); not colliding with upstream tags; formal tags only on `origin/main` tip
-- [ ] Docker: tag/manual publish must **not** write `calciumion/new-api` / overwrite `:latest` (`docker-build.yml` + `docker-image-branch.yml` fail-closed until fork registry retarget)
+- [ ] Version / tag strategy recorded: `v<upstream-baseline>.N` (e.g. `v1.0.0-rc.20.1`); formal tags only on `origin/main` tip
+- [ ] Default product: tag → **GHCR** + **Release metadata** (`docker-build.yml`); `:latest` only after tip recheck; **not** Docker Hub `calciumion/new-api`
+- [ ] Bare binary assets: only if user wants — `release.yml` **manual dispatch + required tag**
 - [ ] Migrations reviewed for target DB
-- [ ] Build: `make build-all-web` before local go binary (all three embed trees); image/compose includes ggapi stage
-- [ ] Release workflow builds **ggapi** (and other embedded shells) before go embed
+- [ ] Dockerfile builds **ggapi** (+ default + classic) for image path; local bare binary still needs `make build-all-web` first
 - [ ] Regression: login/token
 - [ ] Regression: main model path + billing correctness
 - [ ] Regression: quota/top-up paths if customized

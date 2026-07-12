@@ -458,10 +458,9 @@ make build-all-web      # all three shells
 
 ### Release / Docker binary missing ggapi assets
 
-Symptom: tag release or image serves blank/wrong theme when `theme.frontend=ggapi`.  
+Symptom: tag image or optional bare binary serves blank/wrong theme when `theme.frontend=ggapi`.  
 Cause: only default/classic built; go embed has no `web/ggapi/dist`.  
-Fix: ensure **makefile**, **Dockerfile** (`builder-ggapi`), and
-**`.github/workflows/release.yml`** each build ggapi before backend compile.
+Fix: ensure **Dockerfile** (`builder-ggapi`) for the default **tag → GHCR** path; if dispatching **`release.yml`** bare binaries, that workflow must also build ggapi; local bare `go build` needs `make build-all-web`.  
 Lesson from PR #7 Codex review.
 
 ### Admin theme selector cannot choose ggapi
