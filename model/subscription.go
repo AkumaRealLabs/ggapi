@@ -835,38 +835,74 @@ func GetAllActiveUserSubscriptions(userId int) ([]SubscriptionSummary, error) {
 	return buildSubscriptionSummaries(subs), nil
 }
 
-// HasActiveUserSubscription returns whether the user has any active subscription.
+// subscriptionAppliesToGroup reports whether a UserSubscription snapshot may fund
+// a request that actually uses usingGroup.
+//
+// Product rules (#5200):
+//   - UpgradeGroup empty: historical compatibility — usable for any group
+//   - UpgradeGroup non-empty: only the same concrete group may use this quota
+//   - "auto" is never a concrete billing group; restricted subs do not match it
+func subscriptionAppliesToGroup(upgradeGroup, usingGroup string) bool {
+	ug := strings.TrimSpace(upgradeGroup)
+	if ug == "" {
+		return true
+	}
+	g := strings.TrimSpace(usingGroup)
+	if g == "" || g == "auto" {
+		return false
+	}
+	return ug == g
+}
+
+// HasActiveUserSubscription returns whether the user has an active subscription
+// that applies to the request's actual usingGroup (see subscriptionAppliesToGroup).
 // This is a lightweight existence check to avoid heavy pre-consume transactions.
-func HasActiveUserSubscription(userId int) (bool, error) {
+func HasActiveUserSubscription(userId int, usingGroup string) (bool, error) {
 	if userId <= 0 {
 		return false, errors.New("invalid userId")
 	}
 	now := common.GetTimestamp()
-	var count int64
+	var subs []UserSubscription
 	if err := DB.Model(&UserSubscription{}).
+		Select("upgrade_group").
 		Where("user_id = ? AND status = ? AND end_time > ?", userId, "active", now).
-		Count(&count).Error; err != nil {
+		Find(&subs).Error; err != nil {
 		return false, err
 	}
-	return count > 0, nil
+	for _, sub := range subs {
+		if subscriptionAppliesToGroup(sub.UpgradeGroup, usingGroup) {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // UserActiveSubscriptionsAllowWalletOverflow returns whether wallet balance may be used
-// after the user's subscription quota is exhausted. A single active subscription that
-// disallows wallet overflow (allow_wallet_overflow = false) blocks the fallback.
-func UserActiveSubscriptionsAllowWalletOverflow(userId int) (bool, error) {
+// after matching subscription quota is exhausted. Only subscriptions that apply to
+// usingGroup participate. A single matching subscription that disallows wallet
+// overflow (allow_wallet_overflow = false) blocks the fallback. When no matching
+// subscription exists, overflow is allowed (caller should prefer the wallet path).
+func UserActiveSubscriptionsAllowWalletOverflow(userId int, usingGroup string) (bool, error) {
 	if userId <= 0 {
 		return false, errors.New("invalid userId")
 	}
 	now := common.GetTimestamp()
-	var strictCount int64
+	var subs []UserSubscription
 	if err := DB.Model(&UserSubscription{}).
-		Where("user_id = ? AND status = ? AND end_time > ? AND allow_wallet_overflow = ?",
-			userId, "active", now, false).
-		Count(&strictCount).Error; err != nil {
+		Select("upgrade_group, allow_wallet_overflow").
+		Where("user_id = ? AND status = ? AND end_time > ?", userId, "active", now).
+		Find(&subs).Error; err != nil {
 		return false, err
 	}
-	return strictCount == 0, nil
+	for _, sub := range subs {
+		if !subscriptionAppliesToGroup(sub.UpgradeGroup, usingGroup) {
+			continue
+		}
+		if !sub.AllowWalletOverflow {
+			return false, nil
+		}
+	}
+	return true, nil
 }
 
 // GetAllUserSubscriptions returns all subscriptions (active and expired) for a user.
@@ -1269,8 +1305,11 @@ func maybeResetUserSubscriptionWithPlanTx(tx *gorm.DB, sub *UserSubscription, pl
 	return tx.Save(sub).Error
 }
 
-// PreConsumeUserSubscription pre-consumes from any active subscription total quota.
-func PreConsumeUserSubscription(requestId string, userId int, modelName string, quotaType int, amount int64) (*SubscriptionPreConsumeResult, error) {
+// PreConsumeUserSubscription pre-consumes from an active subscription that applies
+// to usingGroup (UserSubscription.UpgradeGroup snapshot). Existing request_id
+// records are returned as-is for idempotency and are never re-bound to another
+// subscription even if usingGroup changes on retry.
+func PreConsumeUserSubscription(requestId string, userId int, modelName string, quotaType int, amount int64, usingGroup string) (*SubscriptionPreConsumeResult, error) {
 	if userId <= 0 {
 		return nil, errors.New("invalid userId")
 	}
@@ -1316,8 +1355,13 @@ func PreConsumeUserSubscription(requestId string, userId int, modelName string, 
 		if len(subs) == 0 {
 			return errors.New("no active subscription")
 		}
+		matchedAny := false
 		for _, candidate := range subs {
 			sub := candidate
+			if !subscriptionAppliesToGroup(sub.UpgradeGroup, usingGroup) {
+				continue
+			}
+			matchedAny = true
 			plan, err := getSubscriptionPlanByIdTx(tx, sub.PlanId)
 			if err != nil {
 				return err
@@ -1345,11 +1389,17 @@ func PreConsumeUserSubscription(requestId string, userId int, modelName string, 
 					if dup.Status == "refunded" {
 						return errors.New("subscription pre-consume already refunded")
 					}
-					returnValue.UserSubscriptionId = sub.Id
+					// Idempotent race: always return the existing record's subscription,
+					// never the candidate that lost the unique insert.
+					var lockedSub UserSubscription
+					if err3 := tx.Where("id = ?", dup.UserSubscriptionId).First(&lockedSub).Error; err3 != nil {
+						return err3
+					}
+					returnValue.UserSubscriptionId = lockedSub.Id
 					returnValue.PreConsumed = dup.PreConsumed
-					returnValue.AmountTotal = sub.AmountTotal
-					returnValue.AmountUsedBefore = sub.AmountUsed
-					returnValue.AmountUsedAfter = sub.AmountUsed
+					returnValue.AmountTotal = lockedSub.AmountTotal
+					returnValue.AmountUsedBefore = lockedSub.AmountUsed
+					returnValue.AmountUsedAfter = lockedSub.AmountUsed
 					return nil
 				}
 				return err
@@ -1364,6 +1414,9 @@ func PreConsumeUserSubscription(requestId string, userId int, modelName string, 
 			returnValue.AmountUsedBefore = usedBefore
 			returnValue.AmountUsedAfter = sub.AmountUsed
 			return nil
+		}
+		if !matchedAny {
+			return errors.New("no active subscription")
 		}
 		return fmt.Errorf("subscription quota insufficient, need=%d", amount)
 	})
