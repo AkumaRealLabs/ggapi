@@ -61,37 +61,19 @@ function RootComponent() {
   )
 }
 
-// 缓存 setup 状态检查结果，避免每次导航都重复调用 API
-// 使用 localStorage 持久化，避免页面刷新后重复检查
-const SETUP_CHECKED_KEY = 'setup_status_checked'
+// In-memory only: never persist setup checks to localStorage.
+// A sticky "checked" flag would skip /api/setup after a failed/transient
+// response and block admin initialization redirect.
+let setupStatusChecked = false
 
-function getSetupStatusFromCache(): boolean {
-  try {
-    if (typeof window !== 'undefined') {
-      return window.localStorage.getItem(SETUP_CHECKED_KEY) === 'true'
-    }
-  } catch {
-    /* empty */
+// Drop legacy localStorage key from older builds (no longer read).
+try {
+  if (typeof window !== 'undefined') {
+    window.localStorage.removeItem('setup_status_checked')
   }
-  return false
+} catch {
+  /* empty */
 }
-
-function setSetupStatusCache(value: boolean): void {
-  try {
-    if (typeof window !== 'undefined') {
-      if (value) {
-        window.localStorage.setItem(SETUP_CHECKED_KEY, 'true')
-      } else {
-        window.localStorage.removeItem(SETUP_CHECKED_KEY)
-      }
-    }
-  } catch {
-    /* empty */
-  }
-}
-
-// 内存中的标记，避免同一会话中重复检查
-let setupStatusChecked = getSetupStatusFromCache()
 
 export const Route = createRootRouteWithContext<{
   queryClient: QueryClient
@@ -117,11 +99,14 @@ export const Route = createRootRouteWithContext<{
         return null
       })
 
-      if (status?.success && status.data && !status.data.status) {
-        throw redirect({ to: '/setup' })
+      // Only mark complete when the backend explicitly reports initialized.
+      // Failures / null must not skip future checks (or skip /setup redirect).
+      if (status?.success && status.data) {
+        if (!status.data.status) {
+          throw redirect({ to: '/setup' })
+        }
+        setupStatusChecked = true
       }
-      setupStatusChecked = true
-      setSetupStatusCache(true)
     }
     // 用户认证状态完全依赖 localStorage 缓存
     // 如果用户有有效 session 但 localStorage 被清空，会被重定向到登录页重新登录
