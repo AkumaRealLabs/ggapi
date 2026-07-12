@@ -223,7 +223,11 @@ export function usePricingColumns(
           </div>
         )
       },
-      minSize: 260,
+      // Content-sized so leftover table width lands on the model name
+      // instead of padding every price column.
+      size: 220,
+      minSize: 160,
+      meta: { contentSized: true },
       enableSorting: false,
     },
     {
@@ -238,7 +242,7 @@ export function usePricingColumns(
           },
           t
         ),
-      size: 130,
+      size: 96,
       enableSorting: false,
     },
     {
@@ -253,7 +257,8 @@ export function usePricingColumns(
           },
           t
         ),
-      size: 130,
+      // Room for longer locales (e.g. FR «Entrée mise en cache»).
+      size: 120,
       enableSorting: false,
     },
     {
@@ -268,7 +273,7 @@ export function usePricingColumns(
           },
           t
         ),
-      size: 130,
+      size: 96,
       enableSorting: false,
     },
     {
@@ -281,7 +286,8 @@ export function usePricingColumns(
         }
         return <ModelPerfBadge perf={perf} className='grid' />
       },
-      size: 160,
+      size: 148,
+      minSize: 128,
       enableSorting: false,
     },
     {
@@ -302,7 +308,8 @@ export function usePricingColumns(
           />
         )
       },
-      size: 160,
+      size: 120,
+      meta: { contentSized: true },
       enableSorting: false,
     },
     {
@@ -323,7 +330,8 @@ export function usePricingColumns(
           />
         )
       },
-      size: 150,
+      size: 120,
+      meta: { contentSized: true },
       enableSorting: false,
     },
     {
@@ -343,7 +351,8 @@ export function usePricingColumns(
           />
         )
       },
-      size: 140,
+      size: 120,
+      meta: { contentSized: true },
       enableSorting: false,
     },
   ]

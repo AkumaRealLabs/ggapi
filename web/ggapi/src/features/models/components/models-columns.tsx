@@ -104,7 +104,7 @@ export function useModelsColumns(vendors: Vendor[] = []): ColumnDef<Model>[] {
         const id = row.getValue('id') as number
         return <TableId value={id} />
       },
-      size: 80,
+      size: 64,
     },
 
     // Icon column
@@ -127,7 +127,7 @@ export function useModelsColumns(vendors: Vendor[] = []): ColumnDef<Model>[] {
           </div>
         )
       },
-      size: 70,
+      size: 48,
       enableSorting: false,
     },
 
@@ -139,6 +139,8 @@ export function useModelsColumns(vendors: Vendor[] = []): ColumnDef<Model>[] {
         cardRole: 'title',
         cardSpan: 2,
         contentMode: 'wrap',
+        // Absorb leftover width so compact badge columns stay tight.
+        contentSized: true,
       },
       cell: ({ row }) => {
         const name = row.getValue('model_name') as string
@@ -148,7 +150,8 @@ export function useModelsColumns(vendors: Vendor[] = []): ColumnDef<Model>[] {
           </CopyableStatusBadge>
         )
       },
-      minSize: 200,
+      size: 200,
+      minSize: 140,
     },
 
     // Name Rule column
@@ -200,7 +203,7 @@ export function useModelsColumns(vendors: Vendor[] = []): ColumnDef<Model>[] {
 
         return badge
       },
-      size: 140,
+      size: 100,
       enableSorting: false,
       meta: {
         cardRole: 'primary',
@@ -232,7 +235,7 @@ export function useModelsColumns(vendors: Vendor[] = []): ColumnDef<Model>[] {
         if (value.includes('disabled')) return status !== 1
         return false
       },
-      size: 120,
+      size: 88,
       enableSorting: false,
     },
 
@@ -258,7 +261,7 @@ export function useModelsColumns(vendors: Vendor[] = []): ColumnDef<Model>[] {
         if (!value || value.length === 0 || value.includes('all')) return true
         return value.includes(String(row.getValue(id)))
       },
-      size: 150,
+      size: 120,
       enableSorting: false,
       meta: {
         cardRole: 'primary',
@@ -286,7 +289,7 @@ export function useModelsColumns(vendors: Vendor[] = []): ColumnDef<Model>[] {
           <DescriptionCell modelName={modelName} description={description} />
         )
       },
-      size: 150,
+      size: 140,
       enableSorting: false,
     },
 
@@ -299,6 +302,7 @@ export function useModelsColumns(vendors: Vendor[] = []): ColumnDef<Model>[] {
         cardOrder: 30,
         cardSpan: 2,
         contentMode: 'summary',
+        contentSized: true,
       },
       cell: ({ row }) => {
         const tags = row.getValue('tags') as string
@@ -313,7 +317,7 @@ export function useModelsColumns(vendors: Vendor[] = []): ColumnDef<Model>[] {
           />
         )
       },
-      size: 150,
+      size: 100,
       enableSorting: false,
     },
 
@@ -326,6 +330,7 @@ export function useModelsColumns(vendors: Vendor[] = []): ColumnDef<Model>[] {
         cardOrder: 40,
         cardSpan: 2,
         contentMode: 'summary',
+        contentSized: true,
       },
       cell: ({ row }) => {
         const endpoints = row.getValue('endpoints') as string
@@ -340,7 +345,7 @@ export function useModelsColumns(vendors: Vendor[] = []): ColumnDef<Model>[] {
           />
         )
       },
-      size: 150,
+      size: 110,
       enableSorting: false,
     },
 
@@ -353,6 +358,7 @@ export function useModelsColumns(vendors: Vendor[] = []): ColumnDef<Model>[] {
         cardOrder: 50,
         cardSpan: 2,
         contentMode: 'summary',
+        contentSized: true,
       },
       cell: ({ row }) => {
         const channels = row.getValue('bound_channels') as Array<{
@@ -375,7 +381,7 @@ export function useModelsColumns(vendors: Vendor[] = []): ColumnDef<Model>[] {
           />
         )
       },
-      size: 150,
+      size: 120,
       enableSorting: false,
     },
 
@@ -388,6 +394,7 @@ export function useModelsColumns(vendors: Vendor[] = []): ColumnDef<Model>[] {
         cardOrder: 60,
         cardSpan: 2,
         contentMode: 'summary',
+        contentSized: true,
       },
       cell: ({ row }) => {
         const groups = row.getValue('enable_groups') as string[]
@@ -399,7 +406,7 @@ export function useModelsColumns(vendors: Vendor[] = []): ColumnDef<Model>[] {
           />
         )
       },
-      size: 150,
+      size: 120,
       enableSorting: false,
     },
 
@@ -412,6 +419,7 @@ export function useModelsColumns(vendors: Vendor[] = []): ColumnDef<Model>[] {
         cardOrder: 70,
         cardSpan: 2,
         contentMode: 'summary',
+        contentSized: true,
       },
       cell: ({ row }) => {
         const quotaTypes = row.getValue('quota_types') as number[]
@@ -432,7 +440,7 @@ export function useModelsColumns(vendors: Vendor[] = []): ColumnDef<Model>[] {
           />
         )
       },
-      size: 150,
+      size: 100,
       enableSorting: false,
     },
 
@@ -463,7 +471,8 @@ export function useModelsColumns(vendors: Vendor[] = []): ColumnDef<Model>[] {
         if (value.includes('no')) return syncOfficial !== 1
         return false
       },
-      size: 120,
+      // Room for longer locales (e.g. RU «Официальная синхронизация»).
+      size: 128,
       enableSorting: false,
     },
 
@@ -479,12 +488,13 @@ export function useModelsColumns(vendors: Vendor[] = []): ColumnDef<Model>[] {
       cell: ({ row }) => {
         const timestamp = row.getValue('created_time') as number
         return (
-          <div className='min-w-[140px] font-mono text-sm'>
+          <div className='font-mono text-sm whitespace-nowrap'>
             {formatTimestampToDate(timestamp)}
           </div>
         )
       },
-      size: 180,
+      // Prefer a width that fits `YYYY-MM-DD HH:mm:ss` mono + cell padding.
+      size: 168,
     },
 
     // Updated Time column
@@ -499,12 +509,12 @@ export function useModelsColumns(vendors: Vendor[] = []): ColumnDef<Model>[] {
       cell: ({ row }) => {
         const timestamp = row.getValue('updated_time') as number
         return (
-          <div className='min-w-[140px] font-mono text-sm'>
+          <div className='font-mono text-sm whitespace-nowrap'>
             {formatTimestampToDate(timestamp)}
           </div>
         )
       },
-      size: 180,
+      size: 168,
     },
 
     // Actions column
@@ -516,6 +526,9 @@ export function useModelsColumns(vendors: Vendor[] = []): ColumnDef<Model>[] {
       },
       enableSorting: false,
       enableHiding: false,
+      // Bounded chrome width — must not become the sole grow track.
+      size: 96,
+      minSize: 72,
       meta: { pinned: 'right' as const },
     },
   ]

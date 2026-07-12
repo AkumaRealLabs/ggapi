@@ -707,7 +707,18 @@ For commercial licensing, please contact support@quantumnous.com
   border-radius: var(--wobble-a) !important;
   background: var(--paper-alt) !important;
   box-shadow: 2px 3px 0 color-mix(in oklch, var(--ink) 8%, transparent) !important;
+  /* Clip the sketched border radius, but keep horizontal scroll on the
+   * inner table-container (overflow-x-auto) so trailing columns stay reachable. */
   overflow: hidden;
+  min-width: 0;
+}
+
+[data-theme-preset='paper-sketch']
+  [data-slot='data-table-frame']
+  [data-slot='table-container'] {
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
 }
 
 [data-theme-preset='paper-sketch'] [data-slot='data-table-filter'] {
@@ -1911,12 +1922,32 @@ For commercial licensing, please contact support@quantumnous.com
   box-shadow: 1px 2px 0 color-mix(in oklch, var(--ink) 10%, transparent) !important;
 }
 
+/* Period tabs are line-style: no filled pill. Global tabs-trigger active
+ * (ink bg + paper text) would paint a solid block; period-tab overrides
+ * then set ink text → ink-on-ink (invisible label, see rankings “本周”). */
 [data-theme-preset='paper-sketch'] [data-slot='sketch-period-tabs'] {
-  border-color: color-mix(in oklch, var(--ink) 35%, transparent) !important;
+  border: none !important;
+  border-bottom: 1.4px solid color-mix(in oklch, var(--ink) 35%, transparent) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  padding: 0 !important;
+  box-shadow: none !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-period-tabs'] [data-slot='tabs-trigger'][data-active],
-[data-theme-preset='paper-sketch'] [data-slot='sketch-period-tabs'] [data-state='active'] {
+[data-theme-preset='paper-sketch']
+  [data-slot='sketch-period-tabs']
+  [data-slot='tabs-trigger'][data-active],
+[data-theme-preset='paper-sketch']
+  [data-slot='sketch-period-tabs']
+  [data-slot='tabs-trigger'][data-active='true'],
+[data-theme-preset='paper-sketch']
+  [data-slot='sketch-period-tabs']
+  [data-slot='tabs-trigger'][data-state='active'],
+[data-theme-preset='paper-sketch']
+  [data-slot='sketch-period-tabs']
+  [data-slot='tabs-trigger'][aria-selected='true'] {
+  background: transparent !important;
+  border-color: transparent !important;
   color: var(--ink) !important;
   font-weight: 700 !important;
   box-shadow: none !important;
@@ -2664,7 +2695,10 @@ For commercial licensing, please contact support@quantumnous.com
   border: 1.2px solid color-mix(in oklch, var(--ink) 28%, transparent);
   border-radius: var(--wobble-b);
   background: color-mix(in oklch, var(--ink) 2%, var(--paper-alt));
-  padding: 0.2rem 0.35rem;
+  box-sizing: border-box;
+  /* Keep latency / throughput / status bars inside the sketched frame. */
+  overflow: hidden;
+  padding: 0.15rem 0.3rem;
 }
 
 /* Pricing detail charts notebook */

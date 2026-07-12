@@ -16,18 +16,26 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { flexRender, type Row } from '@tanstack/react-table'
+import {
+  flexRender,
+  type Row,
+  type Table as TanstackTable,
+} from '@tanstack/react-table'
 import * as React from 'react'
 
 import { TableCell, TableRow } from '@/components/design-system/table'
 import { cn } from '@/lib/utils'
 
+import { getColumnTrackStyleForColumn } from './column-track-style'
 import type { DataTableColumnClassName } from './types'
 
 type DataTableRowProps<TData> = {
   row: Row<TData>
+  table?: TanstackTable<TData>
   className?: string
   getColumnClassName?: DataTableColumnClassName
+  /** When true, apply shared column-track floors (same owner as DataTableColgroup). */
+  applyTrackSize?: boolean
 } & Omit<React.ComponentProps<typeof TableRow>, 'children'>
 
 type DataTableRowInnerProps<TData> = DataTableRowProps<TData> & {
@@ -36,11 +44,15 @@ type DataTableRowInnerProps<TData> = DataTableRowProps<TData> & {
 
 function DataTableRowInner<TData>({
   row,
+  table,
   isSelected,
   className,
   getColumnClassName,
+  applyTrackSize,
   ...rowProps
 }: DataTableRowInnerProps<TData>) {
+  const sizingTable = table ?? row.getAllCells()[0]?.getContext().table
+
   return (
     <TableRow
       data-state={isSelected ? 'selected' : undefined}
@@ -49,12 +61,19 @@ function DataTableRowInner<TData>({
     >
       {row.getVisibleCells().map((cell) => {
         const contentMode = cell.column.columnDef.meta?.contentMode ?? 'wrap'
+        // Custom colgroup tables must not inherit shared track defaults
+        // (e.g. channel-test w-px actions, model-ratio fixed tracks).
+        const trackStyle =
+          applyTrackSize && sizingTable
+            ? getColumnTrackStyleForColumn(sizingTable, cell.column)
+            : undefined
 
         return (
           <TableCell
             key={cell.id}
             data-column-id={cell.column.id}
             data-content-mode={contentMode}
+            style={trackStyle}
             className={cn(
               'max-w-full min-w-0',
               contentMode === 'full' &&

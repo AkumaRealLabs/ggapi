@@ -32,12 +32,15 @@ import {
 import { cn } from '@/lib/utils'
 
 import { DataTableColumnHeader } from './column-header'
+import { getColumnTrackStyleForColumn } from './column-track-style'
 import { isContentSizedColumn } from './content-sized-columns'
 import type { DataTableColumnClassName } from './types'
 
 type DataTableHeaderProps<TData> = {
   table: TanstackTable<TData>
   applyHeaderSize?: boolean
+  /** When true, apply shared column-track floors (same owner as DataTableColgroup). */
+  applyTrackSize?: boolean
   className?: string
   rowClassName?: string
   getColumnClassName?: DataTableColumnClassName
@@ -46,6 +49,7 @@ type DataTableHeaderProps<TData> = {
 export function DataTableHeader<TData>({
   table,
   applyHeaderSize,
+  applyTrackSize,
   className,
   rowClassName,
   getColumnClassName,
@@ -65,7 +69,12 @@ export function DataTableHeader<TData>({
                 'relative',
                 getColumnClassName?.(header.column.id, 'header')
               )}
-              style={getHeaderSizeStyle(header, applyHeaderSize)}
+              style={getHeaderSizeStyle(
+                table,
+                header,
+                applyHeaderSize,
+                applyTrackSize
+              )}
             >
               {renderHeaderContent(header)}
               {shouldRenderColumnResizer(table, header) && (
@@ -257,11 +266,22 @@ function shouldRenderColumnResizer<TData>(
 }
 
 function getHeaderSizeStyle<TData>(
+  table: TanstackTable<TData>,
   header: Header<TData, unknown>,
-  applyHeaderSize: boolean | undefined
+  applyHeaderSize: boolean | undefined,
+  applyTrackSize: boolean | undefined
 ) {
+  // Only the shared sizing owner (DataTableColgroup path) may paint track
+  // floors on th. Custom colgroup callers keep full control of column widths.
+  if (applyTrackSize) {
+    return getColumnTrackStyleForColumn(table, header.column) ?? undefined
+  }
+
+  if (!applyHeaderSize) {
+    return undefined
+  }
+
   if (
-    !applyHeaderSize ||
     isContentSizedColumn(
       header.column.id,
       header.column.columnDef.meta?.contentSized
