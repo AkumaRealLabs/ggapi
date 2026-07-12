@@ -5,20 +5,22 @@ description: >
   daily feature/fix workflow, branch naming, push-vs-PR decisions, pre-commit
   Codex review loop (/codex:review → fix → re-review), upstream sync/merge,
   conflict resolution, diff-inventory updates, release regression, contributing
-  back upstream, org-linux CI runners, private-repo update-check PAT, common
+  back upstream, third product shell web/ggapi (GG-005; feature tracks
+  web/default), org-linux CI runners, private-repo update-check PAT, common
   git/remote/billing/hotspot pitfalls, and controlled self-upgrade of this
   skill (Mode I) without chaotic rewrites.
   Use when the user runs /ggapi-fork, asks how to 二开, fork 开发, 开分支,
   提 PR, push 还是 PR, 提交, commit, 最终提交, 提交前审查, codex review,
   同步上游, merge upstream, 冲突解决, 差异清单, diff-inventory, 发版回归,
-  origin/upstream 远程, org-linux, runner group, 检查更新, GitHub PAT, 升级
-  skill, 改进 ggapi-fork, skill 自升级, 自检 skill, 或 any long-term fork
-  maintenance question on this repository. Always load this skill before
-  advising or executing fork workflow steps — including plain “提交/commit”
-  on this repo (Mode C C2-pre). When improving this skill itself, follow
-  Mode I / self-upgrade policy.
+  origin/upstream 远程, web/ggapi, 第三壳, paper-sketch, org-linux, runner
+  group, 检查更新, GitHub PAT, 升级 skill, 改进 ggapi-fork, skill 自升级,
+  自提升, 自检 skill, 或 any long-term fork maintenance question on this
+  repository. Always load this skill before advising or executing fork
+  workflow steps — including plain “提交/commit” on this repo (Mode C
+  C2-pre). When improving this skill itself, follow Mode I / self-upgrade
+  policy.
 metadata:
-  skill_version: "1.3.0"
+  skill_version: "1.4.0"
 ---
 
 # ggapi Fork Maintenance Playbook
@@ -97,7 +99,7 @@ workflow end-to-end.
 | **F. Release** | 发版, 部署, 回归 | `references/workflows.md` §F + `references/checklists.md` §Release |
 | **G. Contribute upstream** | 回馈官方, 向上游 PR | `references/workflows.md` §G |
 | **H. Stuck / diagnose** | 报错, 推不了, 分叉乱了, 不知道下一步 | `references/troubleshooting.md` first, then re-route |
-| **I. Skill self-upgrade** | 升级 skill, 改进 ggapi-fork, 自升级, 自检 skill, skill 与文档不一致 | `references/self-upgrade.md` + `references/CHANGELOG.md` |
+| **I. Skill self-upgrade** | 升级 skill, 改进 ggapi-fork, 自升级, 自提升, 自检 skill, skill 与文档不一致 | `references/self-upgrade.md` + `references/CHANGELOG.md` |
 
 If the user only asks a conceptual question ("到底应该 PR 还是 push？"), answer
 from Mode C hard decision table **without** running push/PR unless they ask.
@@ -180,9 +182,20 @@ aligned with active rows (not replace them):
 | ID | Topic |
 |----|--------|
 | GG-001 | `docs/fork/` + `AGENTS.md` 二开入口 |
-| GG-002 | this skill (`/ggapi-fork`, v1.3.0+ pre-commit Codex gate) |
+| GG-002 | this skill (`/ggapi-fork`, v1.4.0+; Modes A–I + C2-pre Codex gate) |
 | GG-003 | CI `runs-on.group: org-linux`, Linux amd64 only |
 | GG-004 | Server-side update check URL + GitHub PAT |
+| GG-005 | Third frontend shell `web/ggapi` (default `theme.frontend=ggapi`; feature tracks `web/default`) |
+
+## Product shell (frontend placement)
+
+| Path | Role |
+|------|------|
+| `web/ggapi` | **Product shell** — visual/product work; default theme (GG-005) |
+| `web/default` | Upstream default — sync source; keep close to upstream |
+| `web/classic` | Upstream classic shell |
+
+Rule of thumb (canonical: `docs/fork` SOP §3.5): **skin/product in `web/ggapi`; capabilities track `web/default`**. Do not expect production default UI from edits only in `web/default`. Local: `make dev` / `make dev-web-ggapi` / `make build-web-ggapi`.
 
 ## Related skills (hand off, do not reimplement)
 
@@ -191,9 +204,10 @@ aligned with active rows (not replace them):
 | Pre-commit / final-ship code review (Codex) | **`/codex:review`** (Codex plugin; review-only — this skill owns the fix→re-review loop) |
 | Adversarial / custom-focus Codex review | `/codex:adversarial-review` (optional; not the default gate) |
 | Bundled local/PR reviewer (non-Codex) | `review` / `/review` — optional extra; does **not** replace `/codex:review` for the pre-commit gate |
-| Frontend i18n keys (all locales incl. **zh-TW**) | `i18n-translate` |
+| Frontend i18n keys (all locales incl. **zh-TW**; use `web/ggapi` or `web/default` paths) | `i18n-translate` (shell-aware) |
 | classic → default UI port | `classic-to-default-sync` |
-| shadcn/ui in `web/default` | `shadcn-ui` |
+| default → ggapi feature port | Same *diff-review* idea as classic→default: map paths `web/default` → `web/ggapi` (no separate skill) |
+| shadcn/ui in product shell (and default) | `shadcn-ui` (shell-aware; prefer `web/ggapi`) |
 | React performance | `vercel-react-best-practices` |
 | Verify finished work | `check-work` / `/check-work` |
 

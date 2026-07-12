@@ -221,12 +221,13 @@ cd web/default && bun run typecheck
    - 清单 `active` 项
 5. 观察错误日志与额度异常（含 `quota_saturation` 类审计，若启用）。
 
-构建参考：
+构建参考（本仓 `main.go` embed **default + classic + ggapi** 三壳；`dist` 被 gitignore，干净检出后须先构建再 `go build`）：
 
 ```bash
-make build-web          # 默认前端
-# make build-all-web    # 含 classic
-# 镜像构建按仓库 Dockerfile / compose 执行
+make build-all-web      # 发版 / 本地二进制：三壳齐全（推荐默认）
+# make build-web-ggapi  # 仅验证产品壳时
+# make build-web        # 仅验证 upstream default 壳时
+# 镜像构建按仓库 Dockerfile / compose 执行（须含 builder-ggapi；release.yml 亦须构建 ggapi）
 ```
 
 ---
@@ -248,9 +249,11 @@ make build-web          # 默认前端
 | 场景 | 命令 |
 |------|------|
 | 开发 API | `make dev-api` |
-| 开发默认前端 | `make dev-web` |
+| 开发产品壳（推荐） | `make dev-web-ggapi` 或 `make dev` |
+| 开发 upstream default 壳 | `make dev-web` |
 | 重建 API 容器 | `make dev-api-rebuild` |
-| 构建前端 | `make build-web` |
+| 构建全部前端（发版/embed） | `make build-all-web` |
+| 仅构建产品壳 | `make build-web-ggapi` |
 | 更新远程引用 | `git fetch origin && git fetch upstream` |
 | 看上游多出的提交 | 先 `git fetch upstream`，再 `git log --oneline main..upstream/main` |
 | 看本仓多出的提交 | 先 `git fetch upstream`，再 `git log --oneline upstream/main..main` |

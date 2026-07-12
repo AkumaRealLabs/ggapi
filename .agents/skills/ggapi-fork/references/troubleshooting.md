@@ -352,14 +352,20 @@ When adding keys via `add-missing-keys` style scripts, **include every locale fi
 the project ships** (`en`, `zh`, `zh-TW`, `fr`, `ja`, `ru`, `vi` as applicable).
 
 ```bash
-cd web/default
-bun run i18n:sync
+# Product shell (usual):
+cd web/ggapi && bun run i18n:sync
+# Upstream default shell only when that tree was edited:
+# cd web/default && bun run i18n:sync
 # inspect src/i18n/locales/_reports/_sync-report.json
 # missingCount and untranslatedCount should be 0 for locales you claim complete
 ```
 
 Hand off bulk translation work to **i18n-translate** skill; never leave zh-TW as
 English-only for user-facing strings you just introduced.
+
+Also reject **orphan top-level keys** outside `translation` in locale JSON (they
+do not load as normal `t()` keys). Nest under `translation` and keep key sets
+aligned across locales.
 
 ---
 
@@ -429,6 +435,61 @@ Still refuse secrets / broken branding / hard-rule violations.
 | Companion `review --wait` / user `/codex:review` | **Default gate** |
 | `/codex:adversarial-review` | Extra depth when user asks |
 | Bundled `/review` | Optional second opinion; not a substitute for the Codex gate |
+
+---
+
+## §22 Third shell `web/ggapi` / theme / embed (GG-005)
+
+Canonical: `docs/fork/README.md` §前端壳, SOP §3.5, inventory **GG-005**.
+
+### Edited `web/default` but prod still shows old UI
+
+Default runtime theme is **`ggapi`**. Product changes belong in `web/ggapi`.
+Port features from default → ggapi (`chore/port-default-<topic>`).
+
+### Local commands
+
+```bash
+make dev-web-ggapi
+# or: make dev          # API + ggapi
+make build-web-ggapi
+make build-all-web      # all three shells
+```
+
+### Release / Docker binary missing ggapi assets
+
+Symptom: tag release or image serves blank/wrong theme when `theme.frontend=ggapi`.  
+Cause: only default/classic built; go embed has no `web/ggapi/dist`.  
+Fix: ensure **makefile**, **Dockerfile** (`builder-ggapi`), and
+**`.github/workflows/release.yml`** each build ggapi before backend compile.
+Lesson from PR #7 Codex review.
+
+### Admin theme selector cannot choose ggapi
+
+Backend constants accept `ggapi`, but system-settings UI still enums
+`default|classic` only. Add `ggapi` to schema, normalize, Select items, and
+i18n labels in **every shipped admin surface** that can change theme:
+**`web/ggapi`**, **`web/default`**, and classic paths that PUT `theme.frontend`
+(e.g. `web/classic/src/helpers/frontendTheme.js`, which may still hardcode
+`default` only). If only ggapi is updated, an admin already on
+`theme.frontend=default` (or classic) cannot switch back to the product shell.
+
+### Branding review findings after copying default shell
+
+Do **not** replace protected **New API** / QuantumNous identity in
+`index.html` title/meta or logo accessible names with a bare product codename.
+Fork product naming can live in UI copy / SystemName config; protected metadata
+stays per AGENTS.md.
+
+### i18n: keys at JSON root, missing in fr/ja/…
+
+See §20. Nest under `translation`; fill all locale files (English fallback is
+OK short-term if documented; prefer **i18n-translate** for real copy).
+
+### After merge: where am I?
+
+C5 leaves you on clean `main`. Next feature → new branch from latest
+`origin/main`. Do not keep coding on a deleted topic branch.
 
 ---
 

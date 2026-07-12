@@ -2,6 +2,25 @@
 
 格式：`## version — YYYY-MM-DD` + 级别 + 摘要。最新在上。
 
+## 1.4.0 — 2026-07-12
+
+- **级别:** L2 / minor（第三壳教练 + #7 发车实战；**未**改 Hard rules 表与 origin/main/upstream/品牌/计费语义）  
+- **原因:** 用户确认 Mode I 方案；`docs/fork` 已有 GG-005 / SOP §3.5，skill 仍教 `web/default`；吸收 PR #7 审查与合入教训  
+- **变更:**
+  - SKILL：`skill_version` → **1.4.0**；inventory 锚点 **GG-005**；Product shell 表；Mode I 触发词 **自提升**；description 含第三壳  
+  - Mode A/B：默认本地栈与 typecheck → **`web/ggapi`**；功能追 default 的 port 提示  
+  - Mode C：**C1b** 三壳/embed/品牌/i18n 检查（**置于 C2-pre 之前**；改后须再审）；materialize 临时 commit 禁止推送 temp 信息  
+  - Mode D/E/F：sync 不夹带 ggapi 大皮肤；post-sync port follow-up；release **`make build-all-web`**（本地 go embed 三壳齐全）  
+  - Mode B：typecheck 用 subshell，`make` 始终在仓库根；按**实际编辑的壳**选 `build-web*`  
+  - checklists：第三壳 Pre-PR 段；双壳 theme 选择器；post-sync / release 勾选项  
+  - troubleshooting **§22** 第三壳/主题/embed（default+ggapi 管理端均需 ggapi 选项）；§20 补 orphan keys + ggapi 路径  
+  - `docs/fork/branch-and-sync-sop.md` 发版/命令速查对齐 `make build-all-web` 与产品壳 dev  
+  - 依赖 skill：**i18n-translate** / **shadcn-ui** shell-aware（每条命令写全路径 `web/ggapi` 或 `web/default`）；i18n 含 **zh-TW**；classic 走 `i18next-cli`  
+  - C1b / §22：classic `frontendTheme` 切换路径纳入 theme 门禁  
+  - `web/{ggapi,default}/scripts/sync-i18n.mjs`：`zh-TW` 纳入 untranslated 非拉丁判定；字面量 allowlist 补 `Webhook`/`Gotify`  
+  - GG-002 清单摘要对齐 v1.4.0  
+- **未改:** Hard rules；不自动 commit/push/merge；C2-pre 仍可用户明确 opt-out  
+
 ## 1.3.0 — 2026-07-11
 
 - **级别:** L2 / minor（发车流程 / Ship quality gate；**未**改 Hard rules 表与 origin/main/upstream/品牌/计费语义 → 非 L3；self-upgrade §2 + §6 已对齐「质量门禁≠安全语义 major」）  

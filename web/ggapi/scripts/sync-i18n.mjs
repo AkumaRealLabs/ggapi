@@ -97,8 +97,10 @@ const BRAND_AND_LITERAL_KEYS = new Set([
   'Waffo Pancake MoR',
   'WeChat',
   'WeChat Pay',
+  'Webhook',
   'Webhook URL',
   'Webhook URL:',
+  'Gotify',
   'Well-Known URL',
   'Worker URL',
   'Xinference',
@@ -225,7 +227,8 @@ function isLikelyUntranslated({ locale, baseValue, value }) {
   if (!/[A-Za-z]{3,}/.test(s)) return false
 
   // For locales with non-latin scripts, equality with EN is a strong signal.
-  if (locale === 'ja' || locale === 'zh') return true
+  // zh-TW must be included: otherwise English copy in zh-TW.json reports untranslatedCount: 0.
+  if (locale === 'ja' || locale === 'zh' || locale === 'zh-TW') return true
   if (locale === 'ru') return true
 
   // For fr/vi: still useful but noisier; keep it conservative.
