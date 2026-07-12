@@ -5235,6 +5235,7 @@
     "Sign in on paper — same gateway, quieter surface.": "Sign in on paper — same gateway, quieter surface.",
     "Paper-sketch AI gateway for operators.": "Paper-sketch AI gateway for operators.",
     "ggapi (Paper-sketch Frontend)": "ggapi (бумажный скетч UI)",
-    "Switch between default, classic, and ggapi frontends. Changes take effect after page reload.": "Переключение между интерфейсами default, classic и ggapi. Изменения вступают в силу после перезагрузки страницы."
+    "Switch between default, classic, and ggapi frontends. Changes take effect after page reload.": "Переключение между интерфейсами default, classic и ggapi. Изменения вступают в силу после перезагрузки страницы.",
+    "Save update check settings": "Сохранить настройки проверки обновлений"
   }
 }

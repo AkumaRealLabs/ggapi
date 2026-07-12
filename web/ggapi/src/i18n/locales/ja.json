@@ -5235,6 +5235,7 @@
     "Sign in on paper — same gateway, quieter surface.": "Sign in on paper — same gateway, quieter surface.",
     "Paper-sketch AI gateway for operators.": "Paper-sketch AI gateway for operators.",
     "ggapi (Paper-sketch Frontend)": "ggapi（ペーパースケッチ UI）",
-    "Switch between default, classic, and ggapi frontends. Changes take effect after page reload.": "default・classic・ggapi のフロントエンドを切り替えます。変更はページの再読み込み後に反映されます。"
+    "Switch between default, classic, and ggapi frontends. Changes take effect after page reload.": "default・classic・ggapi のフロントエンドを切り替えます。変更はページの再読み込み後に反映されます。",
+    "Save update check settings": "アップデート確認設定を保存"
   }
 }
