@@ -49,6 +49,15 @@ jobs:
           cd classic
           VITE_REACT_APP_VERSION=$VERSION bun run build
           cd ../..
+      - name: Build Frontend (ggapi)
+        env:
+          CI: ""
+        run: |
+          cd web
+          bun install --filter ./ggapi --frozen-lockfile
+          cd ggapi
+          DISABLE_ESLINT_PLUGIN='true' VITE_REACT_APP_VERSION=$VERSION bun run build
+          cd ../..
       - name: Set up Go
         uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:

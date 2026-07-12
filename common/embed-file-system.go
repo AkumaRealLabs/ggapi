@@ -45,25 +45,40 @@ func EmbedFolder(fsEmbed embed.FS, targetPath string) static.ServeFileSystem {
 // themeAwareFileSystem delegates to the appropriate embedded FS based on
 // the current theme (via GetTheme). This enables runtime theme switching
 // without restarting the server.
+//
+// Themes: "default" (upstream SPA), "classic" (legacy Semi), "ggapi" (fork SPA).
 type themeAwareFileSystem struct {
 	defaultFS static.ServeFileSystem
 	classicFS static.ServeFileSystem
+	ggapiFS   static.ServeFileSystem
+}
+
+func (t *themeAwareFileSystem) activeFS() static.ServeFileSystem {
+	switch GetTheme() {
+	case "classic":
+		return t.classicFS
+	case "ggapi":
+		return t.ggapiFS
+	default:
+		return t.defaultFS
+	}
 }
 
 func (t *themeAwareFileSystem) Exists(prefix string, path string) bool {
-	if GetTheme() == "classic" {
-		return t.classicFS.Exists(prefix, path)
-	}
-	return t.defaultFS.Exists(prefix, path)
+	return t.activeFS().Exists(prefix, path)
 }
 
 func (t *themeAwareFileSystem) Open(name string) (http.File, error) {
-	if GetTheme() == "classic" {
-		return t.classicFS.Open(name)
-	}
-	return t.defaultFS.Open(name)
+	return t.activeFS().Open(name)
 }
 
-func NewThemeAwareFS(defaultFS, classicFS static.ServeFileSystem) static.ServeFileSystem {
-	return &themeAwareFileSystem{defaultFS: defaultFS, classicFS: classicFS}
+// NewThemeAwareFS wires default + classic + ggapi static trees.
+// ggapiFS may be the same as defaultFS only if intentionally shared; normally
+// it is web/ggapi/dist.
+func NewThemeAwareFS(defaultFS, classicFS, ggapiFS static.ServeFileSystem) static.ServeFileSystem {
+	return &themeAwareFileSystem{
+		defaultFS: defaultFS,
+		classicFS: classicFS,
+		ggapiFS:   ggapiFS,
+	}
 }

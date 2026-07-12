@@ -10,7 +10,9 @@ type ThemeSettings struct {
 }
 
 var themeSettings = ThemeSettings{
-	Frontend: "classic",
+	// ggapi fork: serve the fork SPA by default (web/ggapi). Upstream shells
+	// remain available as theme.frontend = default | classic.
+	Frontend: "ggapi",
 }
 
 func init() {
