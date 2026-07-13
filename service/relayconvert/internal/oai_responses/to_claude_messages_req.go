@@ -38,10 +38,12 @@ func OpenAIResponsesRequestToClaudeMessages(c *gin.Context, req *dto.OpenAIRespo
 		TopP:        req.TopP,
 		Stream:      req.Stream,
 	}
-	if req.MaxOutputTokens != nil && *req.MaxOutputTokens > 0 {
+	if req.MaxOutputTokens != nil {
+		// Preserve explicit zero (and any non-nil value) rather than treating 0 as
+		// "unset" and substituting the configured default.
 		claudeRequest.MaxTokens = common.GetPointer(*req.MaxOutputTokens)
 	}
-	if claudeRequest.MaxTokens == nil || *claudeRequest.MaxTokens == 0 {
+	if claudeRequest.MaxTokens == nil {
 		defaultMaxTokens := uint(model_setting.GetClaudeSettings().GetDefaultMaxTokens(req.Model))
 		claudeRequest.MaxTokens = &defaultMaxTokens
 	}

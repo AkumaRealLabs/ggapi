@@ -10,6 +10,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
+	"github.com/QuantumNous/new-api/setting/ratio_setting"
 
 	"github.com/samber/lo"
 	"gorm.io/gorm"
@@ -164,6 +165,9 @@ func filterAbilitiesByRequestPathAndModel(abilities []Ability, requestPath strin
 		}
 	}
 
+	// Strip synthetic compact billing suffix so route model rules match the
+	// original client model (distributor rewrites compact requests before select).
+	routeModel := ratio_setting.WithoutCompactModelSuffix(model)
 	filtered := make([]Ability, 0, len(abilities))
 	for _, ability := range abilities {
 		config, isAdvancedCustom := advancedConfigs[ability.ChannelId]
@@ -171,7 +175,7 @@ func filterAbilitiesByRequestPathAndModel(abilities []Ability, requestPath strin
 			filtered = append(filtered, ability)
 			continue
 		}
-		if config != nil && config.SupportsPathForModel(requestPath, model) {
+		if config != nil && config.SupportsPathForModel(requestPath, routeModel) {
 			filtered = append(filtered, ability)
 		}
 	}

@@ -180,7 +180,10 @@ func channelSupportsRequestPath(channel *model.Channel, requestPath string, requ
 		return true
 	}
 	config := channel.GetOtherSettings().AdvancedCustom
-	return config != nil && config.SupportsPathForModel(requestPath, requestModel)
+	// Compact requests rewrite the model with -openai-compact before selection;
+	// strip it so route model rules match the original client model name.
+	routeModel := ratio_setting.WithoutCompactModelSuffix(requestModel)
+	return config != nil && config.SupportsPathForModel(requestPath, routeModel)
 }
 
 // getModelFromRequest 从请求中读取模型信息

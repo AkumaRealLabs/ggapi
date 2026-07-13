@@ -64,15 +64,15 @@ var (
 )
 
 func GetPricing() []Pricing {
+	// Hold updatePricingLock for the validity check, optional rebuild, and
+	// return so InvalidatePricingCache cannot clear pricingMap after a stale
+	// fast-path check and before the slice is handed to the caller.
+	updatePricingLock.Lock()
+	defer updatePricingLock.Unlock()
 	if time.Since(lastGetPricingTime) > time.Minute*1 || len(pricingMap) == 0 {
-		updatePricingLock.Lock()
-		defer updatePricingLock.Unlock()
-		// Double check after acquiring the lock
-		if time.Since(lastGetPricingTime) > time.Minute*1 || len(pricingMap) == 0 {
-			modelSupportEndpointsLock.Lock()
-			defer modelSupportEndpointsLock.Unlock()
-			updatePricing()
-		}
+		modelSupportEndpointsLock.Lock()
+		updatePricing()
+		modelSupportEndpointsLock.Unlock()
 	}
 	return pricingMap
 }
@@ -84,13 +84,23 @@ func InvalidatePricingCache() {
 	pricingMap = nil
 	vendorsList = nil
 	lastGetPricingTime = time.Time{}
+	// Advanced Custom route edits must also drop endpoint metadata; otherwise
+	// /v1/models keeps reporting stale SupportedEndpointTypes until a pricing
+	// rebuild happens to run for another reason.
+	modelSupportEndpointsLock.Lock()
+	modelSupportEndpointTypes = make(map[string][]constant.EndpointType)
+	modelSupportEndpointsLock.Unlock()
 }
 
 // GetVendors 返回当前定价接口使用到的供应商信息
 func GetVendors() []PricingVendor {
+	// Same lock discipline as GetPricing: refresh and return under one hold.
+	updatePricingLock.Lock()
+	defer updatePricingLock.Unlock()
 	if time.Since(lastGetPricingTime) > time.Minute*1 || len(pricingMap) == 0 {
-		// 保证先刷新一次
-		GetPricing()
+		modelSupportEndpointsLock.Lock()
+		updatePricing()
+		modelSupportEndpointsLock.Unlock()
 	}
 	return vendorsList
 }

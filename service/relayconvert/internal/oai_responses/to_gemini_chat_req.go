@@ -43,10 +43,11 @@ func OpenAIResponsesRequestToGeminiChat(c *gin.Context, req *dto.OpenAIResponses
 			Temperature: req.Temperature,
 		},
 	}
-	if req.TopP != nil && *req.TopP > 0 {
+	if req.TopP != nil {
+		// Preserve explicit zero; omit only when the client left the field unset.
 		geminiRequest.GenerationConfig.TopP = common.GetPointer(*req.TopP)
 	}
-	if req.MaxOutputTokens != nil && *req.MaxOutputTokens > 0 {
+	if req.MaxOutputTokens != nil {
 		geminiRequest.GenerationConfig.MaxOutputTokens = common.GetPointer(*req.MaxOutputTokens)
 	}
 

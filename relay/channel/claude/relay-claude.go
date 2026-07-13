@@ -148,12 +148,27 @@ func HandleStreamFinalResponse(c *gin.Context, info *relaycommon.RelayInfo, clau
 			claudeInfo.Usage.PromptTokens = fallback.PromptTokens
 		}
 		claudeInfo.Usage.TotalTokens = claudeInfo.Usage.PromptTokens + claudeInfo.Usage.CompletionTokens
+		// message_start may already have installed a non-nil BillingUsage with a
+		// stale output count. Rebuild after the top-level fallback so settlement
+		// (which prefers BillingUsage via effectiveBillingUsage) sees the adjusted
+		// completion tokens while preserving cache fields from message_start.
+		if claudeInfo.Usage != nil {
+			patch := buildMessageDeltaPatchUsage(nil, claudeInfo)
+			if patch.OutputTokens == 0 {
+				patch.OutputTokens = claudeInfo.Usage.CompletionTokens
+			}
+			claudeInfo.Usage.BillingUsage = dto.NewClaudeMessagesBillingUsage(patch)
+		}
 	}
 	if claudeInfo.Usage != nil {
 		claudeInfo.Usage.UsageSemantic = "anthropic"
 	}
 	if claudeInfo.Usage != nil && claudeInfo.Usage.BillingUsage == nil {
-		claudeInfo.Usage.BillingUsage = dto.NewClaudeMessagesBillingUsage(buildMessageDeltaPatchUsage(nil, claudeInfo))
+		patch := buildMessageDeltaPatchUsage(nil, claudeInfo)
+		if patch.OutputTokens == 0 {
+			patch.OutputTokens = claudeInfo.Usage.CompletionTokens
+		}
+		claudeInfo.Usage.BillingUsage = dto.NewClaudeMessagesBillingUsage(patch)
 	}
 
 	if info.RelayFormat == types.RelayFormatClaude {
