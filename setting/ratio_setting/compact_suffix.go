@@ -11,3 +11,9 @@ func WithCompactModelSuffix(modelName string) string {
 	}
 	return modelName + CompactModelSuffix
 }
+
+// WithoutCompactModelSuffix strips the synthetic compact billing suffix so
+// Advanced Custom route model rules can match the client's original model name.
+func WithoutCompactModelSuffix(modelName string) string {
+	return strings.TrimSuffix(modelName, CompactModelSuffix)
+}
