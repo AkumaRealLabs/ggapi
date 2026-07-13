@@ -87,3 +87,20 @@ func TestBillingUsageJSONUsesProtocolNamedFields(t *testing.T) {
 	assert.Nil(t, clone.ClaudeUsage.BillingUsage)
 	assert.Nil(t, clone.GeminiUsageMetadata.BillingUsage)
 }
+
+func TestBillingUsageNotSerializedOnWireDTOs(t *testing.T) {
+	u := &Usage{PromptTokens: 1, CompletionTokens: 2, TotalTokens: 3, BillingUsage: &BillingUsage{Source: BillingUsageSourceOAIChat, Semantic: BillingUsageSemanticOpenAI}}
+	b, err := common.Marshal(u)
+	require.NoError(t, err)
+	assert.NotContains(t, string(b), "billing_usage")
+
+	c := &ClaudeUsage{InputTokens: 1, BillingUsage: &BillingUsage{Source: BillingUsageSourceClaudeMessages}}
+	b2, err := common.Marshal(c)
+	require.NoError(t, err)
+	assert.NotContains(t, string(b2), "billing_usage")
+
+	g := &GeminiUsageMetadata{PromptTokenCount: 1, BillingUsage: &BillingUsage{Source: BillingUsageSourceGeminiChat}}
+	b3, err := common.Marshal(g)
+	require.NoError(t, err)
+	assert.NotContains(t, string(b3), "billing_usage")
+}
