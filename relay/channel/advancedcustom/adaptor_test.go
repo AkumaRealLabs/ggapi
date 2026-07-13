@@ -21,6 +21,30 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestAdaptorMatchesCompactOriginModelWithoutSuffix(t *testing.T) {
+	adaptor := &Adaptor{}
+	info := advancedCustomRelayInfo(&dto.AdvancedCustomConfig{
+		Routes: []dto.AdvancedCustomRoute{
+			{
+				IncomingPath: "/v1/responses/compact",
+				UpstreamPath: "https://upstream.example/v1/responses/compact",
+				Converter:    relayconvert.ConverterNone,
+				Models:       []string{"gpt-4o"},
+			},
+		},
+	})
+	// ModelMappedHelper rewrites OriginModelName with the synthetic compact
+	// suffix before the adaptor resolves routes.
+	info.OriginModelName = "gpt-4o-openai-compact"
+	info.UpstreamModelName = "gpt-4o"
+	info.RequestURLPath = "/v1/responses/compact"
+	info.RelayMode = relayconstant.RelayModeResponsesCompact
+
+	requestURL, err := adaptor.GetRequestURL(info)
+	require.NoError(t, err)
+	assert.Contains(t, requestURL, "/v1/responses/compact")
+}
+
 func TestAdaptorUsesExactRouteAndQueryAuth(t *testing.T) {
 	adaptor := &Adaptor{}
 	info := advancedCustomRelayInfo(&dto.AdvancedCustomConfig{

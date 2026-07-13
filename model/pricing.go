@@ -110,9 +110,24 @@ func GetModelSupportEndpointTypes(model string) []constant.EndpointType {
 		return make([]constant.EndpointType, 0)
 	}
 	modelSupportEndpointsLock.RLock()
-	defer modelSupportEndpointsLock.RUnlock()
-	if endpoints, ok := modelSupportEndpointTypes[model]; ok {
+	endpoints, ok := modelSupportEndpointTypes[model]
+	empty := len(modelSupportEndpointTypes) == 0
+	modelSupportEndpointsLock.RUnlock()
+	if ok {
 		return endpoints
+	}
+	// InvalidatePricingCache clears this map without rebuilding it. /v1/models
+	// reads endpoint types here and never calls GetPricing, so force a rebuild
+	// when the snapshot is empty; release the RLock first to keep the global
+	// order updatePricingLock -> modelSupportEndpointsLock.
+	if empty {
+		_ = GetPricing()
+		modelSupportEndpointsLock.RLock()
+		endpoints = modelSupportEndpointTypes[model]
+		modelSupportEndpointsLock.RUnlock()
+		if endpoints != nil {
+			return endpoints
+		}
 	}
 	return make([]constant.EndpointType, 0)
 }

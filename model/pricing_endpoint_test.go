@@ -190,6 +190,37 @@ func TestPricingNativeChannelEndpointTypesUnchanged(t *testing.T) {
 	assert.Equal(t, []constant.EndpointType{constant.EndpointTypeAnthropic, constant.EndpointTypeOpenAI}, byModel["claude-3-5-sonnet"])
 }
 
+func TestGetModelSupportEndpointTypesRebuildsAfterInvalidate(t *testing.T) {
+	resetPricingEndpointTestTables(t)
+
+	insertPricingEndpointChannel(t, 303, constant.ChannelTypeAdvancedCustom, pricingEndpointAdvancedCustomConfig(
+		dto.AdvancedCustomRoute{
+			IncomingPath: "/v1/chat/completions",
+			UpstreamPath: "/v1/chat/completions",
+		},
+		dto.AdvancedCustomRoute{
+			IncomingPath: "/v1/responses",
+			UpstreamPath: "/v1beta/models/{model}:generateContent",
+			Converter:    "openai_responses_to_gemini_generate_content",
+			Models:       []string{"re:^gemini-"},
+		},
+	))
+	insertPricingEndpointAbility(t, 303, "gemini-2.5-flash")
+	InitChannelCache()
+	require.Equal(t, []constant.EndpointType{
+		constant.EndpointTypeOpenAI,
+		constant.EndpointTypeOpenAIResponse,
+	}, GetModelSupportEndpointTypes("gemini-2.5-flash"))
+
+	// Simulate periodic/mutation invalidation that clears endpoint metadata
+	// without an immediate GetPricing rebuild (the /v1/models path).
+	InvalidatePricingCache()
+	assert.Equal(t, []constant.EndpointType{
+		constant.EndpointTypeOpenAI,
+		constant.EndpointTypeOpenAIResponse,
+	}, GetModelSupportEndpointTypes("gemini-2.5-flash"))
+}
+
 func TestInitChannelCacheInvalidatesPricingCache(t *testing.T) {
 	resetPricingEndpointTestTables(t)
 

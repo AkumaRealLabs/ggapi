@@ -63,6 +63,42 @@ func TestNewEstimatedGeminiChatBillingUsage(t *testing.T) {
 	assert.Equal(t, 18, billingUsage.GeminiUsageMetadata.TotalTokenCount)
 }
 
+func TestNewEstimatedGeminiChatBillingUsagePreservesDetails(t *testing.T) {
+	usage := &Usage{
+		PromptTokens:     100,
+		CompletionTokens: 23, // includes 3 reasoning tokens
+		TotalTokens:      123,
+	}
+	usage.PromptTokensDetails.CachedTokens = 7
+	usage.PromptTokensDetails.TextTokens = 80
+	usage.PromptTokensDetails.ImageTokens = 12
+	usage.PromptTokensDetails.AudioTokens = 8
+	usage.CompletionTokenDetails.ReasoningTokens = 3
+	usage.CompletionTokenDetails.TextTokens = 15
+	usage.CompletionTokenDetails.ImageTokens = 5
+
+	billingUsage := NewEstimatedGeminiChatBillingUsage(usage)
+	require.NotNil(t, billingUsage)
+	require.NotNil(t, billingUsage.GeminiUsageMetadata)
+	meta := billingUsage.GeminiUsageMetadata
+
+	assert.True(t, billingUsage.Estimated)
+	assert.Equal(t, 100, meta.PromptTokenCount)
+	assert.Equal(t, 20, meta.CandidatesTokenCount)
+	assert.Equal(t, 3, meta.ThoughtsTokenCount)
+	assert.Equal(t, 123, meta.TotalTokenCount)
+	assert.Equal(t, 7, meta.CachedContentTokenCount)
+	assert.Equal(t, []GeminiPromptTokensDetails{
+		{Modality: "TEXT", TokenCount: 80},
+		{Modality: "IMAGE", TokenCount: 12},
+		{Modality: "AUDIO", TokenCount: 8},
+	}, meta.PromptTokensDetails)
+	assert.Equal(t, []GeminiPromptTokensDetails{
+		{Modality: "TEXT", TokenCount: 15},
+		{Modality: "IMAGE", TokenCount: 5},
+	}, meta.CandidatesTokensDetails)
+}
+
 func TestBillingUsageJSONUsesProtocolNamedFields(t *testing.T) {
 	billingUsage := &BillingUsage{
 		OpenAIUsage:         &Usage{PromptTokens: 1, BillingUsage: NewClaudeMessagesBillingUsage(&ClaudeUsage{InputTokens: 9})},

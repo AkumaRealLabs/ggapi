@@ -18,6 +18,7 @@ import (
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/service/relayconvert"
+	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
 	"github.com/samber/lo"
@@ -318,7 +319,11 @@ func (a *Adaptor) resolve(c *gin.Context, info *relaycommon.RelayInfo) error {
 	}
 
 	incomingPath := incomingRequestPath(c, info)
-	route, ok := config.MatchPathForModel(incomingPath, info.OriginModelName)
+	// Compact mode rewrites OriginModelName with -openai-compact (see
+	// ModelMappedHelper). Strip it so model-scoped routes match the same
+	// unsuffixed client model used during channel selection.
+	routeModel := ratio_setting.WithoutCompactModelSuffix(info.OriginModelName)
+	route, ok := config.MatchPathForModel(incomingPath, routeModel)
 	if ok {
 		route.Converter = strings.TrimSpace(route.Converter)
 		if route.Converter == "" {
@@ -329,7 +334,7 @@ func (a *Adaptor) resolve(c *gin.Context, info *relaycommon.RelayInfo) error {
 		a.resolved = true
 		return nil
 	}
-	return fmt.Errorf("advanced custom channel does not support request path %s for model %s", incomingPath, info.OriginModelName)
+	return fmt.Errorf("advanced custom channel does not support request path %s for model %s", incomingPath, routeModel)
 }
 
 func incomingRequestPath(c *gin.Context, info *relaycommon.RelayInfo) string {
