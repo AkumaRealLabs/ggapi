@@ -101,6 +101,7 @@ function UnifiedTableView<TData>({
   getColumnClassName: DataTableColumnClassName
 }) {
   const tableSizing = getTableSizing(props)
+  const applyTrackSize = usesSharedColumnTracks(props)
 
   return (
     <div className={props.tableContainerClassName}>
@@ -117,11 +118,18 @@ function UnifiedTableView<TData>({
         <DataTableHeader
           table={props.table}
           applyHeaderSize={props.applyHeaderSize}
+          applyTrackSize={applyTrackSize}
           className={props.tableHeaderClassName}
           rowClassName={props.tableHeaderRowClassName}
           getColumnClassName={getColumnClassName}
         />
-        {renderTableBody(props, rows, colSpan, getColumnClassName)}
+        {renderTableBody(
+          props,
+          rows,
+          colSpan,
+          getColumnClassName,
+          applyTrackSize
+        )}
       </Table>
     </div>
   )
@@ -139,6 +147,7 @@ function SplitHeaderTableView<TData>({
   getColumnClassName: DataTableColumnClassName
 }) {
   const tableSizing = getTableSizing(props)
+  const applyTrackSize = usesSharedColumnTracks(props)
 
   return (
     <div
@@ -171,11 +180,18 @@ function SplitHeaderTableView<TData>({
           <DataTableHeader
             table={props.table}
             applyHeaderSize={props.applyHeaderSize}
+            applyTrackSize={applyTrackSize}
             className={cn('sticky top-0 z-20', props.tableHeaderClassName)}
             rowClassName={props.tableHeaderRowClassName}
             getColumnClassName={getColumnClassName}
           />
-          {renderTableBody(props, rows, colSpan, getColumnClassName)}
+          {renderTableBody(
+            props,
+            rows,
+            colSpan,
+            getColumnClassName,
+            applyTrackSize
+          )}
         </table>
       </div>
     </div>
@@ -241,6 +257,16 @@ function mergePinnedColumns(
   ]
 }
 
+/** Shared DataTableColgroup path owns track sizing; custom colgroup does not. */
+function usesSharedColumnTracks<TData>(
+  props: DataTableViewProps<TData>
+): boolean {
+  if (props.colgroup) {
+    return false
+  }
+  return Boolean(props.splitHeader || props.applyHeaderSize)
+}
+
 function getTableSizing<TData>(props: DataTableViewProps<TData>): {
   colgroup?: React.ReactNode
   style?: React.CSSProperties
@@ -249,7 +275,7 @@ function getTableSizing<TData>(props: DataTableViewProps<TData>): {
     return { colgroup: props.colgroup }
   }
 
-  if (!props.splitHeader && !props.applyHeaderSize) {
+  if (!usesSharedColumnTracks(props)) {
     return {}
   }
 
@@ -263,11 +289,18 @@ function renderTableBody<TData>(
   props: DataTableViewProps<TData>,
   rows: Row<TData>[],
   colSpan: number,
-  getColumnClassName: DataTableColumnClassName
+  getColumnClassName: DataTableColumnClassName,
+  applyTrackSize: boolean
 ) {
   return (
     <TableBody className={props.tableBodyClassName}>
-      {renderTableBodyContent(props, rows, colSpan, getColumnClassName)}
+      {renderTableBodyContent(
+        props,
+        rows,
+        colSpan,
+        getColumnClassName,
+        applyTrackSize
+      )}
     </TableBody>
   )
 }
@@ -276,7 +309,8 @@ function renderTableBodyContent<TData>(
   props: DataTableViewProps<TData>,
   rows: Row<TData>[],
   colSpan: number,
-  getColumnClassName: DataTableColumnClassName
+  getColumnClassName: DataTableColumnClassName,
+  applyTrackSize: boolean
 ) {
   if (props.isLoading) {
     return (
@@ -298,7 +332,7 @@ function renderTableBodyContent<TData>(
           getCellClassName: (columnId, className) =>
             cn(getColumnClassName(columnId, 'cell'), className),
         })
-      : renderDefaultRow(props, row, getColumnClassName)
+      : renderDefaultRow(props, row, getColumnClassName, applyTrackSize)
   )
 }
 
@@ -331,14 +365,17 @@ function renderEmptyState<TData>(
 function renderDefaultRow<TData>(
   props: DataTableViewProps<TData>,
   row: Row<TData>,
-  getColumnClassName: DataTableColumnClassName
+  getColumnClassName: DataTableColumnClassName,
+  applyTrackSize: boolean
 ) {
   return (
     <DataTableRow
       key={row.id}
       row={row}
+      table={props.table}
       className={cn(props.tableBodyRowClassName, props.getRowClassName?.(row))}
       getColumnClassName={getColumnClassName}
+      applyTrackSize={applyTrackSize}
     />
   )
 }

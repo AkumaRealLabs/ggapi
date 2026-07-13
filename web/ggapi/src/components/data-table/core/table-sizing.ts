@@ -19,21 +19,25 @@ For commercial licensing, please contact support@quantumnous.com
 import type { Table as TanstackTable } from '@tanstack/react-table'
 import type * as React from 'react'
 
-import { isContentSizedColumn } from './content-sized-columns'
+import { getColumnMinContributionForColumn } from './column-track-style'
 
 export function getTableSizeStyle<TData>(
   table: TanstackTable<TData>
 ): React.CSSProperties {
+  // Sum preferred/min widths so the table scrolls horizontally instead of
+  // crushing badges, names, or action controls when the viewport is narrow.
+  // table-layout: auto keeps nowrap headers/cells in the intrinsic track
+  // (fixed layout would ignore content and clip or overlap).
   const width = table
     .getVisibleLeafColumns()
-    .filter(
-      (column) =>
-        !isContentSizedColumn(column.id, column.columnDef.meta?.contentSized)
+    .reduce(
+      (total, column) =>
+        total + getColumnMinContributionForColumn(table, column),
+      0
     )
-    .reduce((total, column) => total + column.getSize(), 0)
 
   return {
-    minWidth: `max(100%, ${width}px)`,
+    minWidth: width > 0 ? `max(100%, ${width}px)` : '100%',
     tableLayout: 'auto',
     width: '100%',
   }

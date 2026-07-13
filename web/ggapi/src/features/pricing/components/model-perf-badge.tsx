@@ -66,21 +66,31 @@ export const ModelPerfBadge = memo(function ModelPerfBadge(
     []
   const statusRates =
     recentRates.length > 0 ? recentRates.slice(-3) : [success_rate]
-  const statusBars = [
-    ...Array(Math.max(0, 3 - statusRates.length)).fill(null),
-    ...statusRates,
+  const statusBars: Array<{ key: string; rate: number | null }> = [
+    ...Array.from({ length: Math.max(0, 3 - statusRates.length) }, (_, i) => ({
+      key: `empty-${i}`,
+      rate: null as number | null,
+    })),
+    ...statusRates.map((rate, i) => ({
+      key: `rate-${i}-${rate}`,
+      rate,
+    })),
   ].slice(-3)
+
+  const barHeightClass = ['h-1.5', 'h-2', 'h-2.5'] as const
 
   return (
     <div
       data-slot='sketch-perf-badge'
       className={cn(
-        'hidden w-[132px] grid-cols-[38px_48px_30px] gap-x-2 text-right tabular-nums min-[460px]:grid',
+        // Flexible columns + overflow so CJK labels and status bars stay
+        // inside the sketched border (fixed 38/48/30px grid was too tight).
+        'hidden w-max max-w-full grid-cols-[minmax(2rem,auto)_minmax(2rem,auto)_auto] gap-x-1.5 overflow-hidden text-right tabular-nums min-[460px]:grid',
         props.className
       )}
     >
       <div title={t('Average latency')} className='min-w-0'>
-        <div className='text-muted-foreground/55 text-xs leading-4'>
+        <div className='text-muted-foreground/55 truncate text-xs leading-3'>
           {t('Latency short')}
         </div>
         <div className='text-muted-foreground/80 font-mono text-xs leading-4 whitespace-nowrap'>
@@ -88,7 +98,7 @@ export const ModelPerfBadge = memo(function ModelPerfBadge(
         </div>
       </div>
       <div title={t('Throughput')} className='min-w-0'>
-        <div className='text-muted-foreground/55 truncate text-xs leading-4'>
+        <div className='text-muted-foreground/55 truncate text-xs leading-3'>
           {t('Throughput short')}
         </div>
         <div className='text-muted-foreground/80 font-mono text-xs leading-4 whitespace-nowrap'>
@@ -97,28 +107,31 @@ export const ModelPerfBadge = memo(function ModelPerfBadge(
       </div>
       <div
         title={`${t('Success rate')}: ${success_rate.toFixed(1)}%`}
-        className='min-w-0'
+        className='min-w-0 shrink-0'
       >
-        <div className='text-muted-foreground/55 truncate text-xs leading-4'>
+        <div className='text-muted-foreground/55 truncate text-xs leading-3'>
           {t('Status short')}
         </div>
-        <div className='flex h-4 items-center justify-end gap-0.5'>
-          {statusBars.map((rate, index) => (
-            <span
-              key={`${index}-${rate ?? 'empty'}`}
-              className={cn(
-                'w-1 rounded-full',
-                index === 0 && 'h-2',
-                index === 1 && 'h-2.5',
-                index === 2 && 'h-3',
-                rate == null
-                  ? index === 0
-                    ? 'bg-muted-foreground/10'
-                    : 'bg-muted-foreground/15'
-                  : getSuccessRateDotClass(rate)
-              )}
-            />
-          ))}
+        <div className='flex h-4 items-end justify-end gap-px overflow-hidden pb-px'>
+          {statusBars.map((bar, index) => {
+            let toneClass = 'bg-muted-foreground/15'
+            if (bar.rate == null) {
+              toneClass =
+                index === 0 ? 'bg-muted-foreground/10' : 'bg-muted-foreground/15'
+            } else {
+              toneClass = getSuccessRateDotClass(bar.rate)
+            }
+            return (
+              <span
+                key={bar.key}
+                className={cn(
+                  'w-1 shrink-0 rounded-full',
+                  barHeightClass[index] ?? 'h-2',
+                  toneClass
+                )}
+              />
+            )
+          })}
         </div>
       </div>
     </div>
