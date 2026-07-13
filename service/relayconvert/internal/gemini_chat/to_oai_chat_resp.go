@@ -31,18 +31,6 @@ func UsageFromGeminiMetadata(metadata *dto.GeminiUsageMetadata, fallbackPromptTo
 		CompletionTokens: metadata.CandidatesTokenCount + metadata.ThoughtsTokenCount,
 		TotalTokens:      metadata.TotalTokenCount,
 	}
-	// When prompt was filled from the local estimate, do not keep the original
-	// zero-prompt Gemini metadata as BillingUsage: effectiveBillingUsage prefers
-	// the nested record and would underbill. Build estimated billing from the
-	// normalized top-level usage instead.
-	if usedFallbackPrompt {
-		usage.BillingUsage = dto.NewEstimatedGeminiChatBillingUsage(usage)
-	} else {
-		usage.BillingUsage = dto.CloneBillingUsage(metadata.BillingUsage)
-		if usage.BillingUsage == nil {
-			usage.BillingUsage = dto.NewGeminiChatBillingUsage(metadata)
-		}
-	}
 	usage.CompletionTokenDetails.ReasoningTokens = metadata.ThoughtsTokenCount
 	usage.PromptTokensDetails.CachedTokens = metadata.CachedContentTokenCount
 
@@ -81,6 +69,20 @@ func UsageFromGeminiMetadata(metadata *dto.GeminiUsageMetadata, fallbackPromptTo
 
 	if usage.PromptTokens > 0 && usage.PromptTokensDetails.TextTokens == 0 && usage.PromptTokensDetails.AudioTokens == 0 {
 		usage.PromptTokensDetails.TextTokens = usage.PromptTokens
+	}
+
+	// Build BillingUsage only after top-level details are normalized.
+	// When prompt was filled from the local estimate, do not keep the original
+	// zero-prompt Gemini metadata: effectiveBillingUsage prefers the nested
+	// record and would underbill. Estimated billing must include cache/modality
+	// details already copied onto usage above.
+	if usedFallbackPrompt {
+		usage.BillingUsage = dto.NewEstimatedGeminiChatBillingUsage(usage)
+	} else {
+		usage.BillingUsage = dto.CloneBillingUsage(metadata.BillingUsage)
+		if usage.BillingUsage == nil {
+			usage.BillingUsage = dto.NewGeminiChatBillingUsage(metadata)
+		}
 	}
 
 	return usage

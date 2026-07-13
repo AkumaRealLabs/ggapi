@@ -72,7 +72,14 @@ func ModelMappedHelper(c *gin.Context, info *common.RelayInfo, request dto.Reque
 			finalUpstreamModelName = info.UpstreamModelName
 		}
 		info.UpstreamModelName = finalUpstreamModelName
-		info.OriginModelName = ratio_setting.WithCompactModelSuffix(finalUpstreamModelName)
+		// Keep OriginModelName as the client compact model used for channel
+		// selection and Advanced Custom route matching. Rewriting it to the
+		// mapped upstream name would make model-scoped routes miss (selection
+		// matched `alias`, resolve would see `gpt-4o`). Billing also stays on
+		// the client-facing compact ability key.
+		if !strings.HasSuffix(info.OriginModelName, ratio_setting.CompactModelSuffix) {
+			info.OriginModelName = ratio_setting.WithCompactModelSuffix(info.OriginModelName)
+		}
 	}
 	if request != nil {
 		request.SetModelName(info.UpstreamModelName)

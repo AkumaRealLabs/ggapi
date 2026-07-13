@@ -137,7 +137,9 @@ func getPricingEndpointTypesForAbility(ability AbilityWithChannel, advancedCusto
 		return common.GetEndpointTypesByChannelType(ability.ChannelType, ability.Model)
 	}
 	if config := advancedCustomConfigs[ability.ChannelId]; config != nil {
-		return config.SupportedEndpointTypesForModel(ability.Model)
+		// Compact abilities are stored as `model-openai-compact` while Advanced
+		// Custom route model rules match the unsuffixed client model.
+		return config.SupportedEndpointTypesForModel(ratio_setting.WithoutCompactModelSuffix(ability.Model))
 	}
 	return common.GetEndpointTypesByChannelType(ability.ChannelType, ability.Model)
 }
