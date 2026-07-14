@@ -402,6 +402,7 @@ export type PromptInputActionAddAttachmentsProps = ComponentProps<
 
 export const PromptInputActionAddAttachments = ({
   label,
+  onClick,
   ...props
 }: PromptInputActionAddAttachmentsProps) => {
   const { t } = useTranslation()
@@ -411,8 +412,9 @@ export const PromptInputActionAddAttachments = ({
   return (
     <DropdownMenuItem
       {...props}
-      onSelect={(e) => {
-        e.preventDefault()
+      onClick={(event) => {
+        onClick?.(event)
+        if (event.defaultPrevented) return
         attachments.openFileDialog()
       }}
     >
