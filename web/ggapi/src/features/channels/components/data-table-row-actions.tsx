@@ -367,8 +367,7 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
           {/* Delete */}
           <DropdownMenuItem
             disabled={!canEditSensitive}
-            onSelect={(e) => {
-              e.preventDefault()
+            onClick={() => {
               if (!canEditSensitive) return
               setDeleteConfirmOpen(true)
             }}

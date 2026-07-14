@@ -245,10 +245,7 @@ export function ChannelsPrimaryButtons() {
             <DropdownMenuSeparator />
 
             <DropdownMenuItem
-              onSelect={(e) => {
-                e.preventDefault()
-                setShowConsistencyDialog(true)
-              }}
+              onClick={() => setShowConsistencyDialog(true)}
             >
               {t('Repair Channel Consistency')}
               <DropdownMenuShortcut>
@@ -259,8 +256,7 @@ export function ChannelsPrimaryButtons() {
             <DropdownMenuSeparator />
 
             <DropdownMenuItem
-              onSelect={(e) => {
-                e.preventDefault()
+              onClick={() => {
                 if (!canEditSensitive) return
                 setShowDeleteDialog(true)
               }}
