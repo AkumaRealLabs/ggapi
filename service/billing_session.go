@@ -406,6 +406,16 @@ func NewBillingSession(c *gin.Context, relayInfo *relaycommon.RelayInfo, preCons
 
 	switch pref {
 	case "subscription_only":
+		// Group-aware, same as subscription_first: membership-only and
+		// quota subs for other groups must not force trySubscription() into a
+		// hard failure with no wallet fallback.
+		hasSub, err := model.HasActiveUserSubscription(relayInfo.UserId, usingGroup)
+		if err != nil {
+			return nil, types.NewError(err, types.ErrorCodeQueryDataError, types.ErrOptionWithSkipRetry())
+		}
+		if !hasSub {
+			return tryWallet()
+		}
 		return trySubscription()
 	case "wallet_only":
 		return tryWallet()

@@ -182,7 +182,10 @@ export function SubscriptionPlansCard({
 
   const hasActive = activeSubscriptions.length > 0
   const hasAny = allSubscriptions.length > 0
-  const disablePref = !hasActive
+  const hasActiveQuotaSubscription = activeSubscriptions.some(
+    (sub) => !sub.subscription.membership_only
+  )
+  const disablePref = !hasActiveQuotaSubscription
   const isSubPref =
     billingPreference === 'subscription_first' ||
     billingPreference === 'subscription_only'
@@ -359,7 +362,7 @@ export function SubscriptionPlansCard({
           {disablePref && isSubPref && (
             <p className='text-muted-foreground text-xs'>
               {t(
-                'Preference saved as {{pref}}, but no active subscription. Wallet will be used automatically.',
+                'Preference saved as {{pref}}, but no active quota plan. Wallet will be used automatically.',
                 {
                   pref:
                     billingPreference === 'subscription_only'
@@ -374,6 +377,7 @@ export function SubscriptionPlansCard({
             <div className='divide-border/60 max-h-72 divide-y overflow-y-auto'>
               {allSubscriptions.map((sub) => {
                 const subscription = sub.subscription
+                const membershipOnly = subscription?.membership_only === true
                 const totalAmount = Number(subscription?.amount_total || 0)
                 const usedAmount = Number(subscription?.amount_used || 0)
                 const remainAmount =
@@ -427,37 +431,46 @@ export function SubscriptionPlansCard({
                         (subscription?.end_time || 0) * 1000
                       ).toLocaleString()}
                     </div>
-                    {isActive && nextResetTime > 0 && (
+                    {!membershipOnly && isActive && nextResetTime > 0 && (
                       <div className='text-muted-foreground'>
                         {t('Next reset')}:{' '}
                         {new Date(nextResetTime * 1000).toLocaleString()}
                       </div>
                     )}
                     <div className='text-muted-foreground'>
-                      {t('Total Quota')}:{' '}
-                      {totalAmount > 0 ? (
-                        <Tooltip>
-                          <TooltipTrigger
-                            render={<span className='cursor-help' />}
-                          >
-                            {formatQuota(usedAmount)}/{formatQuota(totalAmount)}{' '}
-                            · {t('Remaining')} {formatQuota(remainAmount)}
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            {t('Raw Quota')}: {usedAmount}/{totalAmount} ·{' '}
-                            {t('Remaining')} {remainAmount}
-                          </TooltipContent>
-                        </Tooltip>
+                      {membershipOnly ? (
+                        <StatusBadge variant='info'>
+                          {t('Membership benefits')}
+                        </StatusBadge>
                       ) : (
-                        t('Unlimited')
+                        <>
+                          {t('Total Quota')}:{' '}
+                          {totalAmount > 0 ? (
+                            <Tooltip>
+                              <TooltipTrigger
+                                render={<span className='cursor-help' />}
+                              >
+                                {formatQuota(usedAmount)}/
+                                {formatQuota(totalAmount)} · {t('Remaining')}{' '}
+                                {formatQuota(remainAmount)}
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                {t('Raw Quota')}: {usedAmount}/{totalAmount} ·{' '}
+                                {t('Remaining')} {remainAmount}
+                              </TooltipContent>
+                            </Tooltip>
+                          ) : (
+                            t('Unlimited')
+                          )}
+                        </>
                       )}
-                      {totalAmount > 0 && (
+                      {!membershipOnly && totalAmount > 0 && (
                         <span className='ml-2'>
                           {t('Used')} {usagePercent}%
                         </span>
                       )}
                     </div>
-                    {totalAmount > 0 && isActive && (
+                    {!membershipOnly && totalAmount > 0 && isActive && (
                       <Progress value={usagePercent} className='mt-1.5 h-1' />
                     )}
                   </div>
@@ -479,20 +492,31 @@ export function SubscriptionPlansCard({
                 const plan = p?.plan
                 if (!plan) return null
                 const totalAmount = Number(plan.total_amount || 0)
+                const membershipOnly = plan.membership_only === true
                 const price = Number(plan.price_amount || 0).toFixed(2)
                 const isPopular = index === 0 && plans.length > 1
                 const limit = Number(plan.max_purchase_per_user || 0)
                 const count = planPurchaseCountMap.get(plan.id) || 0
                 const reached = limit > 0 && count >= limit
 
-                const benefits = [
-                  `${t('Validity Period')}: ${formatDuration(plan, t)}`,
+                const resetBenefit =
+                  !membershipOnly &&
                   formatResetPeriod(plan, t) !== t('No Reset')
                     ? `${t('Quota Reset')}: ${formatResetPeriod(plan, t)}`
-                    : null,
-                  totalAmount > 0
-                    ? `${t('Total Quota')}: ${formatQuota(totalAmount)}`
-                    : `${t('Total Quota')}: ${t('Unlimited')}`,
+                    : null
+                let quotaBenefit: string | null = null
+                if (!membershipOnly) {
+                  quotaBenefit =
+                    totalAmount > 0
+                      ? `${t('Total Quota')}: ${formatQuota(totalAmount)}`
+                      : `${t('Total Quota')}: ${t('Unlimited')}`
+                }
+
+                const benefits = [
+                  `${t('Validity Period')}: ${formatDuration(plan, t)}`,
+                  membershipOnly ? t('Membership benefits') : null,
+                  resetBenefit,
+                  quotaBenefit,
                   limit > 0 ? `${t('Purchase Limit')}: ${limit}` : null,
                   plan.upgrade_group
                     ? `${t('Upgrade Group')}: ${plan.upgrade_group}`

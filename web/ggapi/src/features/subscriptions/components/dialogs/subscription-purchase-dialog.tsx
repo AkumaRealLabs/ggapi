@@ -98,6 +98,7 @@ export function SubscriptionPurchaseDialog(props: Props) {
     selectedEpayMethod ||
     t('Select payment method')
   const totalAmount = Number(plan.total_amount || 0)
+  const membershipOnly = plan.membership_only === true
   const price = Number(plan.price_amount || 0).toFixed(2)
   const quotaPerUnit =
     currency?.quotaPerUnit && currency.quotaPerUnit > 0
@@ -289,7 +290,7 @@ export function SubscriptionPurchaseDialog(props: Props) {
               {formatDuration(plan, t)}
             </span>
           </div>
-          {formatResetPeriod(plan, t) !== t('No Reset') && (
+          {!membershipOnly && formatResetPeriod(plan, t) !== t('No Reset') && (
             <div className='flex justify-between'>
               <span className='text-muted-foreground text-sm'>
                 {t('Reset Period')}
@@ -299,11 +300,20 @@ export function SubscriptionPurchaseDialog(props: Props) {
           )}
           <div className='flex items-center justify-between'>
             <span className='text-muted-foreground text-sm'>
-              {t('Plan Quota')}
+              {membershipOnly ? t('Membership benefits') : t('Plan Quota')}
             </span>
             <span className='flex items-center gap-1 text-sm'>
-              <Package className='h-3.5 w-3.5' />
-              {totalAmount > 0 ? formatQuota(totalAmount) : t('Unlimited')}
+              {membershipOnly ? (
+                <>
+                  <Crown className='h-3.5 w-3.5' />
+                  {t('Membership benefits')}
+                </>
+              ) : (
+                <>
+                  <Package className='h-3.5 w-3.5' />
+                  {totalAmount > 0 ? formatQuota(totalAmount) : t('Unlimited')}
+                </>
+              )}
             </span>
           </div>
           {plan.upgrade_group && (

@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 func seedSubscriptionResetPlan(t *testing.T, plan *SubscriptionPlan) {
@@ -198,4 +199,355 @@ func TestAdminResetPlanSubscriptionsNoMatchSucceeds(t *testing.T) {
 	assert.Zero(t, result.ResetCount)
 	assert.Zero(t, result.UserCount)
 	assert.Empty(t, result.AffectedUserIds)
+}
+
+func TestMembershipOnlySubscriptionRejectsQuotaReset(t *testing.T) {
+	truncateTables(t)
+
+	now := GetDBTimestamp()
+	plan := &SubscriptionPlan{
+		Id:               9701,
+		Title:            "Test Membership",
+		PriceAmount:      10,
+		DurationUnit:     SubscriptionDurationMonth,
+		DurationValue:    1,
+		MembershipOnly:   true,
+		UpgradeGroup:     "test-member",
+		DowngradeGroup:   "test-base",
+		QuotaResetPeriod: SubscriptionResetNever,
+	}
+	seedSubscriptionResetPlan(t, plan)
+	seedSubscriptionResetSub(t, &UserSubscription{
+		Id:             9702,
+		UserId:         501,
+		PlanId:         plan.Id,
+		StartTime:      now - 3600,
+		EndTime:        now + 30*24*3600,
+		Status:         "active",
+		MembershipOnly: true,
+	})
+
+	userResult, err := AdminResetUserSubscriptionsByPlan(501, plan.Id, true)
+	require.Error(t, err)
+	assert.Nil(t, userResult)
+	assert.Contains(t, err.Error(), "会员权益套餐不支持额度重置")
+
+	planResult, err := AdminResetPlanSubscriptions(plan.Id, true)
+	require.Error(t, err)
+	assert.Nil(t, planResult)
+	assert.Contains(t, err.Error(), "会员权益套餐不支持额度重置")
+}
+
+func TestBackfillSubscriptionMembershipColumns(t *testing.T) {
+	truncateTables(t)
+
+	require.NoError(t, DB.Exec(
+		"INSERT INTO subscription_plans (id, title, membership_only) VALUES (?, ?, NULL)",
+		9801,
+		"Legacy Test Plan",
+	).Error)
+	require.NoError(t, DB.Exec(
+		"INSERT INTO user_subscriptions (id, user_id, plan_id, status, end_time, membership_only) VALUES (?, ?, ?, ?, ?, NULL)",
+		9802,
+		601,
+		9801,
+		"active",
+		GetDBTimestamp()+3600,
+	).Error)
+
+	require.NoError(t, backfillSubscriptionMembershipColumns())
+
+	var planCount int64
+	require.NoError(t, DB.Model(&SubscriptionPlan{}).
+		Where("id = ? AND membership_only = ?", 9801, false).
+		Count(&planCount).Error)
+	assert.EqualValues(t, 1, planCount)
+
+	var subscriptionCount int64
+	require.NoError(t, DB.Model(&UserSubscription{}).
+		Where("id = ? AND membership_only = ?", 9802, false).
+		Count(&subscriptionCount).Error)
+	assert.EqualValues(t, 1, subscriptionCount)
+}
+
+func TestMaybeResetClearsDueScheduleWhenPlanResetNever(t *testing.T) {
+	truncateTables(t)
+	now := GetDBTimestamp()
+
+	plan := &SubscriptionPlan{
+		Id:               9810,
+		Title:            "Flipped To Never",
+		PriceAmount:      10,
+		DurationUnit:     SubscriptionDurationMonth,
+		DurationValue:    1,
+		TotalAmount:      1000,
+		QuotaResetPeriod: SubscriptionResetNever,
+		MembershipOnly:   false,
+	}
+	seedSubscriptionResetPlan(t, plan)
+	seedSubscriptionResetSub(t, &UserSubscription{
+		Id:             9811,
+		UserId:         701,
+		PlanId:         plan.Id,
+		AmountTotal:    1000,
+		AmountUsed:     100,
+		StartTime:      now - 3600,
+		EndTime:        now + 30*24*3600,
+		Status:         "active",
+		MembershipOnly: false,
+		LastResetTime:  now - 3600,
+		NextResetTime:  now - 10, // already due
+	})
+
+	// Worker must clear the due schedule instead of looping forever.
+	n, err := ResetDueSubscriptions(10)
+	require.NoError(t, err)
+	assert.Equal(t, 1, n)
+
+	sub := getSubscriptionResetSub(t, 9811)
+	assert.Zero(t, sub.NextResetTime)
+	assert.EqualValues(t, 100, sub.AmountUsed) // no quota reset when plan is never
+
+	// Second pass must not re-select the same row.
+	n2, err := ResetDueSubscriptions(10)
+	require.NoError(t, err)
+	assert.Zero(t, n2)
+}
+
+func TestMaybeResetClearsDueScheduleForMembershipOnlySub(t *testing.T) {
+	truncateTables(t)
+	now := GetDBTimestamp()
+
+	plan := &SubscriptionPlan{
+		Id:               9820,
+		Title:            "Membership",
+		PriceAmount:      10,
+		DurationUnit:     SubscriptionDurationMonth,
+		DurationValue:    1,
+		MembershipOnly:   true,
+		UpgradeGroup:     "vip",
+		QuotaResetPeriod: SubscriptionResetNever,
+	}
+	seedSubscriptionResetPlan(t, plan)
+	// Stale snapshot: membership sub still carrying a due next_reset_time.
+	seedSubscriptionResetSub(t, &UserSubscription{
+		Id:             9821,
+		UserId:         702,
+		PlanId:         plan.Id,
+		AmountTotal:    0,
+		StartTime:      now - 3600,
+		EndTime:        now + 30*24*3600,
+		Status:         "active",
+		MembershipOnly: true,
+		NextResetTime:  now - 5,
+	})
+
+	n, err := ResetDueSubscriptions(10)
+	require.NoError(t, err)
+	// membership_only=true rows are filtered from the due query (by design).
+	assert.Zero(t, n)
+	assert.NotZero(t, getSubscriptionResetSub(t, 9821).NextResetTime)
+
+	// If a non-membership sub shares a membership plan reset=never, clear schedule.
+	seedSubscriptionResetSub(t, &UserSubscription{
+		Id:             9822,
+		UserId:         703,
+		PlanId:         plan.Id,
+		AmountTotal:    500,
+		AmountUsed:     50,
+		StartTime:      now - 3600,
+		EndTime:        now + 30*24*3600,
+		Status:         "active",
+		MembershipOnly: false,
+		NextResetTime:  now - 5,
+	})
+	n, err = ResetDueSubscriptions(10)
+	require.NoError(t, err)
+	assert.Equal(t, 1, n)
+	assert.Zero(t, getSubscriptionResetSub(t, 9822).NextResetTime)
+	assert.EqualValues(t, 50, getSubscriptionResetSub(t, 9822).AmountUsed)
+}
+
+func TestCountActiveUserSubscriptionsByPlan(t *testing.T) {
+	truncateTables(t)
+	now := GetDBTimestamp()
+	plan := &SubscriptionPlan{
+		Id: 9830, Title: "Count", PriceAmount: 1,
+		DurationUnit: SubscriptionDurationMonth, DurationValue: 1,
+	}
+	seedSubscriptionResetPlan(t, plan)
+	seedSubscriptionResetSub(t, &UserSubscription{
+		Id: 9831, UserId: 801, PlanId: plan.Id, Status: "active",
+		StartTime: now - 10, EndTime: now + 3600,
+	})
+	seedSubscriptionResetSub(t, &UserSubscription{
+		Id: 9832, UserId: 802, PlanId: plan.Id, Status: "active",
+		StartTime: now - 10, EndTime: now - 1, // expired
+	})
+	n, err := CountActiveUserSubscriptionsByPlan(9830)
+	require.NoError(t, err)
+	assert.EqualValues(t, 1, n)
+}
+
+func TestAdminUpdateSubscriptionPlanFieldsBlocksActiveAndRecentPending(t *testing.T) {
+	truncateTables(t)
+	now := GetDBTimestamp()
+	plan := &SubscriptionPlan{
+		Id: 9840, Title: "Flip", PriceAmount: 10,
+		DurationUnit: SubscriptionDurationMonth, DurationValue: 1,
+		TotalAmount: 1000, MembershipOnly: false, UpgradeGroup: "vip",
+	}
+	seedSubscriptionResetPlan(t, plan)
+	seedSubscriptionResetSub(t, &UserSubscription{
+		Id: 9841, UserId: 901, PlanId: plan.Id, Status: "active",
+		StartTime: now - 10, EndTime: now + 3600, MembershipOnly: false,
+	})
+
+	mo := true
+	err := AdminUpdateSubscriptionPlanFields(plan.Id, map[string]interface{}{
+		"title": "Flip Membership",
+	}, &mo)
+	require.ErrorIs(t, err, ErrSubscriptionPlanTypeChangeBlocked)
+
+	// Clear active sub; a fresh pending order still blocks.
+	require.NoError(t, DB.Model(&UserSubscription{}).Where("id = ?", 9841).
+		Update("status", "expired").Error)
+	require.NoError(t, DB.Create(&SubscriptionOrder{
+		UserId: 901, PlanId: plan.Id, Money: 10,
+		TradeNo: "sub-pending-fresh", Status: commonTopUpPendingForTest(),
+		CreateTime: now,
+	}).Error)
+	err = AdminUpdateSubscriptionPlanFields(plan.Id, map[string]interface{}{
+		"title": "Flip Membership",
+	}, &mo)
+	require.ErrorIs(t, err, ErrSubscriptionPlanTypeChangeBlocked)
+}
+
+func TestAdminUpdateSubscriptionPlanFieldsBlocksAnyPendingOrder(t *testing.T) {
+	truncateTables(t)
+	now := GetDBTimestamp()
+	plan := &SubscriptionPlan{
+		Id: 9850, Title: "Any Pending", PriceAmount: 10,
+		DurationUnit: SubscriptionDurationMonth, DurationValue: 1,
+		TotalAmount: 1000, MembershipOnly: false, UpgradeGroup: "vip",
+	}
+	seedSubscriptionResetPlan(t, plan)
+	// Even an old pending order still blocks — it remains completable.
+	require.NoError(t, DB.Create(&SubscriptionOrder{
+		UserId: 902, PlanId: plan.Id, Money: 10,
+		TradeNo: "sub-pending-old", Status: commonTopUpPendingForTest(),
+		CreateTime: now - 48*3600,
+	}).Error)
+
+	mo := true
+	err := AdminUpdateSubscriptionPlanFields(plan.Id, map[string]interface{}{
+		"title":         "Now Membership",
+		"upgrade_group": "vip",
+	}, &mo)
+	require.ErrorIs(t, err, ErrSubscriptionPlanTypeChangeBlocked)
+
+	// After expire, type flip is allowed.
+	require.NoError(t, ExpireSubscriptionOrder("sub-pending-old", ""))
+	err = AdminUpdateSubscriptionPlanFields(plan.Id, map[string]interface{}{
+		"title":         "Now Membership",
+		"upgrade_group": "vip",
+	}, &mo)
+	require.NoError(t, err)
+	var updated SubscriptionPlan
+	require.NoError(t, DB.Where("id = ?", plan.Id).First(&updated).Error)
+	assert.True(t, updated.MembershipOnly)
+}
+
+func TestAdminUpdateSubscriptionPlanFieldsEnforcesMembershipWhenOmitted(t *testing.T) {
+	truncateTables(t)
+	plan := &SubscriptionPlan{
+		Id: 9855, Title: "Keep Membership", PriceAmount: 10,
+		DurationUnit: SubscriptionDurationMonth, DurationValue: 1,
+		TotalAmount: 0, MembershipOnly: true, UpgradeGroup: "vip",
+		QuotaResetPeriod: SubscriptionResetNever,
+	}
+	seedSubscriptionResetPlan(t, plan)
+
+	// Omitted membership_only with a stale blank upgrade_group must be rejected.
+	err := AdminUpdateSubscriptionPlanFields(plan.Id, map[string]interface{}{
+		"title":         "Still Membership",
+		"upgrade_group": "",
+		"total_amount":  int64(999),
+	}, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "升级分组")
+
+	// Valid omit still forces membership invariants (no quota / never reset).
+	err = AdminUpdateSubscriptionPlanFields(plan.Id, map[string]interface{}{
+		"title":         "Still Membership",
+		"upgrade_group": "vip",
+		"total_amount":  int64(999),
+		"quota_reset_period": SubscriptionResetDaily,
+	}, nil)
+	require.NoError(t, err)
+	var updated SubscriptionPlan
+	require.NoError(t, DB.Where("id = ?", plan.Id).First(&updated).Error)
+	assert.True(t, updated.MembershipOnly)
+	assert.Zero(t, updated.TotalAmount)
+	assert.Equal(t, SubscriptionResetNever, updated.QuotaResetPeriod)
+}
+
+func TestAdminUpdateSubscriptionPlanFieldsOmitsMembershipWhenNil(t *testing.T) {
+	truncateTables(t)
+	plan := &SubscriptionPlan{
+		Id: 9860, Title: "Keep Type", PriceAmount: 10,
+		DurationUnit: SubscriptionDurationMonth, DurationValue: 1,
+		TotalAmount: 500, MembershipOnly: true, UpgradeGroup: "vip",
+	}
+	seedSubscriptionResetPlan(t, plan)
+
+	// Omit membership_only (nil pointer): title update must not demote type.
+	err := AdminUpdateSubscriptionPlanFields(plan.Id, map[string]interface{}{
+		"title":          "Renamed",
+		"membership_only": false, // must be stripped even if present in map
+	}, nil)
+	require.NoError(t, err)
+
+	var updated SubscriptionPlan
+	require.NoError(t, DB.Where("id = ?", plan.Id).First(&updated).Error)
+	assert.True(t, updated.MembershipOnly)
+	assert.Equal(t, "Renamed", updated.Title)
+}
+
+func TestCreateUserSubscriptionFromPlanTxUsesLockedPlanType(t *testing.T) {
+	truncateTables(t)
+	plan := &SubscriptionPlan{
+		Id: 9870, Title: "Live Type", PriceAmount: 10,
+		DurationUnit: SubscriptionDurationMonth, DurationValue: 1,
+		TotalAmount: 0, MembershipOnly: true, UpgradeGroup: "vip",
+		QuotaResetPeriod: SubscriptionResetNever,
+	}
+	seedSubscriptionResetPlan(t, plan)
+	require.NoError(t, DB.Create(&User{
+		Id: 910, Username: "mem-user", Password: "x", Group: "default", Quota: 0,
+	}).Error)
+
+	// Stale in-memory snapshot claims this is a quota plan with amount.
+	stale := &SubscriptionPlan{
+		Id: plan.Id, Title: plan.Title, PriceAmount: 10,
+		DurationUnit: SubscriptionDurationMonth, DurationValue: 1,
+		TotalAmount: 9999, MembershipOnly: false, UpgradeGroup: "vip",
+		QuotaResetPeriod: SubscriptionResetDaily,
+	}
+	var created *UserSubscription
+	err := DB.Transaction(func(tx *gorm.DB) error {
+		var err error
+		created, err = CreateUserSubscriptionFromPlanTx(tx, 910, stale, "order")
+		return err
+	})
+	require.NoError(t, err)
+	require.NotNil(t, created)
+	assert.True(t, created.MembershipOnly)
+	assert.Zero(t, created.AmountTotal)
+	assert.Zero(t, created.NextResetTime)
+}
+
+// commonTopUpPendingForTest avoids importing common constants into every assert path name.
+func commonTopUpPendingForTest() string {
+	return "pending"
 }

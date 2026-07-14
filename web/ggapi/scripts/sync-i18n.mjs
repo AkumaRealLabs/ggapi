@@ -22,12 +22,6 @@ import path from 'node:path'
 // This script is executed from the web/ package root (see package.json script).
 const LOCALES_DIR = path.resolve('src/i18n/locales')
 const FALLBACK_COMPARE_LOCALE = 'en' // used for "still English" detection only
-const OBFUSCATED_KEYS = [
-  {
-    runtime: ['footer', 'new' + 'api', 'projectAttributionSuffix'].join('.'),
-    serialized: 'footer.new\\u0061pi.projectAttributionSuffix',
-  },
-]
 
 const BRAND_AND_LITERAL_KEYS = new Set([
   'AI Proxy',
@@ -121,11 +115,36 @@ function isPlainObject(v) {
 }
 
 function stableStringify(obj) {
-  let text = JSON.stringify(obj, null, 2)
-  for (const key of OBFUSCATED_KEYS) {
-    text = text.replaceAll(`"${key.runtime}":`, `"${key.serialized}":`)
+  return `${JSON.stringify(obj, null, 2)}\n`
+}
+
+function getTranslationKeyOrder(raw) {
+  const keys = []
+  for (const line of raw.split('\n')) {
+    const match = line.match(/^ {4}("(?:\\.|[^"\\])*"):/)
+    if (match) keys.push(JSON.parse(match[1]))
   }
-  return text + '\n'
+  return keys
+}
+
+function stringifyLocale(json, keyOrder) {
+  const translation = json?.translation ?? {}
+  const keys = []
+  const seen = new Set()
+
+  for (const key of keyOrder) {
+    if (!Object.hasOwn(translation, key)) continue
+    keys.push(key)
+    seen.add(key)
+  }
+  for (const key of Object.keys(translation)) {
+    if (!seen.has(key)) keys.push(key)
+  }
+
+  const lines = keys.map(
+    (key) => `    ${JSON.stringify(key)}: ${JSON.stringify(translation[key])}`
+  )
+  return `{\n  "translation": {\n${lines.join(',\n')}\n  }\n}\n`
 }
 
 function countLeafKeys(obj) {
@@ -156,7 +175,7 @@ function reorderLikeBase(
 
     for (const key of Object.keys(base)) {
       const nextPath = [...currentPath, key]
-      if (Object.prototype.hasOwnProperty.call(t, key)) {
+      if (Object.hasOwn(t, key)) {
         out[key] = reorderLikeBase(
           base[key],
           t[key],
@@ -179,7 +198,7 @@ function reorderLikeBase(
     }
 
     for (const key of Object.keys(t)) {
-      if (!Object.prototype.hasOwnProperty.call(base, key)) {
+      if (!Object.hasOwn(base, key)) {
         const nextPath = [...currentPath, key].join('.')
         extras[nextPath] = t[key]
       }
@@ -212,10 +231,10 @@ function isLikelyUntranslated({ locale, baseValue, value }) {
     /^[\w.-]+@[\w.-]+$/.test(s) ||
     /^smtp\./i.test(s) ||
     /^socks5:/i.test(s) ||
-    /^org-/.test(s) ||
+    s.startsWith('org-') ||
     /^gpt-/i.test(s) ||
-    /^checkout\./.test(s) ||
-    /^footer\./.test(s) ||
+    s.startsWith('checkout.') ||
+    s.startsWith('footer.') ||
     /^[A-Z0-9_ *./:-]+$/.test(s) ||
     s.startsWith('{') ||
     s.startsWith('[') ||
@@ -232,8 +251,9 @@ function isLikelyUntranslated({ locale, baseValue, value }) {
   if (locale === 'ru') return true
 
   // For fr/vi: still useful but noisier; keep it conservative.
-  if (locale === 'fr' || locale === 'vi')
+  if (locale === 'fr' || locale === 'vi') {
     return /\b(the|and|or|to|with|please)\b/i.test(s)
+  }
 
   return false
 }
@@ -247,9 +267,11 @@ async function main() {
 
   // Auto-pick base locale as the one with the most leaf keys under translation (most "rich").
   const parsedByLocale = {}
+  const rawByLocale = {}
   for (const filename of localeFiles) {
     const locale = filename.replace(/\.json$/i, '')
     const raw = await fs.readFile(path.join(LOCALES_DIR, filename), 'utf8')
+    rawByLocale[locale] = raw
     parsedByLocale[locale] = JSON.parse(raw)
   }
 
@@ -267,6 +289,15 @@ async function main() {
 
   const baseFile = `${baseLocale}.json`
   const baseJson = parsedByLocale[baseLocale]
+  const baseTranslationKeyOrder = getTranslationKeyOrder(
+    rawByLocale[baseLocale]
+  )
+  if (
+    baseTranslationKeyOrder.length !==
+    Object.keys(baseJson?.translation ?? {}).length
+  ) {
+    throw new Error(`Failed to read translation key order from ${baseFile}`)
+  }
 
   const compareJson = parsedByLocale[FALLBACK_COMPARE_LOCALE] ?? baseJson
 
@@ -338,8 +369,12 @@ async function main() {
       })
     }
 
-    // Rewrite locale file in base order (even for en to normalize formatting)
-    await fs.writeFile(full, stableStringify(fixed), 'utf8')
+    // Keep the base locale's textual order, including integer-like JSON keys.
+    await fs.writeFile(
+      full,
+      stringifyLocale(fixed, baseTranslationKeyOrder),
+      'utf8'
+    )
   }
 
   await fs.writeFile(

@@ -328,6 +328,13 @@ export function UserSubscriptionsDialog(props: Props) {
                   header: t('Total Quota'),
                   cell: (record) => {
                     const sub = record.subscription
+                    if (sub.membership_only) {
+                      return (
+                        <StatusBadge variant='info'>
+                          {t('Membership benefits')}
+                        </StatusBadge>
+                      )
+                    }
                     const total = Number(sub.amount_total || 0)
                     const used = Number(sub.amount_used || 0)
                     return total > 0
@@ -350,7 +357,7 @@ export function UserSubscriptionsDialog(props: Props) {
                     return (
                       <DataTableRowActionMenu ariaLabel={t('Actions')}>
                         <DropdownMenuItem
-                          disabled={!isActive}
+                          disabled={!isActive || sub.membership_only}
                           onClick={() => {
                             setAdvanceResetTime(true)
                             setResetAction({
