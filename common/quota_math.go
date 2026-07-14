@@ -1,6 +1,7 @@
 package common
 
 import (
+	"errors"
 	"fmt"
 	"math"
 
@@ -145,4 +146,25 @@ func QuotaFromDecimal(d decimal.Decimal) int {
 func QuotaFromDecimalChecked(d decimal.Decimal) (int, *QuotaClamp) {
 	f, _ := d.Round(0).Float64()
 	return saturateQuota(f, "QuotaFromDecimal")
+}
+
+// QuotaFromMoney converts a non-negative payment amount to internal quota
+// using the current QuotaPerUnit setting. Conversion truncates toward zero
+// (decimal.IntPart) to match historical top-up settlement semantics.
+func QuotaFromMoney(money float64) (int, error) {
+	if math.IsNaN(money) || math.IsInf(money, 0) || money < 0 {
+		return 0, errors.New("无效的支付金额")
+	}
+	if money == 0 {
+		return 0, nil
+	}
+	if math.IsNaN(QuotaPerUnit) || math.IsInf(QuotaPerUnit, 0) || QuotaPerUnit <= 0 {
+		return 0, errors.New("额度单位配置错误")
+	}
+	product := decimal.NewFromFloat(money).Mul(decimal.NewFromFloat(QuotaPerUnit))
+	intPart := product.IntPart()
+	if intPart > int64(MaxQuota) || intPart < int64(MinQuota) {
+		return 0, errors.New("支付额度超出系统范围")
+	}
+	return int(intPart), nil
 }

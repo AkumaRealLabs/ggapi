@@ -16,10 +16,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { Tabs, TabsList, TabsTrigger } from '@/components/design-system/tabs'
 import { SectionPageLayout } from '@/components/layout'
 
+import { AffiliateCommissionTable } from './components/affiliate-commission-table'
 import { UsersDeleteDialog } from './components/users-delete-dialog'
 import { UsersMutateDrawer } from './components/users-mutate-drawer'
 import { UsersPrimaryButtons } from './components/users-primary-buttons'
@@ -29,16 +32,31 @@ import { UsersTable } from './components/users-table'
 function UsersContent() {
   const { t } = useTranslation()
   const { open, setOpen, currentRow } = useUsers()
+  const [activeTab, setActiveTab] = useState('users')
 
   return (
     <>
       <SectionPageLayout fixedContent>
         <SectionPageLayout.Title>{t('Users')}</SectionPageLayout.Title>
         <SectionPageLayout.Actions>
-          <UsersPrimaryButtons />
+          {activeTab === 'users' ? <UsersPrimaryButtons /> : null}
         </SectionPageLayout.Actions>
         <SectionPageLayout.Content>
-          <UsersTable />
+          <div className='flex min-h-0 flex-1 flex-col gap-3'>
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <TabsList>
+                <TabsTrigger value='users'>{t('Users')}</TabsTrigger>
+                <TabsTrigger value='commissions'>
+                  {t('Commission Records')}
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+            {activeTab === 'users' ? (
+              <UsersTable />
+            ) : (
+              <AffiliateCommissionTable />
+            )}
+          </div>
         </SectionPageLayout.Content>
       </SectionPageLayout>
 

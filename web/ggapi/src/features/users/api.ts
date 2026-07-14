@@ -16,6 +16,12 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import type {
+  AffiliateAdminCommissionRecord,
+  AffiliateCommissionPage,
+  AffiliateUserDetail,
+  AffiliateUserSummary,
+} from '@/features/affiliate/types'
 import type { PermissionCatalog } from '@/lib/admin-permissions'
 import { api } from '@/lib/api'
 
@@ -161,6 +167,59 @@ export async function getPermissionCatalog(): Promise<PermissionCatalog> {
     resources: res.data?.data?.resources ?? [],
     roles: res.data?.data?.roles ?? [],
   }
+}
+
+export async function getAffiliateUser(
+  userId: number
+): Promise<ApiResponse<AffiliateUserDetail>> {
+  const res = await api.get(`/api/affiliate/users/${userId}`)
+  return res.data
+}
+
+export async function updateAffiliateUser(
+  userId: number,
+  data: {
+    aff_code: string
+    custom_commission_rate: number | null
+    inviter_id: number
+  }
+): Promise<ApiResponse<AffiliateUserDetail>> {
+  const res = await api.put(`/api/affiliate/users/${userId}`, data)
+  return res.data
+}
+
+export async function searchAffiliateUsers(
+  keyword: string
+): Promise<ApiResponse<AffiliateUserSummary[]>> {
+  const params = new URLSearchParams({ keyword })
+  const res = await api.get(`/api/affiliate/users/search?${params.toString()}`)
+  return res.data
+}
+
+export async function getAffiliateCommissionRecords(params: {
+  page: number
+  pageSize: number
+  orderNo?: string
+  sourceType?: string
+  inviterId?: number
+  inviter?: string
+  invitee?: string
+}): Promise<
+  ApiResponse<AffiliateCommissionPage<AffiliateAdminCommissionRecord>>
+> {
+  const query = new URLSearchParams({
+    p: String(params.page),
+    page_size: String(params.pageSize),
+  })
+  if (params.orderNo) query.set('order_no', params.orderNo)
+  if (params.sourceType) query.set('source_type', params.sourceType)
+  if (params.inviterId && params.inviterId > 0) {
+    query.set('inviter_id', String(params.inviterId))
+  }
+  if (params.inviter) query.set('inviter', params.inviter)
+  if (params.invitee) query.set('invitee', params.invitee)
+  const res = await api.get(`/api/affiliate/commissions?${query.toString()}`)
+  return res.data
 }
 
 // ============================================================================

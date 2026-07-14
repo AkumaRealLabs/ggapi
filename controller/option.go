@@ -138,7 +138,7 @@ func UpdateOption(c *gin.Context) {
 		option.Value = fmt.Sprintf("%v", option.Value)
 	}
 	switch option.Key {
-	case "QuotaForInviter", "QuotaForInvitee":
+	case "QuotaForInviter", "QuotaForInvitee", "AffiliateCommissionRate":
 		if isPositiveOptionValue(option.Value.(string)) && !operation_setting.IsPaymentComplianceConfirmed() {
 			common.ApiErrorI18n(c, i18n.MsgPaymentComplianceRequired)
 			return
@@ -230,6 +230,16 @@ func UpdateOption(c *gin.Context) {
 				"success": false,
 				"message": err.Error(),
 			})
+			return
+		}
+	case "AffiliateCommissionRate":
+		rate, parseErr := strconv.ParseFloat(option.Value.(string), 64)
+		if parseErr != nil {
+			common.ApiErrorMsg(c, "返佣比例必须是数字")
+			return
+		}
+		if err := model.ValidateAffiliateCommissionRate(rate); err != nil {
+			common.ApiErrorMsg(c, err.Error())
 			return
 		}
 	case "ImageRatio":

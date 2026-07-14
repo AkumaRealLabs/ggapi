@@ -147,6 +147,23 @@ func SetApiRouter(router *gin.Engine) {
 			}
 		}
 
+		affiliateRoute := apiRouter.Group("/affiliate")
+		affiliateRoute.Use(middleware.UserAuth())
+		{
+			affiliateRoute.GET("/self", controller.GetSelfAffiliate)
+			affiliateRoute.POST("/self/bind", middleware.CriticalRateLimit(), controller.BindSelfAffiliate)
+			affiliateRoute.GET("/self/commissions", controller.GetSelfAffiliateCommissions)
+		}
+
+		affiliateAdminRoute := apiRouter.Group("/affiliate")
+		affiliateAdminRoute.Use(middleware.AdminAuth())
+		{
+			affiliateAdminRoute.GET("/commissions", controller.GetAffiliateCommissions)
+			affiliateAdminRoute.GET("/users/search", controller.SearchAffiliateUsers)
+			affiliateAdminRoute.GET("/users/:id", controller.GetAffiliateUser)
+			affiliateAdminRoute.PUT("/users/:id", controller.UpdateAffiliateUser)
+		}
+
 		// Subscription billing (plans, purchase, admin management)
 		subscriptionRoute := apiRouter.Group("/subscription")
 		subscriptionRoute.Use(middleware.UserAuth())

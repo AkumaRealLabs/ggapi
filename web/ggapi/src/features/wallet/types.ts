@@ -16,6 +16,12 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import type {
+  AffiliateCommissionPage,
+  AffiliateCommissionRecord,
+  AffiliateUserDetail,
+} from '@/features/affiliate/types'
+
 // ============================================================================
 // Wallet Type Definitions
 // ============================================================================
@@ -41,6 +47,10 @@ export type PaymentResponse = ApiResponse<Record<string, unknown>> & {
 export type StripePaymentResponse = ApiResponse<{ pay_link: string }>
 export type AffiliateCodeResponse = ApiResponse<string>
 export type AffiliateTransferResponse = ApiResponse
+export type AffiliateSelfResponse = ApiResponse<AffiliateUserDetail>
+export type AffiliateCommissionResponse = ApiResponse<
+  AffiliateCommissionPage<AffiliateCommissionRecord>
+>
 export type CreemPaymentResponse = ApiResponse<{ checkout_url: string }>
 export type WaffoPaymentResponse = ApiResponse<
   { payment_url?: string } | string

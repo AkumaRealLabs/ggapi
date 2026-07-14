@@ -229,9 +229,12 @@ type SubscriptionOrder struct {
 	TradeNo         string `json:"trade_no" gorm:"unique;type:varchar(255);index"`
 	PaymentMethod   string `json:"payment_method" gorm:"type:varchar(50)"`
 	PaymentProvider string `json:"payment_provider" gorm:"type:varchar(50);default:''"`
-	Status          string `json:"status"`
-	CreateTime      int64  `json:"create_time"`
-	CompleteTime    int64  `json:"complete_time"`
+	// AffInviterId is the invitee's inviter at order creation time. Settlement
+	// uses this snapshot so later rebinds only affect subsequent orders.
+	AffInviterId int    `json:"aff_inviter_id" gorm:"type:int;default:0;column:aff_inviter_id;index"`
+	Status       string `json:"status"`
+	CreateTime   int64  `json:"create_time"`
+	CompleteTime int64  `json:"complete_time"`
 
 	ProviderPayload string `json:"provider_payload" gorm:"type:text"`
 }
@@ -264,6 +267,7 @@ func InsertPendingSubscriptionOrder(o *SubscriptionOrder) (*SubscriptionPlan, er
 		// under a concurrent admin edit.
 		o.Money = locked.PriceAmount
 		o.PlanId = locked.Id
+		o.AffInviterId = resolveAffiliateInviterIdTx(tx, o.UserId)
 		return tx.Create(o).Error
 	})
 	if err != nil {
@@ -651,14 +655,38 @@ func CompleteSubscriptionOrder(tradeNo string, providerPayload string, expectedP
 		if order.Status != common.TopUpStatusPending {
 			return ErrSubscriptionOrderStatusInvalid
 		}
-		plan, err := GetSubscriptionPlanById(order.PlanId)
-		if err != nil {
+		var plan SubscriptionPlan
+		if err := lockForUpdate(tx).Where("id = ?", order.PlanId).First(&plan).Error; err != nil {
 			return err
 		}
+		plan.NormalizeDefaults()
 		if !plan.Enabled {
 			// still allow completion for already purchased orders
 		}
-		sub, err := CreateUserSubscriptionFromPlanTx(tx, order.UserId, plan, "order")
+		// Only convert money→quota when commission is possible. A large
+		// PriceAmount must not block fulfilling an already-paid order with no
+		// inviter, zero rate, or disabled commissions.
+		if order.AffInviterId > 0 {
+			commissionBaseQuota, err := common.QuotaFromMoney(order.Money)
+			if err != nil {
+				common.SysError(fmt.Sprintf(
+					"skip subscription affiliate commission trade_no=%s: %v",
+					order.TradeNo, err,
+				))
+			} else if _, _, err := SettleAffiliateCommissionTx(
+				tx,
+				order.UserId,
+				AffiliateCommissionSourceSubscription,
+				order.Id,
+				order.TradeNo,
+				order.PaymentProvider,
+				commissionBaseQuota,
+				order.AffInviterId,
+			); err != nil {
+				return err
+			}
+		}
+		sub, err := CreateUserSubscriptionFromPlanTx(tx, order.UserId, &plan, "order")
 		if err != nil {
 			return err
 		}
@@ -704,20 +732,22 @@ func upsertSubscriptionTopUpTx(tx *gorm.DB, order *SubscriptionOrder) error {
 	if err := tx.Where("trade_no = ?", order.TradeNo).First(&topup).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			topup = TopUp{
-				UserId:        order.UserId,
-				Amount:        0,
-				Money:         order.Money,
-				TradeNo:       order.TradeNo,
-				PaymentMethod: order.PaymentMethod,
-				CreateTime:    order.CreateTime,
-				CompleteTime:  now,
-				Status:        common.TopUpStatusSuccess,
+				UserId:          order.UserId,
+				Amount:          0,
+				Money:           order.Money,
+				TradeNo:         order.TradeNo,
+				PaymentMethod:   order.PaymentMethod,
+				PaymentProvider: order.PaymentProvider,
+				CreateTime:      order.CreateTime,
+				CompleteTime:    now,
+				Status:          common.TopUpStatusSuccess,
 			}
 			return tx.Create(&topup).Error
 		}
 		return err
 	}
 	topup.Money = order.Money
+	topup.PaymentProvider = order.PaymentProvider
 	if topup.PaymentMethod == "" {
 		topup.PaymentMethod = order.PaymentMethod
 	} else if topup.PaymentMethod != order.PaymentMethod {
