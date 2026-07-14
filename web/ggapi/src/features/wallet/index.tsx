@@ -25,6 +25,7 @@ import { useSystemConfig } from '@/hooks/use-system-config'
 import { getSelf } from '@/lib/api'
 
 import { AffiliateRewardsCard } from './components/affiliate-rewards-card'
+import { AffiliateCommissionsDialog } from './components/dialogs/affiliate-commissions-dialog'
 import { BillingHistoryDialog } from './components/dialogs/billing-history-dialog'
 import { CreemConfirmDialog } from './components/dialogs/creem-confirm-dialog'
 import { PaymentConfirmDialog } from './components/dialogs/payment-confirm-dialog'
@@ -70,6 +71,8 @@ export function Wallet(props: WalletProps) {
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false)
   const [transferDialogOpen, setTransferDialogOpen] = useState(false)
   const [billingDialogOpen, setBillingDialogOpen] = useState(false)
+  const [affiliateCommissionsOpen, setAffiliateCommissionsOpen] =
+    useState(false)
   const [redemptionCode, setRedemptionCode] = useState('')
   const [creemDialogOpen, setCreemDialogOpen] = useState(false)
   const [selectedCreemProduct, setSelectedCreemProduct] =
@@ -94,9 +97,12 @@ export function Wallet(props: WalletProps) {
   } = usePayment()
   const {
     affiliateLink,
+    affiliate,
     loading: affiliateLoading,
     transferQuota,
     transferring,
+    bindInviter,
+    binding,
   } = useAffiliate()
   const { redeeming, redeemCode } = useRedemption()
   const { processing: creemProcessing, processCreemPayment } = useCreemPayment()
@@ -299,8 +305,12 @@ export function Wallet(props: WalletProps) {
 
             <AffiliateRewardsCard
               user={user}
+              affiliate={affiliate}
               affiliateLink={affiliateLink}
               onTransfer={() => setTransferDialogOpen(true)}
+              onBind={bindInviter}
+              onViewCommissions={() => setAffiliateCommissionsOpen(true)}
+              binding={binding}
               complianceConfirmed={
                 topupInfo?.payment_compliance_confirmed !== false
               }
@@ -334,6 +344,11 @@ export function Wallet(props: WalletProps) {
       <BillingHistoryDialog
         open={billingDialogOpen}
         onOpenChange={setBillingDialogOpen}
+      />
+
+      <AffiliateCommissionsDialog
+        open={affiliateCommissionsOpen}
+        onOpenChange={setAffiliateCommissionsOpen}
       />
 
       <CreemConfirmDialog

@@ -124,3 +124,37 @@ func TestQuotaFromDecimalChecked(t *testing.T) {
 		assert.Equal(t, QuotaClampOverflow, clamp.Kind)
 	}
 }
+
+func TestQuotaFromMoney(t *testing.T) {
+	oldQuotaPerUnit := QuotaPerUnit
+	QuotaPerUnit = 1000
+	t.Cleanup(func() {
+		QuotaPerUnit = oldQuotaPerUnit
+	})
+
+	quota, err := QuotaFromMoney(1.25)
+	require.NoError(t, err)
+	assert.Equal(t, 1250, quota)
+
+	quota, err = QuotaFromMoney(0)
+	require.NoError(t, err)
+	assert.Zero(t, quota)
+
+	// Fractional products truncate toward zero (legacy top-up IntPart semantics).
+	QuotaPerUnit = 1.5
+	quota, err = QuotaFromMoney(1)
+	require.NoError(t, err)
+	assert.Equal(t, 1, quota)
+
+	for _, money := range []float64{-1, math.NaN(), math.Inf(1)} {
+		QuotaPerUnit = 1000
+		quota, err = QuotaFromMoney(money)
+		assert.Error(t, err)
+		assert.Zero(t, quota)
+	}
+
+	QuotaPerUnit = 0
+	quota, err = QuotaFromMoney(1)
+	assert.Error(t, err)
+	assert.Zero(t, quota)
+}
