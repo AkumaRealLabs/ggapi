@@ -79,13 +79,7 @@ func SubscriptionRequestStripePay(c *gin.Context) {
 	reference := fmt.Sprintf("sub-stripe-ref-%d-%d-%s", user.Id, time.Now().UnixMilli(), randstr.String(4))
 	referenceId := "sub_ref_" + common.Sha1([]byte(reference))
 
-	payLink, err := genStripeSubscriptionLink(referenceId, user.StripeCustomer, user.Email, plan.StripePriceId)
-	if err != nil {
-		logger.LogError(c.Request.Context(), fmt.Sprintf("Stripe 订阅支付链接创建失败 trade_no=%s plan_id=%d error=%q", referenceId, plan.Id, err.Error()))
-		c.JSON(http.StatusOK, gin.H{"message": "error", "data": "拉起支付失败"})
-		return
-	}
-
+	// Lock plan + create pending order before calling Stripe so product/price match the snapshot.
 	order := &model.SubscriptionOrder{
 		UserId:          userId,
 		PlanId:          plan.Id,
@@ -96,8 +90,22 @@ func SubscriptionRequestStripePay(c *gin.Context) {
 		CreateTime:      time.Now().Unix(),
 		Status:          common.TopUpStatusPending,
 	}
-	if err := order.Insert(); err != nil {
+	lockedPlan, err := model.InsertPendingSubscriptionOrder(order)
+	if err != nil {
 		c.JSON(http.StatusOK, gin.H{"message": "error", "data": "创建订单失败"})
+		return
+	}
+	if lockedPlan.StripePriceId == "" {
+		_ = model.ExpireSubscriptionOrder(referenceId, model.PaymentProviderStripe)
+		common.ApiErrorMsg(c, "该套餐未配置 StripePriceId")
+		return
+	}
+
+	payLink, err := genStripeSubscriptionLink(referenceId, user.StripeCustomer, user.Email, lockedPlan.StripePriceId)
+	if err != nil {
+		logger.LogError(c.Request.Context(), fmt.Sprintf("Stripe 订阅支付链接创建失败 trade_no=%s plan_id=%d error=%q", referenceId, plan.Id, err.Error()))
+		_ = model.ExpireSubscriptionOrder(referenceId, model.PaymentProviderStripe)
+		c.JSON(http.StatusOK, gin.H{"message": "error", "data": "拉起支付失败"})
 		return
 	}
 

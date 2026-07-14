@@ -183,6 +183,13 @@ export function useSubscriptionsColumns(): ColumnDef<PlanRecord>[] {
           contentMode: 'full',
         },
         cell: ({ row }) => {
+          if (row.original.plan.membership_only) {
+            return (
+              <StatusBadge variant='info'>
+                {t('Membership benefits')}
+              </StatusBadge>
+            )
+          }
           const total = Number(row.original.plan.total_amount || 0)
           return (
             <span className='text-muted-foreground'>

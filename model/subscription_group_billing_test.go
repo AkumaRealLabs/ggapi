@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 func seedGroupBillingPlan(t *testing.T, plan *SubscriptionPlan) {
@@ -269,4 +270,81 @@ func TestSubscriptionAppliesToGroup(t *testing.T) {
 	assert.False(t, subscriptionAppliesToGroup("vip", "auto"))
 	assert.False(t, subscriptionAppliesToGroup("vip", ""))
 	assert.True(t, subscriptionAppliesToGroup("  vip  ", "vip"))
+}
+
+func TestMembershipOnlySubscriptionChangesGroupWithoutFundingUsage(t *testing.T) {
+	truncateTables(t)
+	now := GetDBTimestamp()
+
+	require.NoError(t, DB.Create(&User{Id: 211, Username: "member", Group: "test-base"}).Error)
+	require.NoError(t, DB.Create(&Token{Id: 211, UserId: 211, Key: "member-empty", Group: ""}).Error)
+	require.NoError(t, DB.Create(&Token{Id: 212, UserId: 211, Key: "member-fixed", Group: "test-fixed"}).Error)
+
+	plan := &SubscriptionPlan{
+		Id:               8110,
+		Title:            "Test Membership",
+		PriceAmount:      10,
+		DurationUnit:     SubscriptionDurationMonth,
+		DurationValue:    1,
+		TotalAmount:      999999,
+		MembershipOnly:   true,
+		UpgradeGroup:     "test-member",
+		DowngradeGroup:   "test-base",
+		QuotaResetPeriod: SubscriptionResetDaily,
+		CreatedAt:        now,
+		UpdatedAt:        now,
+	}
+	seedGroupBillingPlan(t, plan)
+
+	var created *UserSubscription
+	require.NoError(t, DB.Transaction(func(tx *gorm.DB) error {
+		var err error
+		created, err = CreateUserSubscriptionFromPlanTx(tx, 211, plan, "order")
+		return err
+	}))
+
+	require.NotNil(t, created)
+	assert.True(t, created.MembershipOnly)
+	assert.Zero(t, created.AmountTotal)
+	assert.Zero(t, created.NextResetTime)
+	assert.Equal(t, "test-member", created.UpgradeGroup)
+
+	var user User
+	require.NoError(t, DB.Select(commonGroupCol).Where("id = ?", 211).First(&user).Error)
+	assert.Equal(t, "test-member", user.Group)
+
+	var tokens []Token
+	require.NoError(t, DB.Where("user_id = ?", 211).Order("id asc").Find(&tokens).Error)
+	require.Len(t, tokens, 2)
+	assert.Empty(t, tokens[0].Group)
+	assert.Equal(t, "test-fixed", tokens[1].Group)
+
+	hasMatching, err := HasActiveUserSubscription(211, "test-member")
+	require.NoError(t, err)
+	assert.False(t, hasMatching)
+
+	hasAny, err := HasAnyActiveQuotaSubscription(211)
+	require.NoError(t, err)
+	assert.False(t, hasAny)
+
+	allowOverflow, err := UserActiveSubscriptionsAllowWalletOverflow(211, "test-member")
+	require.NoError(t, err)
+	assert.True(t, allowOverflow)
+
+	_, err = PreConsumeUserSubscription("req-membership", 211, "gpt-4", 0, 100, "test-member")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no active subscription")
+	assert.Zero(t, getGroupBillingSub(t, created.Id).AmountUsed)
+
+	require.NoError(t, DB.Model(&UserSubscription{}).Where("id = ?", created.Id).
+		Update("end_time", GetDBTimestamp()-1).Error)
+	expired, err := ExpireDueSubscriptions(10)
+	require.NoError(t, err)
+	assert.Equal(t, 1, expired)
+
+	expiredSub := getGroupBillingSub(t, created.Id)
+	assert.Equal(t, "expired", expiredSub.Status)
+	assert.Zero(t, expiredSub.AmountUsed)
+	require.NoError(t, DB.Select(commonGroupCol).Where("id = ?", 211).First(&user).Error)
+	assert.Equal(t, "test-base", user.Group)
 }

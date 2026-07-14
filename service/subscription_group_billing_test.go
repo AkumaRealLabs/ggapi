@@ -1,6 +1,7 @@
 package service
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -302,4 +303,65 @@ func TestBillingSessionFailedPreConsumeNoPartialDebit(t *testing.T) {
 	var n int64
 	require.NoError(t, model.DB.Model(&model.SubscriptionPreConsumeRecord{}).Where("request_id = ?", "svc-req-i").Count(&n).Error)
 	assert.Zero(t, n)
+}
+
+func TestMembershipOnlySubscriptionAlwaysUsesWallet(t *testing.T) {
+	for i, preference := range []string{"subscription_first", "subscription_only"} {
+		t.Run(preference, func(t *testing.T) {
+			truncate(t)
+			now := time.Now().Unix()
+			userId := 310 + i
+			planId := 9110 + i
+			subscriptionId := 9310 + i
+
+			seedUser(t, userId, 1000)
+			seedToken(t, userId, userId, fmt.Sprintf("tk-member-%d", i), 1000)
+			seedPlan(t, &model.SubscriptionPlan{
+				Id:             planId,
+				Title:          "Test Membership",
+				PriceAmount:    10,
+				DurationUnit:   model.SubscriptionDurationMonth,
+				DurationValue:  1,
+				MembershipOnly: true,
+				UpgradeGroup:   "test-member",
+				DowngradeGroup: "test-base",
+				CreatedAt:      now,
+				UpdatedAt:      now,
+			})
+			seedSub(t, &model.UserSubscription{
+				Id:                  subscriptionId,
+				UserId:              userId,
+				PlanId:              planId,
+				AmountTotal:         0,
+				AmountUsed:          0,
+				StartTime:           now - 3600,
+				EndTime:             now + 30*24*3600,
+				Status:              "active",
+				UpgradeGroup:        "test-member",
+				DowngradeGroup:      "test-base",
+				AllowWalletOverflow: true,
+				MembershipOnly:      true,
+				CreatedAt:           now,
+				UpdatedAt:           now,
+			})
+
+			c := billingTestContext(t, 1000)
+			info := makeGroupBillingRelayInfo(
+				userId,
+				userId,
+				fmt.Sprintf("tk-member-%d", i),
+				fmt.Sprintf("svc-req-member-%d", i),
+				"test-member",
+				preference,
+				1000,
+			)
+
+			session, apiErr := NewBillingSession(c, info, 100)
+			require.Nil(t, apiErr)
+			require.NotNil(t, session)
+			assert.Equal(t, BillingSourceWallet, session.funding.Source())
+			assert.Zero(t, getSub(t, subscriptionId).AmountUsed)
+			assert.Equal(t, 900, getUserQuotaForGroupBilling(t, userId))
+		})
+	}
 }

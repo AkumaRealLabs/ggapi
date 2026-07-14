@@ -80,7 +80,9 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
             <Button
               variant='ghost'
               size='icon-sm'
-              disabled={!complianceConfirmed}
+              disabled={
+                !complianceConfirmed || row.original.plan.membership_only
+              }
               onClick={handleResetSubscriptions}
               aria-label={t('Reset subscription quota')}
             />

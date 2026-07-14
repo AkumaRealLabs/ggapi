@@ -1,6 +1,8 @@
 package controller
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -10,7 +12,6 @@ import (
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
 // ---- Shared types ----
@@ -171,6 +172,7 @@ func AdminCreateSubscriptionPlan(c *gin.Context) {
 	if req.Plan.AllowWalletOverflow == nil {
 		req.Plan.AllowWalletOverflow = common.GetPointer(true)
 	}
+	req.Plan.NormalizeDefaults()
 	if req.Plan.DurationUnit == "" {
 		req.Plan.DurationUnit = model.SubscriptionDurationMonth
 	}
@@ -186,6 +188,10 @@ func AdminCreateSubscriptionPlan(c *gin.Context) {
 		return
 	}
 	req.Plan.UpgradeGroup = strings.TrimSpace(req.Plan.UpgradeGroup)
+	if req.Plan.MembershipOnly && req.Plan.UpgradeGroup == "" {
+		common.ApiErrorMsg(c, "会员权益套餐必须配置升级分组")
+		return
+	}
 	if req.Plan.UpgradeGroup != "" {
 		if _, ok := ratio_setting.GetGroupRatioCopy()[req.Plan.UpgradeGroup]; !ok {
 			common.ApiErrorMsg(c, "升级分组不存在")
@@ -223,8 +229,28 @@ func AdminUpdateSubscriptionPlan(c *gin.Context) {
 		common.ApiErrorMsg(c, "无效的ID")
 		return
 	}
+	// Detect optional bool presence before binding zeros them out.
+	// Older / web-default clients may omit membership_only entirely.
+	var rawPresence struct {
+		Plan map[string]json.RawMessage `json:"plan"`
+	}
+	if err := common.UnmarshalBodyReusable(c, &rawPresence); err != nil {
+		common.ApiErrorMsg(c, "参数错误")
+		return
+	}
+	membershipOnlyProvided := false
+	if rawPresence.Plan != nil {
+		if raw, ok := rawPresence.Plan["membership_only"]; ok {
+			// Treat JSON null / empty as omitted so we never silently demote via false zero.
+			trimmed := strings.TrimSpace(string(raw))
+			if trimmed != "" && trimmed != "null" {
+				membershipOnlyProvided = true
+			}
+		}
+	}
+
 	var req AdminUpsertSubscriptionPlanRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := common.UnmarshalBodyReusable(c, &req); err != nil {
 		common.ApiErrorMsg(c, "参数错误")
 		return
 	}
@@ -245,6 +271,33 @@ func AdminUpdateSubscriptionPlan(c *gin.Context) {
 		req.Plan.Currency = "USD"
 	}
 	req.Plan.Currency = "USD"
+
+	existing, err := model.GetSubscriptionPlanById(id)
+	if err != nil || existing == nil {
+		common.ApiErrorMsg(c, "套餐不存在")
+		return
+	}
+	// Effective type for request validation only. When the client omits
+	// membership_only, do NOT copy it into the update map — the locked row
+	// inside AdminUpdateSubscriptionPlanFields is the source of truth.
+	effectiveMembershipOnly := req.Plan.MembershipOnly
+	if !membershipOnlyProvided {
+		effectiveMembershipOnly = existing.MembershipOnly
+	}
+	allowBalancePayProvided := req.Plan.AllowBalancePay != nil
+	allowWalletOverflowProvided := req.Plan.AllowWalletOverflow != nil
+	if req.Plan.AllowBalancePay == nil {
+		req.Plan.AllowBalancePay = common.GetPointer(true)
+	}
+	if req.Plan.AllowWalletOverflow == nil {
+		req.Plan.AllowWalletOverflow = common.GetPointer(true)
+	}
+	if membershipOnlyProvided && req.Plan.MembershipOnly {
+		req.Plan.TotalAmount = 0
+		req.Plan.QuotaResetPeriod = model.SubscriptionResetNever
+		req.Plan.QuotaResetCustomSeconds = 0
+		req.Plan.AllowWalletOverflow = common.GetPointer(true)
+	}
 	if req.Plan.DurationUnit == "" {
 		req.Plan.DurationUnit = model.SubscriptionDurationMonth
 	}
@@ -260,6 +313,10 @@ func AdminUpdateSubscriptionPlan(c *gin.Context) {
 		return
 	}
 	req.Plan.UpgradeGroup = strings.TrimSpace(req.Plan.UpgradeGroup)
+	if effectiveMembershipOnly && req.Plan.UpgradeGroup == "" {
+		common.ApiErrorMsg(c, "会员权益套餐必须配置升级分组")
+		return
+	}
 	if req.Plan.UpgradeGroup != "" {
 		if _, ok := ratio_setting.GetGroupRatioCopy()[req.Plan.UpgradeGroup]; !ok {
 			common.ApiErrorMsg(c, "升级分组不存在")
@@ -279,45 +336,47 @@ func AdminUpdateSubscriptionPlan(c *gin.Context) {
 		return
 	}
 
-	err := model.DB.Transaction(func(tx *gorm.DB) error {
-		// update plan (allow zero values updates with map)
-		updateMap := map[string]interface{}{
-			"title":                      req.Plan.Title,
-			"subtitle":                   req.Plan.Subtitle,
-			"price_amount":               req.Plan.PriceAmount,
-			"currency":                   req.Plan.Currency,
-			"duration_unit":              req.Plan.DurationUnit,
-			"duration_value":             req.Plan.DurationValue,
-			"custom_seconds":             req.Plan.CustomSeconds,
-			"enabled":                    req.Plan.Enabled,
-			"sort_order":                 req.Plan.SortOrder,
-			"stripe_price_id":            req.Plan.StripePriceId,
-			"creem_product_id":           req.Plan.CreemProductId,
-			"waffo_pancake_product_id":   req.Plan.WaffoPancakeProductId,
-			"max_purchase_per_user":      req.Plan.MaxPurchasePerUser,
-			"total_amount":               req.Plan.TotalAmount,
-			"upgrade_group":              req.Plan.UpgradeGroup,
-			"downgrade_group":            req.Plan.DowngradeGroup,
-			"quota_reset_period":         req.Plan.QuotaResetPeriod,
-			"quota_reset_custom_seconds": req.Plan.QuotaResetCustomSeconds,
-			"updated_at":                 common.GetTimestamp(),
+	updateMap := map[string]interface{}{
+		"title":                      req.Plan.Title,
+		"subtitle":                   req.Plan.Subtitle,
+		"price_amount":               req.Plan.PriceAmount,
+		"currency":                   req.Plan.Currency,
+		"duration_unit":              req.Plan.DurationUnit,
+		"duration_value":             req.Plan.DurationValue,
+		"custom_seconds":             req.Plan.CustomSeconds,
+		"enabled":                    req.Plan.Enabled,
+		"sort_order":                 req.Plan.SortOrder,
+		"stripe_price_id":            req.Plan.StripePriceId,
+		"creem_product_id":           req.Plan.CreemProductId,
+		"waffo_pancake_product_id":   req.Plan.WaffoPancakeProductId,
+		"max_purchase_per_user":      req.Plan.MaxPurchasePerUser,
+		"total_amount":               req.Plan.TotalAmount,
+		"upgrade_group":              req.Plan.UpgradeGroup,
+		"downgrade_group":            req.Plan.DowngradeGroup,
+		"quota_reset_period":         req.Plan.QuotaResetPeriod,
+		"quota_reset_custom_seconds": req.Plan.QuotaResetCustomSeconds,
+		"updated_at":                 common.GetTimestamp(),
+	}
+	if allowBalancePayProvided {
+		updateMap["allow_balance_pay"] = *req.Plan.AllowBalancePay
+	}
+	if (membershipOnlyProvided && req.Plan.MembershipOnly) || allowWalletOverflowProvided {
+		updateMap["allow_wallet_overflow"] = *req.Plan.AllowWalletOverflow
+	}
+
+	var membershipOnlyPtr *bool
+	if membershipOnlyProvided {
+		mo := req.Plan.MembershipOnly
+		membershipOnlyPtr = &mo
+	}
+	if err := model.AdminUpdateSubscriptionPlanFields(id, updateMap, membershipOnlyPtr); err != nil {
+		if errors.Is(err, model.ErrSubscriptionPlanTypeChangeBlocked) {
+			common.ApiErrorMsg(c, err.Error())
+			return
 		}
-		if req.Plan.AllowBalancePay != nil {
-			updateMap["allow_balance_pay"] = *req.Plan.AllowBalancePay
-		}
-		if req.Plan.AllowWalletOverflow != nil {
-			updateMap["allow_wallet_overflow"] = *req.Plan.AllowWalletOverflow
-		}
-		if err := tx.Model(&model.SubscriptionPlan{}).Where("id = ?", id).Updates(updateMap).Error; err != nil {
-			return err
-		}
-		return nil
-	})
-	if err != nil {
 		common.ApiError(c, err)
 		return
 	}
-	model.InvalidateSubscriptionPlanCache(id)
 	common.ApiSuccess(c, nil)
 }
 

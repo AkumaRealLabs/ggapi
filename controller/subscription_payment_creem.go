@@ -85,7 +85,7 @@ func SubscriptionRequestCreemPay(c *gin.Context) {
 	reference := "sub-creem-ref-" + randstr.String(6)
 	referenceId := "sub_ref_" + common.Sha1([]byte(reference+time.Now().String()+user.Username))
 
-	// create pending order first
+	// create pending order first (locks plan; use returned snapshot for checkout)
 	order := &model.SubscriptionOrder{
 		UserId:          userId,
 		PlanId:          plan.Id,
@@ -96,7 +96,8 @@ func SubscriptionRequestCreemPay(c *gin.Context) {
 		CreateTime:      time.Now().Unix(),
 		Status:          common.TopUpStatusPending,
 	}
-	if err := order.Insert(); err != nil {
+	lockedPlan, err := model.InsertPendingSubscriptionOrder(order)
+	if err != nil {
 		c.JSON(http.StatusOK, gin.H{"message": "error", "data": "创建订单失败"})
 		return
 	}
@@ -112,9 +113,9 @@ func SubscriptionRequestCreemPay(c *gin.Context) {
 		currency = "USD"
 	}
 	product := &CreemProduct{
-		ProductId: plan.CreemProductId,
-		Name:      plan.Title,
-		Price:     plan.PriceAmount,
+		ProductId: lockedPlan.CreemProductId,
+		Name:      lockedPlan.Title,
+		Price:     lockedPlan.PriceAmount,
 		Currency:  currency,
 		Quota:     0,
 	}

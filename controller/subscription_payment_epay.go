@@ -94,15 +94,16 @@ func SubscriptionRequestEpay(c *gin.Context) {
 		CreateTime:      time.Now().Unix(),
 		Status:          common.TopUpStatusPending,
 	}
-	if err := order.Insert(); err != nil {
+	lockedPlan, err := model.InsertPendingSubscriptionOrder(order)
+	if err != nil {
 		common.ApiErrorMsg(c, "创建订单失败")
 		return
 	}
 	uri, params, err := client.Purchase(&epay.PurchaseArgs{
 		Type:           req.PaymentMethod,
 		ServiceTradeNo: tradeNo,
-		Name:           fmt.Sprintf("SUB:%s", plan.Title),
-		Money:          strconv.FormatFloat(plan.PriceAmount, 'f', 2, 64),
+		Name:           fmt.Sprintf("SUB:%s", lockedPlan.Title),
+		Money:          strconv.FormatFloat(lockedPlan.PriceAmount, 'f', 2, 64),
 		Device:         epay.PC,
 		NotifyUrl:      notifyUrl,
 		ReturnUrl:      returnUrl,
