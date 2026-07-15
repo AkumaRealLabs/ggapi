@@ -54,7 +54,7 @@ For commercial licensing, please contact support@quantumnous.com
  * 1. Recharge option: 10 USD
  *    - Display: formatCurrencyFromUSD(10) → "¥70"
  * 2. Payment amount: 10 × 5 = 50 (already in CNY)
- *    - Display: formatLocalCurrencyAmount(50) → "¥50"
+ *    - Display: formatLocalCurrencyAmount(50) → "¥50.00"
  * 3. User receives: 10 USD credit
  *    - Balance display: formatCurrencyFromUSD(10) → "¥70"
  *
@@ -283,7 +283,8 @@ function adjustForMinimum(
 function formatCurrencyValue(
   value: number,
   options: ResolvedCurrencyFormatOptions,
-  meta: DisplayMeta
+  meta: DisplayMeta,
+  fixedFractionDigits = false
 ): string {
   if (meta.kind === 'tokens') {
     if (options.compact) {
@@ -303,12 +304,16 @@ function formatCurrencyValue(
   const digits =
     Math.abs(value) >= 1 ? options.digitsLarge : options.digitsSmall
   const adjustedValue = adjustForMinimum(value, digits, options.minimumNonZero)
+  let minimumFractionDigits = 0
+  if (fixedFractionDigits) {
+    minimumFractionDigits = options.compact ? Math.min(digits, 1) : digits
+  }
 
   if (meta.kind === 'currency') {
     if (!options.showSymbol) {
       return new Intl.NumberFormat(options.locale, {
         notation: options.compact ? 'compact' : 'standard',
-        minimumFractionDigits: 0,
+        minimumFractionDigits,
         maximumFractionDigits: options.compact ? 1 : digits,
       }).format(adjustedValue)
     }
@@ -318,7 +323,7 @@ function formatCurrencyValue(
       currency: meta.currencyCode,
       currencyDisplay: 'narrowSymbol',
       notation: options.compact ? 'compact' : 'standard',
-      minimumFractionDigits: 0,
+      minimumFractionDigits,
       maximumFractionDigits: options.compact ? 1 : digits,
     }).format(adjustedValue)
     return formatted
@@ -326,11 +331,11 @@ function formatCurrencyValue(
 
   const decimal = new Intl.NumberFormat(options.locale, {
     notation: options.compact ? 'compact' : 'standard',
-    minimumFractionDigits: 0,
+    minimumFractionDigits,
     maximumFractionDigits: options.compact ? 1 : digits,
   }).format(adjustedValue)
 
-  return options.showSymbol ? `${meta.symbol} ${decimal}` : decimal
+  return options.showSymbol ? `${meta.symbol}${decimal}` : decimal
 }
 
 /**
@@ -575,12 +580,12 @@ export function isCurrencyDisplayEnabled(): boolean {
  * @example
  * // Payment amount already calculated: 10 USD × priceRatio(5) = 50 CNY
  * // With quotaDisplayType: 'CNY'
- * formatLocalCurrencyAmount(50) → "¥50"
+ * formatLocalCurrencyAmount(50) → "¥50.00"
  * // NOT "¥350" (which would be 50 × 7 exchangeRate)
  *
  * @example
  * // With quotaDisplayType: 'USD'
- * formatLocalCurrencyAmount(10) → "$10"
+ * formatLocalCurrencyAmount(10) → "$10.00"
  *
  * @remarks
  * Use this function for:
@@ -611,7 +616,12 @@ export function formatLocalCurrencyAmount(
 
   const { config } = getCurrencyDisplay()
   const meta = getBillingDisplayMeta(config)
-  const merged = mergeOptions(options)
+  const merged = mergeOptions({
+    ...options,
+    digitsLarge: options?.digitsLarge ?? 2,
+    digitsSmall: options?.digitsSmall ?? 2,
+    abbreviate: options?.abbreviate ?? false,
+  })
 
-  return formatCurrencyValue(amount, merged, meta)
+  return formatCurrencyValue(amount, merged, meta, true)
 }

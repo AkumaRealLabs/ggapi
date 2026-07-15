@@ -55,6 +55,7 @@ import {
   SheetDescription,
 } from '@/components/ui/sheet'
 import { Switch } from '@/components/ui/switch'
+import { formatLocalCurrencyAmount } from '@/lib/currency'
 import { formatQuota } from '@/lib/format'
 
 import {
@@ -86,8 +87,11 @@ function SubscriptionStatusBadge(props: {
   if (isActive) {
     return <StatusBadge variant='success'>{props.t('Active')}</StatusBadge>
   }
+  if (props.sub.status === 'scheduled') {
+    return <StatusBadge variant='info'>{props.t('Queued')}</StatusBadge>
+  }
   if (props.sub.status === 'cancelled') {
-    return <StatusBadge variant='neutral'>{props.t('Invalidated')}</StatusBadge>
+    return <StatusBadge variant='neutral'>{props.t('Cancelled')}</StatusBadge>
   }
   return <StatusBadge variant='neutral'>{props.t('Expired')}</StatusBadge>
 }
@@ -108,6 +112,7 @@ export function UserSubscriptionsDialog(props: Props) {
   const [confirmAction, setConfirmAction] = useState<{
     type: 'invalidate' | 'delete'
     subId: number
+    scheduled?: boolean
   } | null>(null)
 
   const planTitleMap = useMemo(() => {
@@ -153,10 +158,14 @@ export function UserSubscriptionsDialog(props: Props) {
         plan_id: Number(selectedPlanId),
       })
       if (res.success) {
-        toast.success(res.data?.message || t('Added successfully'))
+        toast.success(
+          res.data?.message ? t(res.data.message) : t('Added successfully')
+        )
         setSelectedPlanId('')
         await loadData()
         props.onSuccess?.()
+      } else {
+        toast.error(t(res.message || 'Request failed'))
       }
     } catch {
       toast.error(t('Request failed'))
@@ -171,16 +180,32 @@ export function UserSubscriptionsDialog(props: Props) {
       if (confirmAction.type === 'invalidate') {
         const res = await invalidateUserSubscription(confirmAction.subId)
         if (res.success) {
-          toast.success(res.data?.message || t('Has been invalidated'))
+          let successMessage = confirmAction.scheduled
+            ? t('Cancelled')
+            : t('Has been invalidated')
+          if (res.data?.message) {
+            successMessage = t(res.data.message, {
+              group: res.data.group || '',
+            })
+          }
+          toast.success(successMessage)
           await loadData()
           props.onSuccess?.()
+        } else {
+          toast.error(t(res.message || 'Operation failed'))
         }
       } else {
         const res = await deleteUserSubscription(confirmAction.subId)
         if (res.success) {
-          toast.success(t('Deleted'))
+          toast.success(
+            res.data?.message
+              ? t(res.data.message, { group: res.data.group || '' })
+              : t('Deleted')
+          )
           await loadData()
           props.onSuccess?.()
+        } else {
+          toast.error(t(res.message || 'Operation failed'))
         }
       }
     } catch {
@@ -206,6 +231,8 @@ export function UserSubscriptionsDialog(props: Props) {
         )
         await loadData()
         props.onSuccess?.()
+      } else {
+        toast.error(t(res.message || 'Operation failed'))
       }
     } catch {
       toast.error(t('Operation failed'))
@@ -213,6 +240,23 @@ export function UserSubscriptionsDialog(props: Props) {
       setResetting(false)
       setResetAction(null)
     }
+  }
+
+  let confirmTitle = t('Confirm delete')
+  let confirmDescription = t(
+    'Deleting will permanently remove this subscription record (including benefit details). Continue?'
+  )
+  if (confirmAction?.type === 'invalidate') {
+    confirmTitle = t('Confirm invalidate')
+    confirmDescription = t(
+      'After invalidating, this subscription will be immediately deactivated. Historical records are not affected. Continue?'
+    )
+  }
+  if (confirmAction?.scheduled) {
+    confirmTitle = t('Cancel queued membership')
+    confirmDescription = t(
+      'The queued membership will be removed from the activation queue. Later memberships will move forward automatically.'
+    )
   }
 
   return (
@@ -236,8 +280,8 @@ export function UserSubscriptionsDialog(props: Props) {
                   value: String(p.plan.id),
                   label: (
                     <>
-                      {p.plan.title}($
-                      {Number(p.plan.price_amount || 0).toFixed(2)})
+                      {p.plan.title} (
+                      {formatLocalCurrencyAmount(p.plan.price_amount)})
                     </>
                   ),
                 }))}
@@ -251,8 +295,8 @@ export function UserSubscriptionsDialog(props: Props) {
                   <SelectGroup>
                     {plans.map((p) => (
                       <SelectItem key={p.plan.id} value={String(p.plan.id)}>
-                        {p.plan.title} ($
-                        {Number(p.plan.price_amount || 0).toFixed(2)})
+                        {p.plan.title} (
+                        {formatLocalCurrencyAmount(p.plan.price_amount)})
                       </SelectItem>
                     ))}
                   </SelectGroup>
@@ -353,6 +397,7 @@ export function UserSubscriptionsDialog(props: Props) {
                     const isExpired =
                       (sub.end_time || 0) > 0 && sub.end_time < now
                     const isActive = sub.status === 'active' && !isExpired
+                    const isScheduled = sub.status === 'scheduled'
 
                     return (
                       <DataTableRowActionMenu ariaLabel={t('Actions')}>
@@ -374,15 +419,16 @@ export function UserSubscriptionsDialog(props: Props) {
                           </DropdownMenuShortcut>
                         </DropdownMenuItem>
                         <DropdownMenuItem
-                          disabled={!isActive}
+                          disabled={!isActive && !isScheduled}
                           onClick={() =>
                             setConfirmAction({
                               type: 'invalidate',
                               subId: sub.id,
+                              scheduled: isScheduled,
                             })
                           }
                         >
-                          {t('Invalidate')}
+                          {isScheduled ? t('Cancel') : t('Invalidate')}
                           <DropdownMenuShortcut>
                             <Ban size={16} />
                           </DropdownMenuShortcut>
@@ -416,20 +462,8 @@ export function UserSubscriptionsDialog(props: Props) {
         <ConfirmDialog
           open
           onOpenChange={(v) => !v && setConfirmAction(null)}
-          title={
-            confirmAction.type === 'invalidate'
-              ? t('Confirm invalidate')
-              : t('Confirm delete')
-          }
-          desc={
-            confirmAction.type === 'invalidate'
-              ? t(
-                  'After invalidating, this subscription will be immediately deactivated. Historical records are not affected. Continue?'
-                )
-              : t(
-                  'Deleting will permanently remove this subscription record (including benefit details). Continue?'
-                )
-          }
+          title={confirmTitle}
+          desc={confirmDescription}
           handleConfirm={handleConfirmAction}
           destructive={confirmAction.type === 'delete'}
         />

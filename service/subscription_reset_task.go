@@ -53,6 +53,7 @@ func runSubscriptionQuotaResetOnce() {
 	ctx := context.Background()
 	totalReset := 0
 	totalExpired := 0
+	totalMembershipMaintained := 0
 	for {
 		n, err := model.ExpireDueSubscriptions(subscriptionResetBatchSize)
 		if err != nil {
@@ -63,6 +64,21 @@ func runSubscriptionQuotaResetOnce() {
 			break
 		}
 		totalExpired += n
+		if n < subscriptionResetBatchSize {
+			break
+		}
+	}
+	for {
+		// n is users processed (expire-only and/or activate), not only activations.
+		n, err := model.ActivateDueMembershipSubscriptions(subscriptionResetBatchSize)
+		if err != nil {
+			logger.LogWarn(ctx, fmt.Sprintf("scheduled membership activation task failed: %v", err))
+			return
+		}
+		if n == 0 {
+			break
+		}
+		totalMembershipMaintained += n
 		if n < subscriptionResetBatchSize {
 			break
 		}
@@ -87,7 +103,7 @@ func runSubscriptionQuotaResetOnce() {
 			subscriptionCleanupLast.Store(time.Now().Unix())
 		}
 	}
-	if common.DebugEnabled && (totalReset > 0 || totalExpired > 0) {
-		logger.LogDebug(ctx, "subscription maintenance: reset_count=%d, expired_count=%d", totalReset, totalExpired)
+	if common.DebugEnabled && (totalReset > 0 || totalExpired > 0 || totalMembershipMaintained > 0) {
+		logger.LogDebug(ctx, "subscription maintenance: reset_count=%d, expired_count=%d, membership_maintained_count=%d", totalReset, totalExpired, totalMembershipMaintained)
 	}
 }

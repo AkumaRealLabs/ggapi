@@ -10,6 +10,11 @@ import (
 func GetUserUsableGroups(userGroup string) map[string]string {
 	groupsCopy := setting.GetUserUsableGroupsCopy()
 	if userGroup != "" {
+		// Add the identity group before applying overrides so an explicit
+		// removal rule can keep membership-only groups out of Token routing.
+		if _, ok := groupsCopy[userGroup]; !ok {
+			groupsCopy[userGroup] = "用户分组"
+		}
 		specialSettings, b := ratio_setting.GetGroupRatioSetting().GroupSpecialUsableGroup.Get(userGroup)
 		if b {
 			// 处理特殊可用分组
@@ -27,10 +32,6 @@ func GetUserUsableGroups(userGroup string) map[string]string {
 					groupsCopy[specialGroup] = desc
 				}
 			}
-		}
-		// 如果userGroup不在UserUsableGroups中，返回UserUsableGroups + userGroup
-		if _, ok := groupsCopy[userGroup]; !ok {
-			groupsCopy[userGroup] = "用户分组"
 		}
 	}
 	return groupsCopy

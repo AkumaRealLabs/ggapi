@@ -51,6 +51,7 @@ import type {
   PlanRecord,
   UserSubscriptionRecord,
 } from '@/features/subscriptions/types'
+import { formatLocalCurrencyAmount } from '@/lib/currency'
 import { formatQuota } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
@@ -102,6 +103,9 @@ export function SubscriptionPlansCard({
   >([])
   const [billingPreference, setBillingPreference] =
     useState('subscription_first')
+  const [membershipQueueLimit, setMembershipQueueLimit] = useState<number>()
+  const [pendingMembershipOrderCount, setPendingMembershipOrderCount] =
+    useState(0)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
 
@@ -137,6 +141,10 @@ export function SubscriptionPlansCard({
         )
         setActiveSubscriptions(res.data.subscriptions || [])
         setAllSubscriptions(res.data.all_subscriptions || [])
+        setMembershipQueueLimit(res.data.membership_queue_limit)
+        setPendingMembershipOrderCount(
+          res.data.pending_membership_order_count || 0
+        )
       }
     } catch {
       // ignore
@@ -184,6 +192,20 @@ export function SubscriptionPlansCard({
   const hasAny = allSubscriptions.length > 0
   const hasActiveQuotaSubscription = activeSubscriptions.some(
     (sub) => !sub.subscription.membership_only
+  )
+  const hasActiveMembership = activeSubscriptions.some(
+    (sub) => sub.subscription.membership_only === true
+  )
+  const scheduledMembershipCount = allSubscriptions.filter(
+    (sub) =>
+      sub.subscription.membership_only === true &&
+      sub.subscription.status === 'scheduled'
+  ).length
+  const inactiveSubscriptionCount = Math.max(
+    0,
+    allSubscriptions.length -
+      activeSubscriptions.length -
+      scheduledMembershipCount
   )
   const disablePref = !hasActiveQuotaSubscription
   const isSubPref =
@@ -271,12 +293,19 @@ export function SubscriptionPlansCard({
                 ) : (
                   t('No Active')
                 )}
-                {allSubscriptions.length > activeSubscriptions.length && (
+                {scheduledMembershipCount > 0 && (
                   <>
                     <span aria-hidden='true'>·</span>
                     <span>
-                      {allSubscriptions.length - activeSubscriptions.length}{' '}
-                      {t('expired')}
+                      {scheduledMembershipCount} {t('Queued')}
+                    </span>
+                  </>
+                )}
+                {inactiveSubscriptionCount > 0 && (
+                  <>
+                    <span aria-hidden='true'>·</span>
+                    <span>
+                      {inactiveSubscriptionCount} {t('expired')}
                     </span>
                   </>
                 )}
@@ -389,16 +418,25 @@ export function SubscriptionPlansCard({
                 const isExpired = (subscription?.end_time || 0) < now
                 const isCancelled = subscription?.status === 'cancelled'
                 const isActive = subscription?.status === 'active' && !isExpired
+                const isScheduled = subscription?.status === 'scheduled'
                 const nextResetTime = subscription?.next_reset_time ?? 0
 
                 let statusLabel = t('Expired')
                 let endTimeLabel = t('Expired at')
+                let statusTime = subscription?.end_time || 0
+                let statusVariant: 'success' | 'info' | 'neutral' = 'neutral'
                 if (isActive) {
                   statusLabel = t('Active')
                   endTimeLabel = t('Until')
+                  statusVariant = 'success'
                 } else if (isCancelled) {
                   statusLabel = t('Cancelled')
                   endTimeLabel = t('Cancelled at')
+                } else if (isScheduled) {
+                  statusLabel = t('Queued')
+                  endTimeLabel = t('Start')
+                  statusTime = subscription?.start_time || 0
+                  statusVariant = 'info'
                 }
 
                 return (
@@ -413,7 +451,7 @@ export function SubscriptionPlansCard({
                             ? `${planTitle} · ${t('Subscription')} #${subscription?.id}`
                             : `${t('Subscription')} #${subscription?.id}`}
                         </span>
-                        <StatusBadge variant={isActive ? 'success' : 'neutral'}>
+                        <StatusBadge variant={statusVariant}>
                           {statusLabel}
                         </StatusBadge>
                       </div>
@@ -427,9 +465,7 @@ export function SubscriptionPlansCard({
                     </div>
                     <div className='text-muted-foreground'>
                       {endTimeLabel}{' '}
-                      {new Date(
-                        (subscription?.end_time || 0) * 1000
-                      ).toLocaleString()}
+                      {new Date(statusTime * 1000).toLocaleString()}
                     </div>
                     {!membershipOnly && isActive && nextResetTime > 0 && (
                       <div className='text-muted-foreground'>
@@ -493,7 +529,7 @@ export function SubscriptionPlansCard({
                 if (!plan) return null
                 const totalAmount = Number(plan.total_amount || 0)
                 const membershipOnly = plan.membership_only === true
-                const price = Number(plan.price_amount || 0).toFixed(2)
+                const price = formatLocalCurrencyAmount(plan.price_amount)
                 const isPopular = index === 0 && plans.length > 1
                 const limit = Number(plan.max_purchase_per_user || 0)
                 const count = planPurchaseCountMap.get(plan.id) || 0
@@ -551,7 +587,7 @@ export function SubscriptionPlansCard({
 
                       <div className='py-2.5'>
                         <span className='text-2xl font-semibold tracking-tight tabular-nums'>
-                          ${price}
+                          {price}
                         </span>
                       </div>
 
@@ -633,6 +669,10 @@ export function SubscriptionPlansCard({
             ? planPurchaseCountMap.get(selectedPlan.plan.id)
             : undefined
         }
+        hasActiveMembership={hasActiveMembership}
+        scheduledMembershipCount={scheduledMembershipCount}
+        membershipQueueLimit={membershipQueueLimit}
+        pendingMembershipOrderCount={pendingMembershipOrderCount}
       />
     </>
   )

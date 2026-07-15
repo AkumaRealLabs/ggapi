@@ -163,6 +163,8 @@ export function SubscriptionsMutateDrawer({
           toast.success(t('Update succeeded'))
           onOpenChange(false)
           triggerRefresh()
+        } else {
+          toast.error(t(res.message || 'Request failed'))
         }
       } else {
         const res = await createPlan(payload)
@@ -170,6 +172,8 @@ export function SubscriptionsMutateDrawer({
           toast.success(t('Create succeeded'))
           onOpenChange(false)
           triggerRefresh()
+        } else {
+          toast.error(t(res.message || 'Request failed'))
         }
       }
     } catch {

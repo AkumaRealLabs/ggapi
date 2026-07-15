@@ -27,7 +27,7 @@ func SubscriptionRequestStripePay(c *gin.Context) {
 
 	var req SubscriptionStripePayRequest
 	if err := c.ShouldBindJSON(&req); err != nil || req.PlanId <= 0 {
-		common.ApiErrorMsg(c, "参数错误")
+		common.ApiErrorMsg(c, "Invalid parameters")
 		return
 	}
 
@@ -37,19 +37,19 @@ func SubscriptionRequestStripePay(c *gin.Context) {
 		return
 	}
 	if !plan.Enabled {
-		common.ApiErrorMsg(c, "套餐未启用")
+		common.ApiError(c, model.ErrSubscriptionPlanDisabled)
 		return
 	}
 	if plan.StripePriceId == "" {
-		common.ApiErrorMsg(c, "该套餐未配置 StripePriceId")
+		common.ApiErrorMsg(c, "This plan is not configured for the selected payment provider.")
 		return
 	}
 	if !strings.HasPrefix(setting.StripeApiSecret, "sk_") && !strings.HasPrefix(setting.StripeApiSecret, "rk_") {
-		common.ApiErrorMsg(c, "Stripe 未配置或密钥无效")
+		common.ApiErrorMsg(c, "The selected payment provider is not configured correctly.")
 		return
 	}
 	if setting.StripeWebhookSecret == "" {
-		common.ApiErrorMsg(c, "Stripe Webhook 未配置")
+		common.ApiErrorMsg(c, "The selected payment provider is not configured correctly.")
 		return
 	}
 
@@ -60,20 +60,8 @@ func SubscriptionRequestStripePay(c *gin.Context) {
 		return
 	}
 	if user == nil {
-		common.ApiErrorMsg(c, "用户不存在")
+		common.ApiErrorMsg(c, "User not found.")
 		return
-	}
-
-	if plan.MaxPurchasePerUser > 0 {
-		count, err := model.CountUserSubscriptionsByPlan(userId, plan.Id)
-		if err != nil {
-			common.ApiError(c, err)
-			return
-		}
-		if count >= int64(plan.MaxPurchasePerUser) {
-			common.ApiErrorMsg(c, "已达到该套餐购买上限")
-			return
-		}
 	}
 
 	reference := fmt.Sprintf("sub-stripe-ref-%d-%d-%s", user.Id, time.Now().UnixMilli(), randstr.String(4))
@@ -92,12 +80,12 @@ func SubscriptionRequestStripePay(c *gin.Context) {
 	}
 	lockedPlan, err := model.InsertPendingSubscriptionOrder(order)
 	if err != nil {
-		c.JSON(http.StatusOK, gin.H{"message": "error", "data": "创建订单失败"})
+		common.ApiError(c, err)
 		return
 	}
 	if lockedPlan.StripePriceId == "" {
 		_ = model.ExpireSubscriptionOrder(referenceId, model.PaymentProviderStripe)
-		common.ApiErrorMsg(c, "该套餐未配置 StripePriceId")
+		common.ApiErrorMsg(c, "This plan is not configured for the selected payment provider.")
 		return
 	}
 
@@ -105,7 +93,7 @@ func SubscriptionRequestStripePay(c *gin.Context) {
 	if err != nil {
 		logger.LogError(c.Request.Context(), fmt.Sprintf("Stripe 订阅支付链接创建失败 trade_no=%s plan_id=%d error=%q", referenceId, plan.Id, err.Error()))
 		_ = model.ExpireSubscriptionOrder(referenceId, model.PaymentProviderStripe)
-		c.JSON(http.StatusOK, gin.H{"message": "error", "data": "拉起支付失败"})
+		common.ApiErrorMsg(c, "Payment request failed")
 		return
 	}
 

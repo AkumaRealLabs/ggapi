@@ -338,12 +338,14 @@ func TestMembershipOnlySubscriptionChangesGroupWithoutFundingUsage(t *testing.T)
 
 	require.NoError(t, DB.Model(&UserSubscription{}).Where("id = ?", created.Id).
 		Update("end_time", GetDBTimestamp()-1).Error)
-	expired, err := ExpireDueSubscriptions(10)
+	// Membership expiry runs in the activate pass (atomic with any queue successor).
+	// Return value is users processed (expire-only still counts as 1).
+	processed, err := ActivateDueMembershipSubscriptions(10)
 	require.NoError(t, err)
-	assert.Equal(t, 1, expired)
+	assert.Equal(t, 1, processed)
 
 	expiredSub := getGroupBillingSub(t, created.Id)
-	assert.Equal(t, "expired", expiredSub.Status)
+	assert.Equal(t, SubscriptionStatusExpired, expiredSub.Status)
 	assert.Zero(t, expiredSub.AmountUsed)
 	require.NoError(t, DB.Select(commonGroupCol).Where("id = ?", 211).First(&user).Error)
 	assert.Equal(t, "test-base", user.Group)

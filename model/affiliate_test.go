@@ -547,7 +547,8 @@ func TestExternalSubscriptionCreatesCommissionButBalancePurchaseDoesNot(t *testi
 	assert.Equal(t, 2000, commission.CommissionQuota)
 
 	require.NoError(t, DB.Model(&User{}).Where("id = ?", 2).Update("quota", 100_000).Error)
-	require.NoError(t, PurchaseSubscriptionWithBalance(2, plan.Id))
+	_, err := PurchaseSubscriptionWithBalance(2, plan.Id)
+	require.NoError(t, err)
 	var count int64
 	require.NoError(t, DB.Model(&AffiliateCommission{}).Count(&count).Error)
 	assert.Equal(t, int64(1), count)

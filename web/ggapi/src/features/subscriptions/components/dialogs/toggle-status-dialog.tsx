@@ -50,6 +50,8 @@ export function ToggleStatusDialog() {
         )
         triggerRefresh()
         setOpen(null)
+      } else {
+        toast.error(t(res.message || 'Operation failed'))
       }
     } catch {
       toast.error(t('Operation failed'))

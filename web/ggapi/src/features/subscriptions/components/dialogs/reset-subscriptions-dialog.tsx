@@ -54,6 +54,8 @@ export function ResetSubscriptionsDialog() {
         )
         triggerRefresh()
         setOpen(null)
+      } else {
+        toast.error(t(res.message || 'Operation failed'))
       }
     } catch {
       toast.error(t('Operation failed'))

@@ -100,6 +100,7 @@ export interface SubscriptionPayResponse {
   success: boolean
   message?: string
   data?: {
+    status?: 'active' | 'scheduled'
     // Stripe-style hosted checkout link.
     pay_link?: string
     // Waffo Pancake / Creem hosted checkout URL.
@@ -144,6 +145,8 @@ export interface SelfSubscriptionData {
   billing_preference: string
   subscriptions: UserSubscriptionRecord[]
   all_subscriptions: UserSubscriptionRecord[]
+  membership_queue_limit?: number
+  pending_membership_order_count?: number
 }
 
 // ============================================================================
