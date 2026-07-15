@@ -1,7 +1,6 @@
 package model
 
 import (
-	"strings"
 	"testing"
 	"time"
 
@@ -133,9 +132,8 @@ func TestAdminResetUserSubscriptionsByPlanNoActiveMatchReturnsError(t *testing.T
 
 	result, err := AdminResetUserSubscriptionsByPlan(301, plan.Id, true)
 
-	require.Error(t, err)
+	require.ErrorIs(t, err, ErrActiveSubscriptionForPlanNotFound)
 	assert.Nil(t, result)
-	assert.True(t, strings.Contains(err.Error(), "该用户没有有效的此套餐订阅"))
 }
 
 func TestAdminResetPlanSubscriptionsResetsAllActiveUsers(t *testing.T) {
@@ -228,14 +226,12 @@ func TestMembershipOnlySubscriptionRejectsQuotaReset(t *testing.T) {
 	})
 
 	userResult, err := AdminResetUserSubscriptionsByPlan(501, plan.Id, true)
-	require.Error(t, err)
+	require.ErrorIs(t, err, ErrMembershipQuotaResetUnsupported)
 	assert.Nil(t, userResult)
-	assert.Contains(t, err.Error(), "会员权益套餐不支持额度重置")
 
 	planResult, err := AdminResetPlanSubscriptions(plan.Id, true)
-	require.Error(t, err)
+	require.ErrorIs(t, err, ErrMembershipQuotaResetUnsupported)
 	assert.Nil(t, planResult)
-	assert.Contains(t, err.Error(), "会员权益套餐不支持额度重置")
 }
 
 func TestBackfillSubscriptionMembershipColumns(t *testing.T) {
@@ -474,14 +470,13 @@ func TestAdminUpdateSubscriptionPlanFieldsEnforcesMembershipWhenOmitted(t *testi
 		"upgrade_group": "",
 		"total_amount":  int64(999),
 	}, nil)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "升级分组")
+	require.ErrorIs(t, err, ErrMembershipUpgradeGroupRequired)
 
 	// Valid omit still forces membership invariants (no quota / never reset).
 	err = AdminUpdateSubscriptionPlanFields(plan.Id, map[string]interface{}{
-		"title":         "Still Membership",
-		"upgrade_group": "vip",
-		"total_amount":  int64(999),
+		"title":              "Still Membership",
+		"upgrade_group":      "vip",
+		"total_amount":       int64(999),
 		"quota_reset_period": SubscriptionResetDaily,
 	}, nil)
 	require.NoError(t, err)
@@ -503,7 +498,7 @@ func TestAdminUpdateSubscriptionPlanFieldsOmitsMembershipWhenNil(t *testing.T) {
 
 	// Omit membership_only (nil pointer): title update must not demote type.
 	err := AdminUpdateSubscriptionPlanFields(plan.Id, map[string]interface{}{
-		"title":          "Renamed",
+		"title":           "Renamed",
 		"membership_only": false, // must be stripped even if present in map
 	}, nil)
 	require.NoError(t, err)
