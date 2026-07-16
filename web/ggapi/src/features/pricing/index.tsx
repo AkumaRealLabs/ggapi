@@ -24,7 +24,6 @@ import {
   PublicLayout,
   PublicPageHeader,
   PublicPageShell,
-  PUBLIC_PAGE_SHELL_CLASS,
 } from '@/components/layout'
 
 import {
@@ -38,6 +37,8 @@ import {
 import {
   EXCLUDED_GROUPS,
   PRICING_FILTER_LAYOUT_CLASS,
+  PRICING_PAGE_SHELL_CLASS,
+  PRICING_SIDEBAR_STICKY_CLASS,
   VIEW_MODES,
 } from './constants'
 import { useFilters } from './hooks/use-filters'
@@ -142,93 +143,93 @@ export function Pricing() {
     onClearFilters: clearFilters,
   }
 
-  let pricingContent = (
-    <PricingTable
-      models={filteredModels}
-      priceRate={priceRate}
-      usdExchangeRate={usdExchangeRate}
-      showRechargePrice={showRechargePrice}
-      selectedGroup={groupFilter}
-      onModelClick={handleModelClick}
-    />
-  )
-
-  if (filteredModels.length === 0) {
-    pricingContent = (
-      <EmptyState
-        searchQuery={searchInput}
-        hasActiveFilters={hasActiveFilters}
-        onClearFilters={handleClearAll}
-      />
-    )
-  } else if (viewMode === VIEW_MODES.CARD) {
-    pricingContent = (
-      <ModelCardGrid
-        models={filteredModels}
-        onModelClick={handleModelClick}
-        priceRate={priceRate}
-        usdExchangeRate={usdExchangeRate}
-        showRechargePrice={showRechargePrice}
-        selectedGroup={groupFilter}
-      />
-    )
-  }
-
-  if (isLoading) {
-    return (
-      <PublicLayout showMainContainer={false}>
-        <div className={PUBLIC_PAGE_SHELL_CLASS}>
-          <LoadingSkeleton viewMode={viewMode} />
-        </div>
-      </PublicLayout>
-    )
+  // Build list body only when data is ready (and avoid nested ternaries for lint).
+  let listContent = null
+  if (!isLoading) {
+    if (filteredModels.length === 0) {
+      listContent = (
+        <EmptyState
+          searchQuery={searchInput}
+          hasActiveFilters={hasActiveFilters}
+          onClearFilters={handleClearAll}
+        />
+      )
+    } else if (viewMode === VIEW_MODES.CARD) {
+      listContent = (
+        <ModelCardGrid
+          models={filteredModels}
+          onModelClick={handleModelClick}
+          priceRate={priceRate}
+          usdExchangeRate={usdExchangeRate}
+          showRechargePrice={showRechargePrice}
+          selectedGroup={groupFilter}
+        />
+      )
+    } else {
+      listContent = (
+        <PricingTable
+          models={filteredModels}
+          priceRate={priceRate}
+          usdExchangeRate={usdExchangeRate}
+          showRechargePrice={showRechargePrice}
+          selectedGroup={groupFilter}
+          onModelClick={handleModelClick}
+        />
+      )
+    }
   }
 
   return (
     <PublicLayout showMainContainer={false}>
-      <PublicPageShell>
-        <PublicPageHeader
-          title={t('Models & pricing')}
-          description={
-            <>
-              {t(
-                'Discover curated AI models, compare pricing and capabilities, and choose the right model for every scenario.'
-              )}{' '}
-              {t('This site currently has {{count}} models enabled', {
-                count: models?.length || 0,
-              })}
-            </>
-          }
-        />
-
-        <div className={PRICING_FILTER_LAYOUT_CLASS}>
-          <PricingSidebar
-            {...filterSidebarProps}
-            className='hover-scrollbar sticky top-4 hidden max-h-[calc(100dvh-2rem)] self-start overflow-y-auto xl:block'
-          />
-
-          <main className='min-w-0 space-y-4'>
-            <PricingToolbar
-              {...filterSidebarProps}
-              searchInput={searchInput}
-              onSearchChange={setSearchInput}
-              onClearSearch={clearSearch}
-              filteredCount={filteredModels.length}
-              totalCount={models?.length}
-              sortBy={sortBy}
-              onSortChange={setSortBy}
-              showRechargePrice={showRechargePrice}
-              onRechargePriceChange={setShowRechargePrice}
-              priceRate={priceRate}
-              usdExchangeRate={usdExchangeRate}
-              viewMode={viewMode}
-              onViewModeChange={setViewMode}
-              activeFilterCount={activeFilterCount}
+      <PublicPageShell className={PRICING_PAGE_SHELL_CLASS}>
+        {isLoading ? (
+          <LoadingSkeleton viewMode={viewMode} />
+        ) : (
+          <>
+            <PublicPageHeader
+              title={t('Models & pricing')}
+              description={
+                <>
+                  {t(
+                    'Discover curated AI models, compare pricing and capabilities, and choose the right model for every scenario.'
+                  )}{' '}
+                  {t('This site currently has {{count}} models enabled', {
+                    count: models?.length || 0,
+                  })}
+                </>
+              }
             />
 
-            {pricingContent}
-          </main>
-        </div>
+            <div className={PRICING_FILTER_LAYOUT_CLASS}>
+              <PricingSidebar
+                {...filterSidebarProps}
+                className={PRICING_SIDEBAR_STICKY_CLASS}
+              />
+
+              <main className='min-w-0 space-y-4'>
+                <PricingToolbar
+                  {...filterSidebarProps}
+                  searchInput={searchInput}
+                  onSearchChange={setSearchInput}
+                  onClearSearch={clearSearch}
+                  filteredCount={filteredModels.length}
+                  totalCount={models?.length}
+                  sortBy={sortBy}
+                  onSortChange={setSortBy}
+                  showRechargePrice={showRechargePrice}
+                  onRechargePriceChange={setShowRechargePrice}
+                  priceRate={priceRate}
+                  usdExchangeRate={usdExchangeRate}
+                  viewMode={viewMode}
+                  onViewModeChange={setViewMode}
+                  activeFilterCount={activeFilterCount}
+                />
+
+                {listContent}
+              </main>
+            </div>
+          </>
+        )}
       </PublicPageShell>
     </PublicLayout>
   )

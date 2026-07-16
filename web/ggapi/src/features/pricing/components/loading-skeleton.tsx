@@ -60,9 +60,10 @@ export function LoadingSkeleton(props: LoadingSkeletonProps) {
 
   return (
     <div data-slot='sketch-pricing-skeleton'>
-      <div className='mb-8 max-w-3xl space-y-2'>
+      <div className='mb-8 space-y-2'>
         <Skeleton className='h-6 w-48' />
-        <Skeleton className='h-4 w-full max-w-xl' />
+        {/* Full shell width — matches live PublicPageHeader subtitle. */}
+        <Skeleton className='h-4 w-full' />
       </div>
       <div className={PRICING_FILTER_LAYOUT_CLASS}>
         <div

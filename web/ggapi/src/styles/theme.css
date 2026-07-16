@@ -222,6 +222,10 @@ For commercial licensing, please contact support@quantumnous.com
    * via data-theme-radius. */
   --radius: 0.625rem;
   --app-header-height: 3rem;
+  /* Fixed public marketing header (gg-public-header-shell) clearance for
+   * sticky catalog sidebars. Keep in sync with PublicHeader vertical size. */
+  --public-header-offset: 6rem;
+  --public-header-sticky-gap: 1rem;
   /* Static build-channel fallback consumed when JS hasn't booted yet. */
   --app-rev: '2k6e8r7p';
   /* Currently active body font. The font axis swaps this between

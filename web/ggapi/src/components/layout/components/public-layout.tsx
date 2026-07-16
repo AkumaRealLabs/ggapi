@@ -33,8 +33,10 @@ type PublicLayoutProps = {
 }
 
 export function PublicLayout(props: PublicLayoutProps) {
+  // No overflow-x-clip here: it becomes a scrollport and breaks
+  // position:sticky (pricing filters). html already uses overflow-x-hidden.
   return (
-    <div className='bg-background text-foreground relative min-h-svh overflow-x-clip'>
+    <div className='bg-background text-foreground relative min-h-svh'>
       <PublicHeader
         navContent={props.navContent}
         navLinks={props.navLinks}
