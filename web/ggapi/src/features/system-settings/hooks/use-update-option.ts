@@ -53,6 +53,36 @@ export type UpdateOptionToastOptions = {
   successMessage?: string
 }
 
+/**
+ * Enable/toggle option keys that usually require sibling credentials (site keys,
+ * OAuth secrets, domain whitelist, …) to already exist on the server. Write
+ * these after non-enable keys so a fail-fast batch can still persist
+ * prerequisites on first-time setup.
+ */
+function isEnableOptionKey(key: string): boolean {
+  return (
+    /Enabled$/i.test(key) ||
+    /\.enabled$/i.test(key) ||
+    /_enabled$/i.test(key)
+  )
+}
+
+function orderOptionWrites(
+  requests: UpdateOptionRequest[]
+): UpdateOptionRequest[] {
+  const prerequisites: UpdateOptionRequest[] = []
+  const enableFlags: UpdateOptionRequest[] = []
+  for (const request of requests) {
+    if (isEnableOptionKey(request.key)) {
+      enableFlags.push(request)
+    } else {
+      prerequisites.push(request)
+    }
+  }
+  if (enableFlags.length === 0) return requests
+  return [...prerequisites, ...enableFlags]
+}
+
 export function useUpdateOption() {
   const queryClient = useQueryClient()
   // Direct writes bypass useMutation; refcount so overlapping batches keep
@@ -118,10 +148,12 @@ export function useUpdateOption() {
     ) => {
       if (requests.length === 0) return
 
-      const keys = requests.map((request) => request.key)
+      // Credentials / whitelist first; enable flags last (fail-fast safe).
+      const ordered = orderOptionWrites(requests)
+      const keys = ordered.map((request) => request.key)
       beginBatch()
       try {
-        for (const request of requests) {
+        for (const request of ordered) {
           await updateSystemOption(request)
         }
         invalidateForKeys(keys)
