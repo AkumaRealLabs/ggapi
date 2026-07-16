@@ -5346,6 +5346,11 @@
     "The user has no active subscription for this plan.": "该用户没有此套餐的有效订阅。",
     "Total quota cannot be negative.": "总额度不能为负数。",
     "Upgrade group does not exist.": "升级分组不存在。",
-    "Other payment settings were already saved.": "其他支付设置已保存。"
+    "Other payment settings were already saved.": "其他支付设置已保存。",
+    "Model updated successfully": "模型更新成功",
+    "Model created successfully": "模型创建成功",
+    "Pricing settings failed to save": "价格设置保存失败",
+    "Model updated, but pricing was not fully saved: {{detail}}": "模型已更新，但价格设置未完全保存：{{detail}}",
+    "Model created, but pricing was not fully saved: {{detail}}": "模型已创建，但价格设置未完全保存：{{detail}}"
   }
 }

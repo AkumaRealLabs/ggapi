@@ -5346,6 +5346,11 @@
     "The user has no active subscription for this plan.": "Người dùng không có gói đăng ký đang hoạt động cho gói này.",
     "Total quota cannot be negative.": "Tổng hạn mức không được âm.",
     "Upgrade group does not exist.": "Nhóm nâng cấp không tồn tại.",
-    "Other payment settings were already saved.": "Các cài đặt thanh toán khác đã được lưu."
+    "Other payment settings were already saved.": "Các cài đặt thanh toán khác đã được lưu.",
+    "Model updated successfully": "Cập nhật mô hình thành công",
+    "Model created successfully": "Tạo mô hình thành công",
+    "Pricing settings failed to save": "Lưu cài đặt giá thất bại",
+    "Model updated, but pricing was not fully saved: {{detail}}": "Đã cập nhật mô hình, nhưng cài đặt giá chưa lưu hết: {{detail}}",
+    "Model created, but pricing was not fully saved: {{detail}}": "Đã tạo mô hình, nhưng cài đặt giá chưa lưu hết: {{detail}}"
   }
 }

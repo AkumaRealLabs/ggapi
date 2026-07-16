@@ -5346,6 +5346,11 @@
     "The user has no active subscription for this plan.": "The user has no active subscription for this plan.",
     "Total quota cannot be negative.": "Total quota cannot be negative.",
     "Upgrade group does not exist.": "Upgrade group does not exist.",
-    "Other payment settings were already saved.": "Other payment settings were already saved."
+    "Other payment settings were already saved.": "Other payment settings were already saved.",
+    "Model updated successfully": "Model updated successfully",
+    "Model created successfully": "Model created successfully",
+    "Pricing settings failed to save": "Pricing settings failed to save",
+    "Model updated, but pricing was not fully saved: {{detail}}": "Model updated, but pricing was not fully saved: {{detail}}",
+    "Model created, but pricing was not fully saved: {{detail}}": "Model created, but pricing was not fully saved: {{detail}}"
   }
 }

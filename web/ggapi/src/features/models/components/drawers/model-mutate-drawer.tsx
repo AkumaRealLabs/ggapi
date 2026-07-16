@@ -638,25 +638,31 @@ export function ModelMutateDrawer({
 
           toast.success(
             isEditing
-              ? 'Model updated successfully'
-              : 'Model created successfully'
+              ? t('Model updated successfully')
+              : t('Model created successfully')
           )
           reconcileModelWrite()
           onOpenChange(false)
         } catch (error: unknown) {
           reconcileModelWrite()
           const detail =
-            (error as Error)?.message || 'Pricing settings failed to save'
+            (error as Error)?.message || t('Pricing settings failed to save')
           toast.error(
             isEditing
-              ? `Model updated, but pricing was not fully saved: ${detail}`
-              : `Model created, but pricing was not fully saved: ${detail}`
+              ? t(
+                  'Model updated, but pricing was not fully saved: {{detail}}',
+                  { detail }
+                )
+              : t(
+                  'Model created, but pricing was not fully saved: {{detail}}',
+                  { detail }
+                )
           )
           // Close so retry goes through edit-from-list, not another create.
           onOpenChange(false)
         }
       } catch (error: unknown) {
-        toast.error((error as Error)?.message || 'Operation failed')
+        toast.error((error as Error)?.message || t('Operation failed'))
       } finally {
         setIsSubmitting(false)
       }
@@ -670,6 +676,7 @@ export function ModelMutateDrawer({
       oldModelName,
       modelSettings,
       updateOption,
+      t,
     ]
   )
 
