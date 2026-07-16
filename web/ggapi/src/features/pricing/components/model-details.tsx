@@ -56,7 +56,7 @@ import {
 import { getLobeIcon } from '@/lib/lobe-icon'
 import { cn } from '@/lib/utils'
 
-import { DEFAULT_TOKEN_UNIT, QUOTA_TYPE_VALUES } from '../constants'
+import { QUOTA_TYPE_VALUES, TOKEN_UNIT_LABEL } from '../constants'
 import { usePricingData } from '../hooks/use-pricing-data'
 import {
   getDynamicPriceEntries,
@@ -66,13 +66,12 @@ import {
 } from '../lib/dynamic-price'
 import { parseTags } from '../lib/filters'
 import { getAvailableGroups, isTokenBasedModel } from '../lib/model-helpers'
-import { formatFixedPrice, formatGroupPrice } from '../lib/price'
-import type {
-  ModelCapability,
-  PriceType,
-  PricingModel,
-  TokenUnit,
-} from '../types'
+import {
+  formatFixedPrice,
+  formatGroupPrice,
+  hasDistinctRechargePrice,
+} from '../lib/price'
+import type { ModelCapability, PriceType, PricingModel } from '../types'
 import { DynamicPricingBreakdown } from './dynamic-pricing-breakdown'
 import { ModelDetailsApi } from './model-details-api'
 import { ModelDetailsPerformance } from './model-details-performance'
@@ -606,16 +605,14 @@ function PriceSection(props: {
   model: PricingModel
   priceRate: number
   usdExchangeRate: number
-  tokenUnit: TokenUnit
   showRechargePrice: boolean
 }) {
   const { t } = useTranslation()
   const isTokenBased = isTokenBasedModel(props.model)
-  const tokenUnitLabel = props.tokenUnit === 'K' ? '1K' : '1M'
+  const tokenUnitLabel = TOKEN_UNIT_LABEL
   const baseGroupKey = '_base'
   const baseGroupRatioMap = { [baseGroupKey]: 1 }
   const dynamicSummary = getDynamicPricingSummary(props.model, {
-    tokenUnit: props.tokenUnit,
     showRechargePrice: props.showRechargePrice,
     priceRate: props.priceRate,
     usdExchangeRate: props.usdExchangeRate,
@@ -778,7 +775,6 @@ function PriceSection(props: {
                   props.model,
                   baseGroupKey,
                   item.type,
-                  props.tokenUnit,
                   props.showRechargePrice,
                   props.priceRate,
                   props.usdExchangeRate,
@@ -869,7 +865,6 @@ function GroupPricingSection(props: {
   autoGroups: string[]
   priceRate: number
   usdExchangeRate: number
-  tokenUnit: TokenUnit
   showRechargePrice?: boolean
 }) {
   const { t } = useTranslation()
@@ -881,7 +876,7 @@ function GroupPricingSection(props: {
   )
 
   const isTokenBased = isTokenBasedModel(props.model)
-  const tokenUnitLabel = props.tokenUnit === 'K' ? '1K' : '1M'
+  const tokenUnitLabel = TOKEN_UNIT_LABEL
 
   const extraPriceTypes = useMemo(() => {
     const types: { label: string; type: PriceType }[] = []
@@ -953,7 +948,6 @@ function GroupPricingSection(props: {
     }
 
     const priceFields = getDynamicPriceFields(dynamicTiers, {
-      tokenUnit: props.tokenUnit,
       showRechargePrice,
       priceRate: props.priceRate,
       usdExchangeRate: props.usdExchangeRate,
@@ -965,8 +959,7 @@ function GroupPricingSection(props: {
         return [
           group,
           getDynamicFormattedPricesByTier(dynamicTiers, {
-            tokenUnit: props.tokenUnit,
-            showRechargePrice,
+                        showRechargePrice,
             priceRate: props.priceRate,
             usdExchangeRate: props.usdExchangeRate,
             groupRatioMultiplier: ratio,
@@ -1026,7 +1019,7 @@ function GroupPricingSection(props: {
             )
           })}
           <p className='text-muted-foreground/40 mt-1.5 text-xs'>
-            {t('Prices shown per')} {tokenUnitLabel} tokens
+            {t('Prices shown per')} {tokenUnitLabel} {t('tokens')}
           </p>
         </div>
       </section>
@@ -1038,7 +1031,6 @@ function GroupPricingSection(props: {
       props.model,
       group,
       type,
-      props.tokenUnit,
       showRechargePrice,
       props.priceRate,
       props.usdExchangeRate,
@@ -1117,7 +1109,7 @@ function GroupPricingSection(props: {
       <div className='-mx-4 sm:mx-0'>
         {isTokenBased && (
           <p className='text-muted-foreground/40 mt-1.5 px-4 text-xs sm:px-0'>
-            {t('Prices shown per')} {tokenUnitLabel} tokens
+            {t('Prices shown per')} {tokenUnitLabel} {t('tokens')}
           </p>
         )}
       </div>
@@ -1145,7 +1137,6 @@ export interface ModelDetailsContentProps {
   autoGroups: string[]
   priceRate: number
   usdExchangeRate: number
-  tokenUnit: TokenUnit
   showRechargePrice?: boolean
 }
 
@@ -1188,7 +1179,6 @@ export function ModelDetailsContent(props: ModelDetailsContentProps) {
             model={props.model}
             priceRate={props.priceRate}
             usdExchangeRate={props.usdExchangeRate}
-            tokenUnit={props.tokenUnit}
             showRechargePrice={showRechargePrice}
           />
           {isDynamic && (
@@ -1201,7 +1191,6 @@ export function ModelDetailsContent(props: ModelDetailsContentProps) {
             autoGroups={props.autoGroups}
             priceRate={props.priceRate}
             usdExchangeRate={props.usdExchangeRate}
-            tokenUnit={props.tokenUnit}
             showRechargePrice={showRechargePrice}
           />
           <ModelBackendDetailsSection model={props.model} />
@@ -1238,9 +1227,6 @@ export function ModelDetails() {
     priceRate,
     usdExchangeRate,
   } = usePricingData()
-
-  const tokenUnit: TokenUnit =
-    search.tokenUnit === 'K' ? 'K' : DEFAULT_TOKEN_UNIT
 
   const model = useMemo(() => {
     if (!models || !modelId) return null
@@ -1313,8 +1299,10 @@ export function ModelDetails() {
           autoGroups={autoGroups || []}
           priceRate={priceRate ?? 1}
           usdExchangeRate={usdExchangeRate ?? 1}
-          tokenUnit={tokenUnit}
-          showRechargePrice={search.rechargePrice ?? false}
+          showRechargePrice={
+            hasDistinctRechargePrice(priceRate ?? 1, usdExchangeRate ?? 1) &&
+            (search.rechargePrice ?? false)
+          }
           endpointMap={
             (endpointMap as Record<
               string,

@@ -18,8 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { formatBillingCurrencyFromUSD } from '@/lib/currency'
 
-import { TOKEN_UNIT_DIVISORS } from '../constants'
-import type { PricingModel, TokenUnit } from '../types'
+import type { PricingModel } from '../types'
 import {
   BILLING_PRICING_VARS,
   parseTiersFromExpr,
@@ -29,9 +28,9 @@ import {
   type ParsedTier,
 } from './billing-expr'
 import { getDisplayGroupRatio } from './model-helpers'
+import { applyRechargeRate } from './price'
 
 type DynamicPriceOptions = {
-  tokenUnit: TokenUnit
   showRechargePrice?: boolean
   priceRate?: number
   usdExchangeRate?: number
@@ -73,16 +72,7 @@ export function getDynamicDisplayGroupRatio(
   return getDisplayGroupRatio(model, selectedGroup)
 }
 
-function applyRechargeRate(
-  price: number,
-  showWithRecharge: boolean,
-  priceRate: number,
-  usdExchangeRate: number
-): number {
-  if (!showWithRecharge) return price
-  return (price * priceRate) / usdExchangeRate
-}
-
+/** Format a tiered-expr unit price (values are already USD per 1M tokens). */
 export function formatDynamicUnitPrice(
   valuePerMillionTokens: number,
   options: DynamicPriceOptions
@@ -90,9 +80,7 @@ export function formatDynamicUnitPrice(
   const groupRatio = options.groupRatioMultiplier ?? 1
   const priceRate = options.priceRate ?? 1
   const usdExchangeRate = options.usdExchangeRate ?? 1
-  const priceUSD =
-    (valuePerMillionTokens * groupRatio) /
-    TOKEN_UNIT_DIVISORS[options.tokenUnit]
+  const priceUSD = valuePerMillionTokens * groupRatio
   const displayPrice = applyRechargeRate(
     priceUSD,
     options.showRechargePrice ?? false,

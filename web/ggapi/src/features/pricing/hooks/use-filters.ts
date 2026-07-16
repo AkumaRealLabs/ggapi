@@ -24,13 +24,12 @@ import {
   SORT_OPTIONS,
   QUOTA_TYPES,
   ENDPOINT_TYPES,
-  DEFAULT_TOKEN_UNIT,
   DEFAULT_VIEW_MODE,
   VIEW_MODES,
   type ViewMode,
 } from '../constants'
 import { filterAndSortModels, extractAllTags } from '../lib/filters'
-import type { PricingModel, TokenUnit } from '../types'
+import type { PricingModel } from '../types'
 
 type FilterState = {
   search?: string
@@ -40,7 +39,6 @@ type FilterState = {
   quotaType?: string
   endpointType?: string
   tag?: string
-  tokenUnit?: TokenUnit
   view?: ViewMode
   rechargePrice?: boolean
 }
@@ -62,7 +60,6 @@ export function useFilters(models: PricingModel[]) {
     quotaType: search.quotaType,
     endpointType: search.endpointType,
     tag: search.tag,
-    tokenUnit: search.tokenUnit,
     view: search.view,
     rechargePrice: search.rechargePrice,
   }))
@@ -74,8 +71,6 @@ export function useFilters(models: PricingModel[]) {
   const quotaTypeFilter = filterState.quotaType || QUOTA_TYPES.ALL
   const endpointTypeFilter = filterState.endpointType || ENDPOINT_TYPES.ALL
   const tagFilter = filterState.tag || FILTER_ALL
-  const tokenUnit: TokenUnit =
-    filterState.tokenUnit === 'K' ? 'K' : DEFAULT_TOKEN_UNIT
   const viewMode = normalizeViewMode(filterState.view)
   const showRechargePrice = filterState.rechargePrice === true
 
@@ -122,11 +117,6 @@ export function useFilters(models: PricingModel[]) {
   )
   const setTagFilter = useCallback(
     (v: string) => updateFilters({ tag: v === FILTER_ALL ? undefined : v }),
-    [updateFilters]
-  )
-  const setTokenUnit = useCallback(
-    (v: TokenUnit) =>
-      updateFilters({ tokenUnit: v === DEFAULT_TOKEN_UNIT ? undefined : v }),
     [updateFilters]
   )
   const setViewMode = useCallback(
@@ -200,7 +190,6 @@ export function useFilters(models: PricingModel[]) {
           ? undefined
           : endpointTypeFilter,
       tag: tagFilter === FILTER_ALL ? undefined : tagFilter,
-      tokenUnit: tokenUnit === DEFAULT_TOKEN_UNIT ? undefined : tokenUnit,
       view: viewMode === DEFAULT_VIEW_MODE ? undefined : viewMode,
       rechargePrice: showRechargePrice || undefined,
     }),
@@ -212,7 +201,6 @@ export function useFilters(models: PricingModel[]) {
       showRechargePrice,
       sortBy,
       tagFilter,
-      tokenUnit,
       vendorFilter,
       viewMode,
     ]
@@ -240,7 +228,6 @@ export function useFilters(models: PricingModel[]) {
     quotaTypeFilter,
     endpointTypeFilter,
     tagFilter,
-    tokenUnit,
     viewMode,
     showRechargePrice,
     setSearchInput,
@@ -250,7 +237,6 @@ export function useFilters(models: PricingModel[]) {
     setQuotaTypeFilter,
     setEndpointTypeFilter,
     setTagFilter,
-    setTokenUnit,
     setViewMode,
     setShowRechargePrice,
     filteredModels,

@@ -26,7 +26,7 @@ import { GroupBadge } from '@/components/group-badge'
 import { StatusBadge } from '@/components/status-badge'
 import { getLobeIcon } from '@/lib/lobe-icon'
 
-import { DEFAULT_TOKEN_UNIT } from '../constants'
+import { TOKEN_UNIT_LABEL } from '../constants'
 import {
   getDynamicDisplayGroupRatio,
   getDynamicPricingSummary,
@@ -38,11 +38,10 @@ import {
   formatRequestPrice,
   stripTrailingZeros,
 } from '../lib/price'
-import type { PriceType, PricingModel, TokenUnit } from '../types'
+import type { PriceType, PricingModel } from '../types'
 import { ModelPerfBadge, type ModelPerfBadgeData } from './model-perf-badge'
 
 export interface PricingColumnsOptions {
-  tokenUnit?: TokenUnit
   priceRate?: number
   usdExchangeRate?: number
   showRechargePrice?: boolean
@@ -84,9 +83,8 @@ function renderPriceCell(
   },
   t: TFunction
 ): ReactNode {
-  const tokenUnitLabel = props.options.tokenUnit === 'K' ? '1K' : '1M'
+  const tokenUnitLabel = TOKEN_UNIT_LABEL
   const dynamicSummary = getDynamicPricingSummary(props.model, {
-    tokenUnit: props.options.tokenUnit,
     showRechargePrice: props.options.showRechargePrice,
     priceRate: props.options.priceRate,
     usdExchangeRate: props.options.usdExchangeRate,
@@ -163,7 +161,6 @@ function renderPriceCell(
           formatPrice(
             props.model,
             props.priceType,
-            props.options.tokenUnit,
             props.options.showRechargePrice,
             props.options.priceRate,
             props.options.usdExchangeRate,
@@ -183,7 +180,6 @@ export function usePricingColumns(
 ): ColumnDef<PricingModel>[] {
   const { t } = useTranslation()
   const priceOptions = {
-    tokenUnit: options.tokenUnit ?? DEFAULT_TOKEN_UNIT,
     priceRate: options.priceRate ?? 1,
     usdExchangeRate: options.usdExchangeRate ?? 1,
     showRechargePrice: options.showRechargePrice ?? false,

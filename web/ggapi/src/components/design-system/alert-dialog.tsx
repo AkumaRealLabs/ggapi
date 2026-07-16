@@ -38,13 +38,8 @@ function AlertDialogAction({
   className,
   ...props
 }: React.ComponentProps<typeof Button>) {
-  return (
-    <Button
-      data-slot='alert-dialog-action'
-      className={cn(className)}
-      {...props}
-    />
-  )
+  // Keep data-slot="button" so theme chrome (paper-sketch) applies.
+  return <Button className={cn(className)} {...props} />
 }
 
 function AlertDialogCancel({
@@ -54,9 +49,9 @@ function AlertDialogCancel({
   ...props
 }: AlertDialogPrimitive.Close.Props &
   Pick<React.ComponentProps<typeof Button>, 'variant' | 'size'>) {
+  // Do not set data-slot on Close — it would override Button's data-slot="button".
   return (
     <AlertDialogPrimitive.Close
-      data-slot='alert-dialog-cancel'
       className={cn(className)}
       render={<Button variant={variant} size={size} />}
       {...props}

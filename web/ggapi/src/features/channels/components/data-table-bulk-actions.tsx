@@ -108,7 +108,7 @@ export function DataTableBulkActions<TData>({
 
   return (
     <>
-      <BulkActionsToolbar table={table} entityName='channel'>
+      <BulkActionsToolbar table={table} entityName={t('channel')}>
         <Tooltip>
           <TooltipTrigger
             render={

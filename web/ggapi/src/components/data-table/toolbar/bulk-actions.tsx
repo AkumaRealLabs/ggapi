@@ -63,18 +63,23 @@ export function DataTableBulkActions<TData>({
     buttonsRef.current = toolbarRef.current?.querySelectorAll('button') ?? null
   })
 
-  // Announce selection changes to screen readers
+  // Visual: badge count + short phrase. One full phrase for a11y (toolbar + live).
+  const selectionSummary = t('{{entityName}} selected', { entityName })
+  const selectionAria = t('{{count}} {{entityName}} selected', {
+    count: selectedCount,
+    entityName,
+  })
+
   useEffect(() => {
     if (selectedCount > 0) {
-      const message = `${selectedCount} ${entityName}${selectedCount > 1 ? 's' : ''} selected. Bulk actions toolbar is available.`
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setAnnouncement(message)
-
-      // Clear announcement after a delay
+      setAnnouncement(
+        `${selectionAria}. ${t('Bulk actions toolbar is available.')}`
+      )
       const timer = setTimeout(() => setAnnouncement(''), 3000)
       return () => clearTimeout(timer)
     }
-  }, [selectedCount, entityName])
+  }, [selectedCount, selectionAria, t])
 
   const handleClearSelection = () => {
     table.resetRowSelection()
@@ -161,8 +166,9 @@ export function DataTableBulkActions<TData>({
       <div
         ref={toolbarRef}
         role='toolbar'
-        aria-label={`Bulk actions for ${selectedCount} selected ${entityName}${selectedCount > 1 ? 's' : ''}`}
-        aria-describedby='bulk-actions-description'
+        aria-label={t('Bulk actions: {{summary}}', {
+          summary: selectionAria,
+        })}
         tabIndex={-1}
         onKeyDown={handleKeyDown}
         data-slot='data-table-bulk-bar'
@@ -208,22 +214,14 @@ export function DataTableBulkActions<TData>({
             aria-hidden='true'
           />
 
-          <div
-            className='flex items-center gap-x-1 text-sm'
-            id='bulk-actions-description'
-          >
+          <div className='flex items-center gap-x-1 text-sm' aria-hidden='true'>
             <Badge
               variant='default'
-              className='min-w-8 rounded-lg'
-              aria-label={`${selectedCount} selected`}
+              className='min-w-8 rounded-lg tabular-nums'
             >
               {selectedCount}
-            </Badge>{' '}
-            <span className='hidden sm:inline'>
-              {entityName}
-              {selectedCount > 1 ? 's' : ''}
-            </span>{' '}
-            {t('selected')}
+            </Badge>
+            <span>{selectionSummary}</span>
           </div>
 
           <Separator
