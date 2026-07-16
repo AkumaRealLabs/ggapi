@@ -54,10 +54,9 @@ export type UpdateOptionToastOptions = {
 }
 
 /**
- * Enable/toggle option keys that usually require sibling credentials (site keys,
- * OAuth secrets, domain whitelist, …) to already exist on the server. Write
- * these after non-enable keys so a fail-fast batch can still persist
- * prerequisites on first-time setup.
+ * Toggle keys (…Enabled / …enabled). Only *turning on* is deferred: credentials
+ * must land first on fresh setup. Turning off stays early so a later failure
+ * never leaves a feature enabled after its prerequisites were cleared.
  */
 function isEnableOptionKey(key: string): boolean {
   return (
@@ -67,20 +66,26 @@ function isEnableOptionKey(key: string): boolean {
   )
 }
 
+function isEnableOnWrite(request: UpdateOptionRequest): boolean {
+  if (!isEnableOptionKey(request.key)) return false
+  const value = request.value
+  return value === true || value === 'true' || value === 1 || value === '1'
+}
+
 function orderOptionWrites(
   requests: UpdateOptionRequest[]
 ): UpdateOptionRequest[] {
-  const prerequisites: UpdateOptionRequest[] = []
-  const enableFlags: UpdateOptionRequest[] = []
+  const early: UpdateOptionRequest[] = []
+  const enableOn: UpdateOptionRequest[] = []
   for (const request of requests) {
-    if (isEnableOptionKey(request.key)) {
-      enableFlags.push(request)
+    if (isEnableOnWrite(request)) {
+      enableOn.push(request)
     } else {
-      prerequisites.push(request)
+      early.push(request)
     }
   }
-  if (enableFlags.length === 0) return requests
-  return [...prerequisites, ...enableFlags]
+  if (enableOn.length === 0) return requests
+  return [...early, ...enableOn]
 }
 
 export function useUpdateOption() {
