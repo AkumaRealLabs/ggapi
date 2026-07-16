@@ -7,7 +7,7 @@ published by the Free Software Foundation, either version 3 of the
 License, or (at your option) any later version.
 */
 import { Search } from 'lucide-react'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -175,6 +175,27 @@ export function AffiliateSettingsDialog(props: AffiliateSettingsDialogProps) {
     void submit()
   }
 
+  // Base UI Select.Value shows the raw item value unless `items` maps value → label.
+  // Without this map the closed trigger falls back to English keys like "inherit" / "0".
+  const rateModeItems = useMemo(
+    () => ({
+      inherit: `${t('Inherit default')} (${(detail?.default_commission_rate ?? 0).toFixed(2)}%)`,
+      custom: t('Custom rate'),
+    }),
+    [detail?.default_commission_rate, t]
+  )
+
+  const inviterItems = useMemo(() => {
+    const items: Record<string, string> = {
+      '0': t('No Inviter'),
+    }
+    for (const candidate of candidates) {
+      items[String(candidate.id)] =
+        `${candidate.username} (#${candidate.id}, ${candidate.aff_code})`
+    }
+    return items
+  }, [candidates, t])
+
   return (
     <>
       <Dialog
@@ -210,21 +231,23 @@ export function AffiliateSettingsDialog(props: AffiliateSettingsDialogProps) {
               <div className='space-y-2'>
                 <Label>{t('Commission Rate')}</Label>
                 <Select
+                  items={rateModeItems}
                   value={rateMode}
                   onValueChange={(value) =>
                     value !== null && setRateMode(value as 'inherit' | 'custom')
                   }
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className='w-full'>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent alignItemWithTrigger={false}>
                     <SelectGroup>
                       <SelectItem value='inherit'>
-                        {t('Inherit default')} (
-                        {detail?.default_commission_rate.toFixed(2)}%)
+                        {rateModeItems.inherit}
                       </SelectItem>
-                      <SelectItem value='custom'>{t('Custom rate')}</SelectItem>
+                      <SelectItem value='custom'>
+                        {rateModeItems.custom}
+                      </SelectItem>
                     </SelectGroup>
                   </SelectContent>
                 </Select>
@@ -281,24 +304,24 @@ export function AffiliateSettingsDialog(props: AffiliateSettingsDialogProps) {
                 </Button>
               </div>
               <Select
+                items={inviterItems}
                 value={String(inviterId)}
                 onValueChange={(value) =>
                   value !== null && setInviterId(Number(value))
                 }
               >
-                <SelectTrigger>
+                <SelectTrigger className='w-full'>
                   <SelectValue placeholder={t('Select inviter')} />
                 </SelectTrigger>
                 <SelectContent alignItemWithTrigger={false}>
                   <SelectGroup>
-                    <SelectItem value='0'>{t('No Inviter')}</SelectItem>
+                    <SelectItem value='0'>{inviterItems['0']}</SelectItem>
                     {candidates.map((candidate) => (
                       <SelectItem
                         key={candidate.id}
                         value={String(candidate.id)}
                       >
-                        {candidate.username} (#{candidate.id},{' '}
-                        {candidate.aff_code})
+                        {inviterItems[String(candidate.id)]}
                       </SelectItem>
                     ))}
                   </SelectGroup>
