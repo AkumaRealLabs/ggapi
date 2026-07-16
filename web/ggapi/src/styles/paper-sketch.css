@@ -812,7 +812,7 @@ For commercial licensing, please contact support@quantumnous.com
 [data-theme-preset='paper-sketch'] [data-slot='public-page-subtitle'] {
   font-size: 15px !important;
   color: var(--ink-soft) !important;
-  max-width: 660px;
+  /* Line length is owned by PublicPageHeader / page shell — do not re-clamp here. */
   line-height: 1.7;
 }
 

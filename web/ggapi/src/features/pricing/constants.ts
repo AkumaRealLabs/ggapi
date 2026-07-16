@@ -125,9 +125,20 @@ export const QUOTA_TYPE_VALUES = {
 /** Display unit for token prices (product shell is always per 1M tokens). */
 export const TOKEN_UNIT_LABEL = '1M'
 
-/** Desktop filter sidebar grid (list layout + loading skeleton). */
+/** Wider than default public shell so the filter + table grid has room. */
+export const PRICING_PAGE_SHELL_CLASS = 'max-w-[90rem]'
+
+/** Desktop filter sidebar grid (list layout + loading skeleton).
+ * Narrower filter column frees table width; sticky lives on the sidebar. */
 export const PRICING_FILTER_LAYOUT_CLASS =
-  'grid gap-4 xl:grid-cols-[330px_minmax(0,1fr)]'
+  'grid gap-4 xl:grid-cols-[minmax(0,15.5rem)_minmax(0,1fr)] xl:gap-5'
+
+/**
+ * Sticky under fixed public header via CSS vars in theme.css:
+ * --public-header-offset / --public-header-sticky-gap.
+ */
+export const PRICING_SIDEBAR_STICKY_CLASS =
+  'hover-scrollbar sticky top-[var(--public-header-offset)] z-10 hidden max-h-[calc(100dvh-var(--public-header-offset)-var(--public-header-sticky-gap))] self-start overflow-y-auto overscroll-contain xl:block'
 
 /** View mode options */
 export const VIEW_MODES = {

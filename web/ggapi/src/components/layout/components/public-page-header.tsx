@@ -51,6 +51,7 @@ export interface PublicPageHeaderProps {
 /**
  * Shared page header for public catalog surfaces.
  * Title follows the product page-title contract: text-lg / semibold / tight.
+ * Title/description width follows the page shell (no second measure here).
  */
 export function PublicPageHeader(props: PublicPageHeaderProps) {
   return (
@@ -58,7 +59,7 @@ export function PublicPageHeader(props: PublicPageHeaderProps) {
       data-slot='public-page-header'
       className={cn('mb-8 space-y-6', props.className)}
     >
-      <div className='max-w-3xl'>
+      <div>
         <h1
           data-slot='public-page-title'
           className='text-lg font-semibold tracking-tight'
