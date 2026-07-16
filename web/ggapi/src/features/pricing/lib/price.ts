@@ -18,8 +18,8 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { formatCurrencyFromUSD } from '@/lib/currency'
 
-import { QUOTA_TYPE_VALUES, TOKEN_UNIT_DIVISORS } from '../constants'
-import type { PricingModel, TokenUnit, PriceType } from '../types'
+import { QUOTA_TYPE_VALUES } from '../constants'
+import type { PricingModel, PriceType } from '../types'
 import { getConfiguredGroupRatio, getDisplayGroupRatio } from './model-helpers'
 
 // ----------------------------------------------------------------------------
@@ -103,48 +103,52 @@ function hasRatio(value: number | null | undefined): boolean {
 }
 
 /**
- * Apply recharge rate to price
+ * Apply recharge display rate (Standard vs Recharge toggle).
  *
- * priceRate represents how much users need to recharge (in the display currency)
- * to get 1 USD credit. usdExchangeRate is the real exchange rate.
+ * priceRate is how much users recharge (in display currency) for 1 USD credit;
+ * usdExchangeRate is the real FX rate. Callers format the result with
+ * formatCurrencyFromUSD / formatBillingCurrencyFromUSD.
  *
- * The returned value will be formatted by formatCurrencyFromUSD, which will
- * multiply by the display currency's exchange rate.
+ * Guards zero/non-finite exchange and priceRate so display never divides by
+ * zero or produces NaN from bad rates.
  *
  * Examples:
- *
- * 1. Display currency = USD:
- *    - Model: 1 USD
- *    - priceRate = 0.5 (recharge $0.5 to get $1 credit)
- *    - usdExchangeRate = 1
- *    - Return: 1 × 0.5 / 1 = 0.5
- *    - formatCurrencyFromUSD(0.5) → $0.5 ✓
- *
- * 2. Display currency = CNY:
- *    - Model: 1 USD
- *    - priceRate = 4 (recharge ¥4 to get $1 credit)
- *    - usdExchangeRate = 7 (real rate: 1 USD = ¥7)
- *    - Return: 1 × 4 / 7 = 0.571
- *    - formatCurrencyFromUSD(0.571) → 0.571 × 7 = ¥4 ✓
- *    - Normal price: ¥7, Recharge price: ¥4 (cheaper!)
+ * - USD display, priceRate=0.5, usdExchangeRate=1 → 1 × 0.5 / 1 = 0.5
+ * - CNY display, priceRate=4, usdExchangeRate=7 → 1 × 4 / 7 ≈ 0.571 → ¥4 after FX
  */
-function applyRechargeRate(
+export function applyRechargeRate(
   price: number,
   showWithRecharge: boolean,
   priceRate: number,
   usdExchangeRate: number
 ): number {
   if (!showWithRecharge) return price
+  if (!Number.isFinite(usdExchangeRate) || usdExchangeRate === 0) return price
+  if (!Number.isFinite(priceRate)) return price
   return (price * priceRate) / usdExchangeRate
 }
 
 /**
- * Format token-based price for display
+ * Whether standard vs recharge would change displayed numbers.
+ * Mirrors applyRechargeRate: rate/exchange ≠ 1 (and exchange usable).
+ */
+export function hasDistinctRechargePrice(
+  priceRate: number,
+  usdExchangeRate: number
+): boolean {
+  if (!Number.isFinite(priceRate) || !Number.isFinite(usdExchangeRate)) {
+    return false
+  }
+  if (usdExchangeRate === 0) return false
+  return Math.abs(priceRate / usdExchangeRate - 1) > 1e-6
+}
+
+/**
+ * Format token-based price for display (always per 1M tokens).
  */
 export function formatPrice(
   model: PricingModel,
   type: PriceType,
-  tokenUnit: TokenUnit,
   showWithRecharge = false,
   priceRate = 1,
   usdExchangeRate = 1,
@@ -164,8 +168,7 @@ export function formatPrice(
     usdExchangeRate
   )
 
-  const price = priceInUSD / TOKEN_UNIT_DIVISORS[tokenUnit]
-  return formatCurrencyFromUSD(price, {
+  return formatCurrencyFromUSD(priceInUSD, {
     digitsLarge: 4,
     digitsSmall: 6,
     abbreviate: false,
@@ -173,13 +176,12 @@ export function formatPrice(
 }
 
 /**
- * Format price for a specific group (token-based)
+ * Format price for a specific group (token-based, always per 1M tokens).
  */
 export function formatGroupPrice(
   model: PricingModel,
   group: string,
   type: PriceType,
-  tokenUnit: TokenUnit,
   showWithRecharge = false,
   priceRate = 1,
   usdExchangeRate = 1,
@@ -199,8 +201,7 @@ export function formatGroupPrice(
     usdExchangeRate
   )
 
-  const price = priceInUSD / TOKEN_UNIT_DIVISORS[tokenUnit]
-  return formatCurrencyFromUSD(price, {
+  return formatCurrencyFromUSD(priceInUSD, {
     digitsLarge: 4,
     digitsSmall: 6,
     abbreviate: false,

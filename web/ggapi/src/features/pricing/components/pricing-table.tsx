@@ -29,8 +29,8 @@ import {
 } from '@/components/data-table'
 import { getPerfMetricsSummary } from '@/features/performance-metrics/api'
 
-import { DEFAULT_PRICING_PAGE_SIZE, DEFAULT_TOKEN_UNIT } from '../constants'
-import type { PricingModel, TokenUnit } from '../types'
+import { DEFAULT_PRICING_PAGE_SIZE } from '../constants'
+import type { PricingModel } from '../types'
 import type { ModelPerfBadgeData } from './model-perf-badge'
 import { usePricingColumns } from './pricing-columns'
 
@@ -39,7 +39,6 @@ export interface PricingTableProps {
   isLoading?: boolean
   priceRate?: number
   usdExchangeRate?: number
-  tokenUnit?: TokenUnit
   showRechargePrice?: boolean
   selectedGroup?: string
   onModelClick?: (modelName: string) => void
@@ -52,7 +51,6 @@ export function PricingTable(props: PricingTableProps) {
     isLoading = false,
     priceRate = 1,
     usdExchangeRate = 1,
-    tokenUnit = DEFAULT_TOKEN_UNIT,
     showRechargePrice = false,
     selectedGroup,
     onModelClick,
@@ -85,7 +83,6 @@ export function PricingTable(props: PricingTableProps) {
   }, [perfQuery.data])
 
   const columns = usePricingColumns({
-    tokenUnit,
     priceRate,
     usdExchangeRate,
     showRechargePrice,

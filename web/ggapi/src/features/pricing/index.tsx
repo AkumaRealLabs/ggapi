@@ -32,11 +32,17 @@ import {
   EmptyState,
   PricingTable,
   PricingToolbar,
+  PricingSidebar,
   ModelCardGrid,
 } from './components'
-import { EXCLUDED_GROUPS, VIEW_MODES } from './constants'
+import {
+  EXCLUDED_GROUPS,
+  PRICING_FILTER_LAYOUT_CLASS,
+  VIEW_MODES,
+} from './constants'
 import { useFilters } from './hooks/use-filters'
 import { usePricingData } from './hooks/use-pricing-data'
+import { hasDistinctRechargePrice } from './lib/price'
 
 export function Pricing() {
   const { t } = useTranslation()
@@ -60,9 +66,8 @@ export function Pricing() {
     quotaTypeFilter,
     endpointTypeFilter,
     tagFilter,
-    tokenUnit,
     viewMode,
-    showRechargePrice,
+    showRechargePrice: rechargePriceFromUrl,
     setSearchInput,
     setSortBy,
     setVendorFilter,
@@ -70,17 +75,28 @@ export function Pricing() {
     setQuotaTypeFilter,
     setEndpointTypeFilter,
     setTagFilter,
-    setTokenUnit,
     setViewMode,
     setShowRechargePrice,
     filteredModels,
     hasActiveFilters,
     activeFilterCount,
     availableTags,
-    routeSearch,
+    routeSearch: filtersRouteSearch,
     clearFilters,
     clearSearch,
   } = useFilters(models || [])
+
+  const rechargeDistinct = hasDistinctRechargePrice(priceRate, usdExchangeRate)
+  // Single truth: only honor recharge when modes actually differ.
+  const showRechargePrice = rechargeDistinct && rechargePriceFromUrl
+  // Drop no-op recharge from navigable search (no effect write-back needed).
+  const routeSearch = useMemo(
+    () => ({
+      ...filtersRouteSearch,
+      rechargePrice: showRechargePrice || undefined,
+    }),
+    [filtersRouteSearch, showRechargePrice]
+  )
 
   const handleModelClick = useCallback(
     (modelName: string) => {
@@ -106,12 +122,31 @@ export function Pricing() {
     clearSearch()
   }, [clearFilters, clearSearch])
 
+  const filterSidebarProps = {
+    quotaTypeFilter,
+    endpointTypeFilter,
+    vendorFilter,
+    groupFilter,
+    tagFilter,
+    onQuotaTypeChange: setQuotaTypeFilter,
+    onEndpointTypeChange: setEndpointTypeFilter,
+    onVendorChange: setVendorFilter,
+    onGroupChange: setGroupFilter,
+    onTagChange: setTagFilter,
+    vendors: vendors || [],
+    groups: availableGroups,
+    groupRatios: groupRatio,
+    tags: availableTags,
+    models: models || [],
+    hasActiveFilters,
+    onClearFilters: clearFilters,
+  }
+
   let pricingContent = (
     <PricingTable
       models={filteredModels}
       priceRate={priceRate}
       usdExchangeRate={usdExchangeRate}
-      tokenUnit={tokenUnit}
       showRechargePrice={showRechargePrice}
       selectedGroup={groupFilter}
       onModelClick={handleModelClick}
@@ -133,7 +168,6 @@ export function Pricing() {
         onModelClick={handleModelClick}
         priceRate={priceRate}
         usdExchangeRate={usdExchangeRate}
-        tokenUnit={tokenUnit}
         showRechargePrice={showRechargePrice}
         selectedGroup={groupFilter}
       />
@@ -167,43 +201,34 @@ export function Pricing() {
           }
         />
 
-        <main className='space-y-4'>
-          <PricingToolbar
-            searchInput={searchInput}
-            onSearchChange={setSearchInput}
-            onClearSearch={clearSearch}
-            filteredCount={filteredModels.length}
-            totalCount={models?.length}
-            sortBy={sortBy}
-            onSortChange={setSortBy}
-            tokenUnit={tokenUnit}
-            onTokenUnitChange={setTokenUnit}
-            showRechargePrice={showRechargePrice}
-            onRechargePriceChange={setShowRechargePrice}
-            viewMode={viewMode}
-            onViewModeChange={setViewMode}
-            quotaTypeFilter={quotaTypeFilter}
-            endpointTypeFilter={endpointTypeFilter}
-            vendorFilter={vendorFilter}
-            groupFilter={groupFilter}
-            tagFilter={tagFilter}
-            onQuotaTypeChange={setQuotaTypeFilter}
-            onEndpointTypeChange={setEndpointTypeFilter}
-            onVendorChange={setVendorFilter}
-            onGroupChange={setGroupFilter}
-            onTagChange={setTagFilter}
-            vendors={vendors || []}
-            groups={availableGroups}
-            groupRatios={groupRatio}
-            tags={availableTags}
-            models={models || []}
-            hasActiveFilters={hasActiveFilters}
-            activeFilterCount={activeFilterCount}
-            onClearFilters={clearFilters}
+        <div className={PRICING_FILTER_LAYOUT_CLASS}>
+          <PricingSidebar
+            {...filterSidebarProps}
+            className='hover-scrollbar sticky top-4 hidden max-h-[calc(100dvh-2rem)] self-start overflow-y-auto xl:block'
           />
 
-          {pricingContent}
-        </main>
+          <main className='min-w-0 space-y-4'>
+            <PricingToolbar
+              {...filterSidebarProps}
+              searchInput={searchInput}
+              onSearchChange={setSearchInput}
+              onClearSearch={clearSearch}
+              filteredCount={filteredModels.length}
+              totalCount={models?.length}
+              sortBy={sortBy}
+              onSortChange={setSortBy}
+              showRechargePrice={showRechargePrice}
+              onRechargePriceChange={setShowRechargePrice}
+              priceRate={priceRate}
+              usdExchangeRate={usdExchangeRate}
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+              activeFilterCount={activeFilterCount}
+            />
+
+            {pricingContent}
+          </main>
+        </div>
       </PublicPageShell>
     </PublicLayout>
   )

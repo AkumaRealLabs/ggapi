@@ -18,7 +18,12 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { Skeleton } from '@/components/ui/skeleton'
 
-import { DEFAULT_VIEW_MODE, VIEW_MODES, type ViewMode } from '../constants'
+import {
+  DEFAULT_VIEW_MODE,
+  PRICING_FILTER_LAYOUT_CLASS,
+  VIEW_MODES,
+  type ViewMode,
+} from '../constants'
 
 const CARD_SKELETONS = [
   'card-1',
@@ -59,13 +64,26 @@ export function LoadingSkeleton(props: LoadingSkeletonProps) {
         <Skeleton className='h-6 w-48' />
         <Skeleton className='h-4 w-full max-w-xl' />
       </div>
-      <div className='space-y-4'>
-        <FilterBarSkeleton />
-        {viewMode === VIEW_MODES.TABLE ? (
-          <TableContentSkeleton />
-        ) : (
-          <CardContentSkeleton />
-        )}
+      <div className={PRICING_FILTER_LAYOUT_CLASS}>
+        <div
+          data-slot='sketch-pricing-sidebar'
+          className='hidden space-y-3 rounded-lg border p-3 xl:block'
+        >
+          <Skeleton className='h-4 w-28' />
+          <Skeleton className='h-8 w-full' />
+          <Skeleton className='h-8 w-full' />
+          <Skeleton className='h-8 w-5/6' />
+          <Skeleton className='h-8 w-full' />
+          <Skeleton className='h-8 w-4/5' />
+        </div>
+        <div className='min-w-0 space-y-4'>
+          <FilterBarSkeleton />
+          {viewMode === VIEW_MODES.TABLE ? (
+            <TableContentSkeleton />
+          ) : (
+            <CardContentSkeleton />
+          )}
+        </div>
       </div>
     </div>
   )

@@ -37,7 +37,8 @@ function DialogPortal({ ...props }: DialogPrimitive.Portal.Props) {
 }
 
 function DialogClose({ ...props }: DialogPrimitive.Close.Props) {
-  return <DialogPrimitive.Close data-slot='dialog-close' {...props} />
+  // Omit data-slot here so render={<Button />} keeps data-slot="button".
+  return <DialogPrimitive.Close {...props} />
 }
 
 function DialogOverlay({
@@ -77,8 +78,8 @@ function DialogContent({
       >
         {children}
         {showCloseButton && (
+          // No data-slot on Close — preserve Button's data-slot="button" for themes.
           <DialogPrimitive.Close
-            data-slot='dialog-close'
             render={
               <Button
                 variant='ghost'

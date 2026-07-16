@@ -18,8 +18,6 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import type { TFunction } from 'i18next'
 
-import type { TokenUnit } from './types'
-
 // ----------------------------------------------------------------------------
 // Pricing Constants
 // ----------------------------------------------------------------------------
@@ -124,14 +122,12 @@ export const QUOTA_TYPE_VALUES = {
   REQUEST: 1,
 } as const
 
-/** Token unit divisors */
-export const TOKEN_UNIT_DIVISORS = {
-  M: 1,
-  K: 1000,
-} as const
+/** Display unit for token prices (product shell is always per 1M tokens). */
+export const TOKEN_UNIT_LABEL = '1M'
 
-/** Default token unit for pricing display */
-export const DEFAULT_TOKEN_UNIT: TokenUnit = 'M'
+/** Desktop filter sidebar grid (list layout + loading skeleton). */
+export const PRICING_FILTER_LAYOUT_CLASS =
+  'grid gap-4 xl:grid-cols-[330px_minmax(0,1fr)]'
 
 /** View mode options */
 export const VIEW_MODES = {

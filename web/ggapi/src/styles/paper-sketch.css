@@ -147,6 +147,9 @@ For commercial licensing, please contact support@quantumnous.com
 }
 
 /* ── Buttons ──────────────────────────────────────────────────────────── */
+/* Dialog/AlertDialog actions keep data-slot="button" (do not override in
+ * components). Cascade !important beats Tailwind bg-primary emitted later —
+ * without it, resting primary CTAs were near-invisible on paper. */
 [data-theme-preset='paper-sketch'] [data-slot='button'] {
   border-radius: var(--wobble-b) !important;
   border-width: 1.6px;
@@ -166,9 +169,9 @@ For commercial licensing, please contact support@quantumnous.com
 [data-theme-preset='paper-sketch'] [data-slot='button'][data-variant='default'],
 [data-theme-preset='paper-sketch']
   [data-slot='button']:not([data-variant]):not([class*='border-']) {
-  border-color: color-mix(in oklch, var(--sketch-blue) 80%, var(--ink));
-  background: color-mix(in oklch, var(--sketch-blue) 92%, var(--paper-alt));
-  color: var(--paper-alt);
+  border-color: color-mix(in oklch, var(--sketch-blue) 80%, var(--ink)) !important;
+  background: color-mix(in oklch, var(--sketch-blue) 92%, var(--paper-alt)) !important;
+  color: var(--paper-alt) !important;
 }
 
 [data-theme-preset='paper-sketch']
@@ -180,15 +183,15 @@ For commercial licensing, please contact support@quantumnous.com
 }
 
 [data-theme-preset='paper-sketch'] [data-slot='button'][data-variant='ghost'] {
-  border-color: transparent;
-  background: transparent;
-  color: var(--ink-soft);
+  border-color: transparent !important;
+  background: transparent !important;
+  color: var(--ink-soft) !important;
 }
 
 [data-theme-preset='paper-sketch'] [data-slot='button'][data-variant='destructive'] {
-  border-color: color-mix(in oklch, var(--sketch-red) 70%, var(--ink));
-  background: color-mix(in oklch, var(--sketch-red) 14%, var(--paper-alt));
-  color: var(--sketch-red);
+  border-color: color-mix(in oklch, var(--sketch-red) 70%, var(--ink)) !important;
+  background: color-mix(in oklch, var(--sketch-red) 14%, var(--paper-alt)) !important;
+  color: var(--sketch-red) !important;
 }
 
 [data-theme-preset='paper-sketch']
@@ -198,7 +201,7 @@ For commercial licensing, please contact support@quantumnous.com
 
 [data-theme-preset='paper-sketch']
   [data-slot='button'][data-variant='default']:hover:not(:disabled) {
-  background: var(--sketch-blue);
+  background: var(--sketch-blue) !important;
   box-shadow: 2px 3px 0 color-mix(in oklch, var(--ink) 18%, transparent) !important;
 }
 
@@ -235,13 +238,40 @@ For commercial licensing, please contact support@quantumnous.com
 }
 
 /* ── Badge / tabs / toggle ────────────────────────────────────────────── */
+/* Base outline-like chrome. Default variant must keep ink/blue contrast —
+ * forcing paper-alt on every badge + primary-foreground made count chips
+ * (bulk bar selection count) invisible on the paper surface. */
 [data-theme-preset='paper-sketch'] [data-slot='badge'] {
-  border-width: 1.4px;
-  border-style: solid;
-  border-color: color-mix(in oklch, var(--ink) 40%, transparent);
-  border-radius: var(--wobble-b);
+  border-width: 1.4px !important;
+  border-style: solid !important;
+  border-color: color-mix(in oklch, var(--ink) 40%, transparent) !important;
+  border-radius: var(--wobble-b) !important;
   font-weight: 700;
-  background: var(--paper-alt);
+  background: var(--paper-alt) !important;
+  color: var(--ink) !important;
+}
+
+[data-theme-preset='paper-sketch']
+  [data-slot='badge'][data-variant='default'] {
+  border-color: color-mix(in oklch, var(--sketch-blue) 80%, var(--ink)) !important;
+  background: color-mix(in oklch, var(--sketch-blue) 92%, var(--paper-alt)) !important;
+  color: var(--paper-alt) !important;
+}
+
+[data-theme-preset='paper-sketch']
+  [data-slot='badge'][data-variant='secondary'],
+[data-theme-preset='paper-sketch']
+  [data-slot='badge'][data-variant='outline'] {
+  border-color: color-mix(in oklch, var(--ink) 55%, transparent) !important;
+  background: var(--paper-alt) !important;
+  color: var(--ink) !important;
+}
+
+[data-theme-preset='paper-sketch']
+  [data-slot='badge'][data-variant='destructive'] {
+  border-color: color-mix(in oklch, var(--sketch-red) 70%, var(--ink)) !important;
+  background: color-mix(in oklch, var(--sketch-red) 14%, var(--paper-alt)) !important;
+  color: var(--sketch-red) !important;
 }
 
 [data-theme-preset='paper-sketch'] [data-slot='tabs-list'] {

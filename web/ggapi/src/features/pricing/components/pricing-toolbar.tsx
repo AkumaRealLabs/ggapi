@@ -54,11 +54,11 @@ import {
   type SortOption,
   type ViewMode,
 } from '../constants'
-import type { PricingModel, PricingVendor, TokenUnit } from '../types'
-import { PricingSidebar } from './pricing-sidebar'
+import { hasDistinctRechargePrice } from '../lib/price'
+import { PricingSidebar, type PricingSidebarProps } from './pricing-sidebar'
 import { SearchBar } from './search-bar'
 
-export interface PricingToolbarProps {
+export type PricingToolbarProps = Omit<PricingSidebarProps, 'className'> & {
   searchInput: string
   onSearchChange: (value: string) => void
   onClearSearch: () => void
@@ -66,30 +66,13 @@ export interface PricingToolbarProps {
   totalCount?: number
   sortBy: string
   onSortChange: (value: string) => void
-  tokenUnit: TokenUnit
-  onTokenUnitChange: (value: TokenUnit) => void
   showRechargePrice: boolean
   onRechargePriceChange: (value: boolean) => void
+  priceRate: number
+  usdExchangeRate: number
   viewMode: ViewMode
   onViewModeChange: (value: ViewMode) => void
-  quotaTypeFilter: string
-  endpointTypeFilter: string
-  vendorFilter: string
-  groupFilter: string
-  tagFilter: string
-  onQuotaTypeChange: (value: string) => void
-  onEndpointTypeChange: (value: string) => void
-  onVendorChange: (value: string) => void
-  onGroupChange: (value: string) => void
-  onTagChange: (value: string) => void
-  vendors: PricingVendor[]
-  groups: string[]
-  groupRatios?: Record<string, number>
-  tags: string[]
-  models: PricingModel[]
-  hasActiveFilters: boolean
   activeFilterCount: number
-  onClearFilters: () => void
 }
 
 function PriceModeTabs(props: {
@@ -108,25 +91,6 @@ function PriceModeTabs(props: {
       <TabsList aria-label={t('Price display mode')}>
         <TabsTrigger value='standard'>{t('Standard')}</TabsTrigger>
         <TabsTrigger value='recharge'>{t('Recharge')}</TabsTrigger>
-      </TabsList>
-    </Tabs>
-  )
-}
-
-function TokenUnitTabs(props: {
-  value: TokenUnit
-  onChange: (value: TokenUnit) => void
-}) {
-  const { t } = useTranslation()
-
-  return (
-    <Tabs
-      value={props.value}
-      onValueChange={(value) => props.onChange(value as TokenUnit)}
-    >
-      <TabsList aria-label={t('Token unit')}>
-        <TabsTrigger value='M'>1M</TabsTrigger>
-        <TabsTrigger value='K'>1K</TabsTrigger>
       </TabsList>
     </Tabs>
   )
@@ -171,51 +135,85 @@ export function PricingToolbar(props: PricingToolbarProps) {
   const { t } = useTranslation()
   const [filtersOpen, setFiltersOpen] = useState(false)
   const sortLabels = getSortLabels(t)
+  const showPriceModeToggle = hasDistinctRechargePrice(
+    props.priceRate,
+    props.usdExchangeRate
+  )
+
+  const {
+    searchInput,
+    onSearchChange,
+    onClearSearch,
+    filteredCount,
+    totalCount,
+    sortBy,
+    onSortChange,
+    showRechargePrice,
+    onRechargePriceChange,
+    priceRate: _priceRate,
+    usdExchangeRate: _usdExchangeRate,
+    viewMode,
+    onViewModeChange,
+    activeFilterCount,
+    ...filterSidebarProps
+  } = props
 
   return (
     <div data-slot='sketch-pricing-toolbar'>
       <div className='flex flex-col gap-3 sm:flex-row sm:items-center'>
         <SearchBar
-          value={props.searchInput}
-          onChange={props.onSearchChange}
-          onClear={props.onClearSearch}
+          value={searchInput}
+          onChange={onSearchChange}
+          onClear={onClearSearch}
           placeholder={t('Search model name, provider, endpoint, or tag...')}
           className='w-full sm:max-w-sm'
         />
 
         <div className='flex flex-wrap items-center gap-2 sm:ml-auto'>
+          {/* xl+: filters live in the left sticky sidebar (see Pricing page). */}
           <Button
             type='button'
             variant='outline'
             onClick={() => setFiltersOpen(true)}
+            className='xl:hidden'
           >
             <Filter aria-hidden='true' />
             {t('Filter')}
-            {props.activeFilterCount > 0 && (
+            {activeFilterCount > 0 && (
               <StatusBadge variant='neutral' size='sm'>
-                {props.activeFilterCount}
+                {activeFilterCount}
               </StatusBadge>
             )}
           </Button>
 
           <DropdownMenu>
             <DropdownMenuTrigger
-              render={<Button type='button' variant='outline' />}
+              render={
+                <Button
+                  type='button'
+                  variant='outline'
+                  aria-label={t('Sort')}
+                />
+              }
             >
               <ArrowUpDown aria-hidden='true' />
-              <span>{sortLabels[props.sortBy as SortOption] || t('Sort')}</span>
+              <span>
+                {t('Sort: {{label}}', {
+                  label: sortLabels[sortBy as SortOption] || t('Sort'),
+                })}
+              </span>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align='end' className='w-44'>
+            <DropdownMenuContent align='end' className='w-48'>
               {Object.entries(sortLabels).map(([value, label]) => (
                 <DropdownMenuItem
                   key={value}
-                  onClick={() => props.onSortChange(value)}
+                  onClick={() => onSortChange(value)}
                 >
                   <Check
                     aria-hidden='true'
                     className={cn(
                       'size-4',
-                      props.sortBy === value ? 'opacity-100' : 'opacity-0'
+                      sortBy === value ? 'opacity-100' : 'opacity-0'
                     )}
                   />
                   {label}
@@ -224,32 +222,25 @@ export function PricingToolbar(props: PricingToolbarProps) {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <PriceModeTabs
-            value={props.showRechargePrice ? 'recharge' : 'standard'}
-            onChange={(value) =>
-              props.onRechargePriceChange(value === 'recharge')
-            }
-          />
-          <TokenUnitTabs
-            value={props.tokenUnit}
-            onChange={props.onTokenUnitChange}
-          />
-          <ViewModeTabs
-            value={props.viewMode}
-            onChange={props.onViewModeChange}
-          />
+          {showPriceModeToggle && (
+            <PriceModeTabs
+              value={showRechargePrice ? 'recharge' : 'standard'}
+              onChange={(value) => onRechargePriceChange(value === 'recharge')}
+            />
+          )}
+          <ViewModeTabs value={viewMode} onChange={onViewModeChange} />
         </div>
       </div>
 
       <p className='text-muted-foreground mt-3 text-sm'>
         <span className='text-foreground font-medium tabular-nums'>
-          {props.filteredCount.toLocaleString()}
+          {filteredCount.toLocaleString()}
         </span>{' '}
-        {props.filteredCount === 1 ? t('model') : t('models')}
-        {props.hasActiveFilters && props.totalCount != null && (
+        {filteredCount === 1 ? t('model') : t('models')}
+        {filterSidebarProps.hasActiveFilters && totalCount != null && (
           <span>
             {' '}
-            {t('of')} {props.totalCount.toLocaleString()}
+            {t('of')} {totalCount.toLocaleString()}
           </span>
         )}
       </p>
@@ -267,23 +258,7 @@ export function PricingToolbar(props: PricingToolbarProps) {
           </SheetHeader>
           <div className={sideDrawerFormClassName('gap-0')}>
             <PricingSidebar
-              quotaTypeFilter={props.quotaTypeFilter}
-              endpointTypeFilter={props.endpointTypeFilter}
-              vendorFilter={props.vendorFilter}
-              groupFilter={props.groupFilter}
-              tagFilter={props.tagFilter}
-              onQuotaTypeChange={props.onQuotaTypeChange}
-              onEndpointTypeChange={props.onEndpointTypeChange}
-              onVendorChange={props.onVendorChange}
-              onGroupChange={props.onGroupChange}
-              onTagChange={props.onTagChange}
-              vendors={props.vendors}
-              groups={props.groups}
-              groupRatios={props.groupRatios}
-              tags={props.tags}
-              models={props.models}
-              hasActiveFilters={props.hasActiveFilters}
-              onClearFilters={props.onClearFilters}
+              {...filterSidebarProps}
               className='border-0 bg-transparent p-0'
             />
           </div>
