@@ -60,9 +60,9 @@ make dev-web-ggapi   # product shell (fork default; GG-005)
 
 ### Done when
 
-- `git fetch upstream` works  
-- push to `upstream` is impossible/disabled  
-- `main` tracks `origin/main`  
+- `git fetch upstream` works
+- push to `upstream` is impossible/disabled
+- `main` tracks `origin/main`
 
 ---
 
@@ -92,18 +92,18 @@ git pull origin main
 git checkout -b <prefix>/<short-topic>
 ```
 
-Prefixes: `feat/` `fix/` `chore/` `docs/` `hotfix/`  
+Prefixes: `feat/` `fix/` `chore/` `docs/` `hotfix/`
 Never start work on a dirty `main` with unrelated files — stash or finish first.
 
 ### B2. Implement with placement rules
 
-1. Search for existing extension points before editing hotspots.  
-2. Prefer new files under own dirs.  
-3. Follow `AGENTS.md` (JSON wrappers, 3 DBs, pointer optional DTO fields, billing math helpers).  
+1. Search for existing extension points before editing hotspots.
+2. Prefer new files under own dirs.
+3. Follow `AGENTS.md` (JSON wrappers, 3 DBs, pointer optional DTO fields, billing math helpers).
 4. **Frontend shell (GG-005 / SOP §3.5):**
-   - Product UI, skin, paper-sketch, operator-facing copy → **`web/ggapi`** (Bun, `t('English key')`, **i18n-translate**).  
-   - Keep `web/default` close to upstream for sync; do **not** land permanent product skin only in default and expect prod to show it (default theme is `ggapi`).  
-   - After upstream/`web/default` gains user-visible features: plan `chore/port-default-<topic>` into `web/ggapi` (path map `web/default` → `web/ggapi`; same review idea as **classic-to-default-sync**).  
+   - Product UI, skin, paper-sketch, operator-facing copy → **`web/ggapi`** (Bun, `t('English key')`, **i18n-translate**).
+   - Keep `web/default` close to upstream for sync; do **not** land permanent product skin only in default and expect prod to show it (default theme is `ggapi`).
+   - After upstream/`web/default` gains user-visible features: plan `chore/port-default-<topic>` into `web/ggapi` (path map `web/default` → `web/ggapi`; same review idea as **classic-to-default-sync**).
 5. If permanent delta: draft inventory row mentally (ID, path, risk, regression).
 
 ### B3. Local verification (scoped)
@@ -117,19 +117,33 @@ go test ./relay/...
 # or narrower: go test ./path/to/pkg -count=1
 ```
 
-Frontend (if UI/TS touched — run on the shell you edited; keep make at **repo root**):
+Frontend (if UI/TS touched — run on the shell you edited; keep make at **repo root**).
+Align with `docs/fork` SOP: validation **per shell**; **do not** require a clean full-tree
+`bun run lint` when the baseline already has pre-existing oxlint/format debt.
 
 ```bash
+# typecheck (ggapi / default only — classic has no typecheck script)
 (cd web/ggapi && bun run typecheck)     # product shell (usual)
-# (cd web/default && bun run typecheck) # only if you intentionally changed default
-# lint if project scripts require it for the change
-# when ship/embed risk (optional mid-feature); always from repo root.
-# Build the shell you actually edited (not only the product shell by habit):
+# (cd web/default && bun run typecheck)
+
+# Lint the **ship unit paths** (relative to the shell package), not necessarily the whole tree:
+# ggapi/default — oxlint accepts file/dir args:
+(cd web/ggapi && bunx oxlint -c .oxlintrc.json src/path/to/changed.tsx …)
+# classic — prettier/eslint on changed paths if tooling allows; else note baseline:
+# (cd web/classic && bunx eslint "src/…changed…" && bunx prettier --check "src/…")
+
+# Optional full-tree lint (may fail on known baseline noise — not a ship blocker alone):
+# (cd web/ggapi && bun run lint)
+
+# Build the shell you actually edited (make always from repo root):
 make build-web-ggapi   # if web/ggapi changed
-# make build-web       # if web/default changed
-# make build-web-classic  # if web/classic changed
-# make build-all-web   # before bare go build / full embed verification
+# make build-web / make build-web-classic / make build-all-web as needed
 ```
+
+**Ship lint rule:** every **new or modified** frontend file in the ship unit must be
+clean under that shell’s linter (e.g. no nested ternary on touched ggapi files).
+Unrelated pre-existing tree errors are **not** a hard stop — record them if you
+ran full-tree and it failed. Fix findings on touched files before C2-pre.
 
 Manual smoke when behavior is user-visible: login/token, one chat path, admin page (`make dev` or `make dev-web-ggapi` + API).
 
@@ -137,9 +151,9 @@ Manual smoke when behavior is user-visible: login/token, one chat path, admin pa
 
 Before asking to commit/PR, prepare an entry for `docs/fork/diff-inventory.md`:
 
-- New `GG-xxx` or update existing  
-- Risk `low|medium|high`  
-- Regression bullets  
+- New `GG-xxx` or update existing
+- Risk `low|medium|high`
+- Regression bullets
 
 Do not invent secrets in the inventory.
 
@@ -147,10 +161,10 @@ Do not invent secrets in the inventory.
 
 Present:
 
-- Branch name  
-- File summary  
-- Test commands run  
-- Whether inventory update is included  
+- Branch name
+- File summary
+- Test commands run
+- Whether inventory update is included
 
 **Do not commit** unless user asked. Then Mode C for ship.
 
@@ -161,6 +175,43 @@ Present:
 ### Goal
 
 Land work on `origin/main` via PR. Answer push-vs-PR without ambiguity.
+
+### C0. Chained ship authorization (one user message)
+
+When the user **in one message** stacks several Mode C/F verbs, treat that as
+**one authorization chain** — run the named steps **in order** in the same
+session without re-asking for each sub-step already listed.
+
+| User phrase (examples) | Authorized steps |
+|------------------------|------------------|
+| 提交 / commit / 最终提交 | C2-pre → C2 only |
+| 提交并 push / 提交并推上去 | C2-pre → C2 → C3 |
+| 推上去 / push（**无**提交词） | **C3 only** on **existing** commits not on `origin/main`. If worktree dirty → **stop**, ask for 提交 (do **not** invent C2) |
+| 开 PR / 提 PR（**无**提交词） | **C4** (push first if branch has unpushed commits). Dirty tree → **stop**, ask for 提交 |
+| 开 PR 并合并 / 合并清理 | → through C5 (still no silent C2 if dirty without 提交) |
+| 提交 → push → PR → merge | C2-pre → C2 → C3 → C4 → C5 |
+| …→ merge → **发版** / 合并后打 tag | Same as merge chain **plus** Mode F only after PR is **MERGED** (merge verb **required**) |
+| **发版** / tag / 打 tag / GHCR alone | Mode **F only** on already-landed `origin/main`. **Does not** authorize C5/merge |
+
+Rules:
+
+- **Missing verb = not authorized.** 「只提交」does **not** imply merge or 发版.
+- **Push/PR wording ≠ commit.** 「推上去」「开 PR」alone never run C2-pre/C2 on a dirty tree; only move **already committed** work.
+- **发版 ≠ merge.** 「提交并发版」without 合并/merge does **not** open C5; either the change is already on `origin/main`, or stop and ask for merge authorization.
+- Still require a **topic branch** for routine ship (no routine commit/push to `main`).
+- Still **never** `git push upstream`.
+- Hard-risk ops (force-push, `reset --hard`, production deploy beyond tag/GHCR)
+  still need their **own** explicit confirm even inside a chain.
+- C2-pre still runs before any **new** final commit; docs/skill not auto-exempt.
+- Mode F only when PR is **MERGED** and local `HEAD == origin/main` after fetch (never tag while PR still OPEN).
+
+Coach one-liner after parsing:
+
+```text
+当前模式: C（链式发车）[→ F]
+本句授权: 提交 / push / PR / merge / 发版（勾选实际出现的）
+下一步: <first concrete command>
+```
 
 ### C1. Pre-flight
 
@@ -192,6 +243,7 @@ Run **before C2-pre** for any GG-005-related unit (or theme/embed/Docker/makefil
 | `makefile` + **`Dockerfile`** (+ optional `release.yml` if dispatching binaries) build **ggapi** dist before go embed | Missing Dockerfile ggapi stage → empty/missing embed in GHCR image |
 | Protected branding: `index.html` title/meta and logo accessible name stay **New API** / QuantumNous policy | Fork skin ≠ stripping protected identity |
 | New i18n keys live under locale `translation`; all shipped locales (incl. **zh-TW**) have key parity | Orphan top-level keys + missing locales caused review findings |
+| Edited shell: **typecheck** on ggapi/default when TS touched; **lint ship-unit paths** (ggapi/default: `bunx oxlint -c .oxlintrc.json <paths>`; classic: eslint/prettier on paths — no `typecheck`) | Full-tree `bun run lint` is baseline-noisy; require clean **touched** files only |
 
 Canonical policy: `docs/fork` §第三壳 / SOP §3.5; inventory **GG-005**.
 
@@ -357,10 +409,10 @@ If C1b (or any other check) still finds work after the gate and you edit files, 
 
 Follow repo commit rules:
 
-- `git status` / `git diff` / `git log` style analysis  
-- Stage intentional files only  
-- HEREDOC commit message, why-focused  
-- Never update git config; never skip hooks  
+- `git status` / `git diff` / `git log` style analysis
+- Stage intentional files only
+- HEREDOC commit message, why-focused
+- Never update git config; never skip hooks
 
 If change is permanent fork delta, include inventory file in the same PR when possible.
 
@@ -425,7 +477,36 @@ for internal ggapi PRs, keep the checklist above at minimum.
 ```bash
 # Merge (example: PR number N)
 gh pr merge <N> --repo AkumaRealLabs/ggapi --merge --delete-branch
+```
 
+**Do not treat CLI transport errors as merge failure.** `gh pr merge` can exit
+non-zero with GraphQL EOF / timeout while GitHub still merged the PR (lesson:
+PR #23). Always **verify** before retrying merge:
+
+```bash
+# Prefer gh pr view (GraphQL). If GraphQL stays down (same EOF class as merge):
+gh pr view <N> --repo AkumaRealLabs/ggapi \
+  --json state,mergedAt,mergeCommit,autoMergeRequest,mergeStateStatus,headRefOid \
+  -q '{state:.state,mergedAt:.mergedAt,sha:.mergeCommit.oid,auto:.autoMergeRequest,mss:.mergeStateStatus,head:.headRefOid}'
+# REST fallback (does not depend on GraphQL):
+# gh api repos/AkumaRealLabs/ggapi/pulls/<N> \
+#   -q '{state:.state,merged:.merged,sha:.merge_commit_sha,head:.head.sha}'
+```
+
+| `state` / signals | Action |
+|-------------------|--------|
+| `MERGED` / REST `merged: true` | Success → clean-up (do **not** re-merge) |
+| `OPEN` + `autoMergeRequest` set / merge queue pending / `mergeStateStatus` waiting on checks | **Wait** (poll view or REST). Do **not** REST-force merge; do **not** enter Mode F or tag old `main` |
+| `OPEN` + no auto-merge, CLI was transport flake | Retry `gh pr merge` once. REST only if user still wants immediate merge, and **pin the reviewed head**: `gh api -X PUT repos/AkumaRealLabs/ggapi/pulls/<N>/merge -f merge_method=merge -f sha='<headRefOid>'` (or `gh pr merge --match-head-commit <oid>`). If head moved since C2-pre → **stop**, re-review; do not land unreviewed tip |
+| `CLOSED` unmerged | Stop — not landed |
+| Both GraphQL view and REST fail | Stop; do not guess MERGED; do not Mode F |
+
+**C5 is not done until `state == MERGED`.** Chained 发版 must wait for MERGED
+then `git pull origin main` before Mode F.
+
+Then local hygiene:
+
+```bash
 git fetch origin
 git checkout main
 git pull origin main
@@ -440,7 +521,8 @@ update was not already in the merged PR.
 
 User phrases like「开 PR 并合并清理」mean: create PR → merge → delete remote/local
 topic branch → leave `main` clean. Still require explicit merge wording; do not
-merge on open alone.
+merge on open alone. Full chains with 提交/push/发版: see **C0**.
+If merge verify fails with flake symptoms → troubleshooting **§23**.
 
 ### Decision table (teach the user)
 
@@ -517,11 +599,11 @@ inventory regression note.
 
 In `docs/fork/diff-inventory.md`:
 
-- 最近更新日期  
-- 基准 upstream commit = merged upstream short SHA  
-- 基准 upstream 版本 if tag known  
-- Flip `needs-rebase` → `active` after verification  
-- Register any new permanent deltas introduced while resolving  
+- 最近更新日期
+- 基准 upstream commit = merged upstream short SHA
+- 基准 upstream 版本 if tag known
+- Flip `needs-rebase` → `active` after verification
+- Register any new permanent deltas introduced while resolving
 
 ### D7. Ship sync via PR
 
@@ -539,7 +621,7 @@ inventory rows without code removal, `reset --hard` without backup/consent.
 
 ### Conflict resolution order
 
-1. Open `docs/fork/diff-inventory.md`; mark affected `active` rows `needs-rebase`.  
+1. Open `docs/fork/diff-inventory.md`; mark affected `active` rows `needs-rebase`.
 2. Per conflicted file:
 
 | File kind | Default resolution |
@@ -551,68 +633,90 @@ inventory rows without code removal, `reset --hard` without backup/consent.
 | `web/default` / `web/classic` | Prefer upstream intent for shared shells; then assess **port** into `web/ggapi` (SOP §3.5) |
 | `web/ggapi/**` | Fork-only product tree — upstream will not edit it; do **not** fold large skin refactors into the sync commit |
 
-3. Build/test.  
-4. Restore inventory rows to `active` (or update summary).  
-5. Update baseline SHA/date.  
+3. Build/test.
+4. Restore inventory rows to `active` (or update summary).
+5. Update baseline SHA/date.
 6. If `web/default` gained user-visible features: open or queue follow-up `chore/port-default-<topic>` (GG-005); do not assume prod shell already has them.
 
 ### Inventory when-to-write
 
 Register/update when **any**:
 
-- Permanent code/config/docs vs upstream after merge to `main`  
-- Touch existing upstream files  
-- Add fork-only packages/channels/scripts  
-- Conflict resolution kept fork behavior  
+- Permanent code/config/docs vs upstream after merge to `main`
+- Touch existing upstream files
+- Add fork-only packages/channels/scripts
+- Conflict resolution kept fork behavior
 
-Statuses: `active` | `needs-rebase` | `upstreamed` | `dropped`  
-Types: `config` | `feature` | `patch` | `branding-safe` | `infra` | `docs`  
+Statuses: `active` | `needs-rebase` | `upstreamed` | `dropped`
+Types: `config` | `feature` | `patch` | `branding-safe` | `infra` | `docs`
 Risk: `low` | `medium` | `high`
 
 ### ID rules
 
-- Stable `GG-xxx`; never reuse closed IDs  
-- Template examples use `GG-xxx` / `GG-EXnn` only  
-- New real rows go in section **正式清单** only  
+- Stable `GG-xxx`; never reuse closed IDs
+- Template examples use `GG-xxx` / `GG-EXnn` only
+- New real rows go in section **正式清单** only
 
 ---
 
 ## §F — Release / deploy notes
 
-1. Backup DB before binary/image upgrade.  
-2. Migrations must be acceptable on SQLite / MySQL / PostgreSQL thinking even if prod uses one.  
-3. Version / git tag: **`v<upstream-baseline>.N`** (e.g. `v1.0.0-rc.20.1`) — see `docs/fork/branch-and-sync-sop.md` §5.1. Never reuse an exact upstream tag name. Bump `N` while the inventory baseline **version string** is unchanged; reset `N` to **1 only when that baseline version string changes**. Before tagging: `git fetch origin` and require `HEAD == origin/main`; ancestry check; `git tag -a` must succeed; `git ls-remote` tip re-check then push tag only; post-push tip warning if main moved (SOP §5.1).  
-4. **Default tag product = GHCR image** via `docker-build.yml` → `ghcr.io/<owner>/<repo>:<tag>` **plus metadata GitHub Release** (for update-checker `releases/latest`); `:latest` only when tip still matches after sign. Manual rebuild does not move `:latest`. Fork form `<upstream-tag>.N` only. **Never** Docker Hub `calciumion/new-api` (GG-003).  
-5. **Bare binary is optional:** `release.yml` is **workflow_dispatch + required tag** (attaches go binaries to the Release).  
-6. Minimum regression:
-
-- Login + API token  
-- Main inference path + billing  
-- Top-up/quota changes if customized  
-- All inventory `active` regression points  
-- Watch logs for quota saturation / auth errors  
+1. Backup DB before binary/image upgrade.
+2. Migrations must be acceptable on SQLite / MySQL / PostgreSQL thinking even if prod uses one.
+3. Version / git tag: **`v<upstream-baseline>.N`** (e.g. `v1.0.0-rc.20.1`) — see `docs/fork/branch-and-sync-sop.md` §5.1. Never reuse an exact upstream tag name. Bump `N` while the inventory baseline **version string** is unchanged; reset `N` to **1 only when that baseline version string changes**. Before tagging: `git fetch origin` and require `HEAD == origin/main`; ancestry check; `git tag -a` must succeed; `git ls-remote` tip re-check then push tag only; post-push tip warning if main moved (SOP §5.1).
+4. **Default tag product = GHCR image** via `docker-build.yml` → `ghcr.io/<owner>/<repo>:<tag>` **plus metadata GitHub Release** (for update-checker `releases/latest`); `:latest` only when tip still matches after sign. Manual rebuild does not move `:latest`. Fork form `<upstream-tag>.N` only. **Never** Docker Hub `calciumion/new-api` (GG-003).
+5. **Bare binary is optional:** `release.yml` is **workflow_dispatch + required tag** (attaches go binaries to the Release).
+6. **After tag push — wait for GHCR before claiming 发版完成** (expect ~8–15 min on org-linux; lesson: `v1.0.0-rc.21.7`):
 
 ```bash
-# Default: after tag push, pull GHCR (package may be private — docker login ghcr.io)
-# docker pull ghcr.io/akumareallabs/ggapi:v1.0.0-rc.20.1
+REL_TAG=v1.0.0-rc.21.7   # the tag you just pushed
+# Tag pushes set headBranch to the tag name — filter so you do not pick another run
+gh run list --repo AkumaRealLabs/ggapi --workflow=docker-build.yml \
+  --branch "$REL_TAG" --limit 5
+# Take the run id for this tag / matching headSha, then:
+gh run watch <run-id> --exit-status --repo AkumaRealLabs/ggapi
+# --exit-status: non-zero if conclusion is failure/cancelled (do not ignore)
+```
 
+| Workflow conclusion | Coach action |
+|---------------------|--------------|
+| `success` (and `watch --exit-status` exit 0) | Report GHCR tag ready; optional `docker pull`; only then say 发版完成 |
+| `failure` / `cancelled` (or watch exit ≠ 0) | Do **not** claim ship done; open logs (`gh run view <id> --log-failed`); Mode H / §24 |
+| Still `in_progress` | Keep waiting or give user the run URL; do not invent success |
+| No run for `$REL_TAG` | Do not use an unrelated recent success; diagnose §24 / §18 |
+
+```bash
+# Default: only after success — pull GHCR (package may be private — docker login ghcr.io)
+# docker pull ghcr.io/akumareallabs/ggapi:v1.0.0-rc.21.7
+```
+
+7. Minimum regression:
+
+- Login + API token
+- Main inference path + billing
+- Top-up/quota changes if customized
+- All inventory `active` regression points
+- Watch logs for quota saturation / auth errors
+
+```bash
 # Local bare binary (not default CI path): embeds need all three dist trees
 make build-all-web
 # Dockerfile already builds default + classic + ggapi (builder-ggapi) then go
 ```
 
-Confirm Dockerfile still builds **ggapi** (and other embedded shells) on image path (GG-005 / #7).  
+Confirm Dockerfile still builds **ggapi** (and other embedded shells) on image path (GG-005 / #7).
 Do not run production deploy commands without explicit user request and environment confirmation.
+Chained「…→ merge → 发版」from Mode C: see **C0** — explicit merge verb required before C5; Mode F only on `origin/main` tip (never treat 发版 alone as merge auth).
 
 ---
 
 ## §G — Contribute back upstream
 
-1. Search upstream issues/PRs first.  
-2. Prefer changes that reduce fork drift.  
-3. Branch from a clean cherry-pick or minimal patch against upstream if needed.  
-4. PR uses `.github/PULL_REQUEST_TEMPLATE.md`; human-written summary/tests.  
-5. Security: **no** public issue — follow `.github/SECURITY.md`.  
+1. Search upstream issues/PRs first.
+2. Prefer changes that reduce fork drift.
+3. Branch from a clean cherry-pick or minimal patch against upstream if needed.
+4. PR uses `.github/PULL_REQUEST_TEMPLATE.md`; human-written summary/tests.
+5. Security: **no** public issue — follow `.github/SECURITY.md`.
 6. After upstream merges: remove fork patch, set inventory status `upstreamed`, delete dead code in a ggapi PR.
 
 Never push ggapi-only branding or private config to upstream.
@@ -623,12 +727,12 @@ Never push ggapi-only branding or private config to upstream.
 
 完整策略见 `references/self-upgrade.md`。此处仅执行摘要：
 
-1. **分级：** L0 只诊断 → L1 安全小补 → L2 扩展能力 → L3 动硬规则。  
-2. **可主动：** 文档漂移、实战证明 skill 错、用户要求升级/自检。  
-3. **不可乱来：** 业务 PR 顺手大改 skill、削弱 Hard rules、自动 commit/push、无文档依据发明流程。  
-4. **L1：** 一句话告知后可改文件 + CHANGELOG + bump version；**不**自动提交。  
-5. **L2/L3：** 先出方案，用户确认后再改；L3 必须独立说明规则变更。  
-6. **入库：** `docs/ggapi-fork-*` 分支 → 用户授权后 commit → push → PR → merge → 删分支。  
-7. **真相源：** `docs/fork/*` > skill > 会话临时话。  
-8. **对齐清单：** 升级后核对 GG-002 摘要与 `skill_version`；提及的永久差异（GG-003/004/005 等）须与 inventory 一致。  
+1. **分级：** L0 只诊断 → L1 安全小补 → L2 扩展能力 → L3 动硬规则。
+2. **可主动：** 文档漂移、实战证明 skill 错、用户要求升级/自检。
+3. **不可乱来：** 业务 PR 顺手大改 skill、削弱 Hard rules、自动 commit/push、无文档依据发明流程。
+4. **L1：** 一句话告知后可改文件 + CHANGELOG + bump version；**不**自动提交。
+5. **L2/L3：** 先出方案，用户确认后再改；L3 必须独立说明规则变更。
+6. **入库：** `docs/ggapi-fork-*` 分支 → 用户授权后 commit → push → PR → merge → 删分支。
+7. **真相源：** `docs/fork/*` > skill > 会话临时话。
+8. **对齐清单：** 升级后核对 GG-002 摘要与 `skill_version`；提及的永久差异（GG-003/004/005 等）须与 inventory 一致。
 9. **触发词：** 「自提升」与「自升级 / 升级 skill / Mode I」同等进入本模式。
