@@ -137,9 +137,7 @@ export function UpdateCheckerSection({
       return
     }
 
-    for (const update of updates) {
-      await updateOption.mutateAsync(update)
-    }
+    await updateOption.updateMany(updates)
 
     form.setValue('UpdateCheckGitHubToken', '')
   }

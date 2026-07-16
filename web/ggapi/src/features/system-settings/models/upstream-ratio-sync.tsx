@@ -193,6 +193,8 @@ export function UpstreamRatioSync({ modelRatios }: UpstreamRatioSyncProps) {
   })
 
   const { mutate: syncMutate, isPending: isSyncPending } = useMutation({
+    // Sequential writes; no multi-option transaction — fail-fast, then refresh
+    // options cache so partial success is visible in the UI.
     mutationFn: async (updates: Array<{ key: string; value: string }>) => {
       for (const update of updates) {
         await updateSystemOption(update)
@@ -220,6 +222,7 @@ export function UpstreamRatioSync({ modelRatios }: UpstreamRatioSyncProps) {
       setResolutions({})
     },
     onError: (error: Error) => {
+      queryClient.invalidateQueries({ queryKey: ['system-options'] })
       toast.error(error.message || t('Failed to sync prices'))
     },
   })

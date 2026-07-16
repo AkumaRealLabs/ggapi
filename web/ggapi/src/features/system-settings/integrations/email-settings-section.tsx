@@ -173,9 +173,7 @@ export function EmailSettingsSection({
       })
     }
 
-    for (const update of updates) {
-      await updateOption.mutateAsync(update)
-    }
+    await updateOption.updateMany(updates)
   }
 
   return (

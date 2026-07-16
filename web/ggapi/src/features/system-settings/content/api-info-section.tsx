@@ -149,17 +149,14 @@ export function ApiInfoSection({ enabled, data }: ApiInfoSectionProps) {
     },
   })
 
-  const handleToggleEnabled = async (checked: boolean) => {
-    try {
-      await updateOption.mutateAsync({
+  const handleToggleEnabled = (checked: boolean) => {
+    updateOption.mutate(
+      {
         key: 'console_setting.api_info_enabled',
         value: checked,
-      })
-      setIsEnabledDraft(checked)
-      toast.success(t('Setting saved'))
-    } catch {
-      toast.error(t('Failed to update setting'))
-    }
+      },
+      { onSuccess: () => setIsEnabledDraft(checked) }
+    )
   }
 
   const handleAdd = () => {
@@ -238,15 +235,16 @@ export function ApiInfoSection({ enabled, data }: ApiInfoSectionProps) {
 
   const handleSaveAll = async () => {
     try {
-      const result = await updateOption.mutateAsync({
-        key: 'console_setting.api_info',
-        value: JSON.stringify(apiInfoList),
-      })
-      if (result.success) {
-        setDraftApiInfoList(null)
-      }
+      await updateOption.updateOne(
+        {
+          key: 'console_setting.api_info',
+          value: JSON.stringify(apiInfoList),
+        },
+        { successMessage: t('API info saved successfully') }
+      )
+      setDraftApiInfoList(null)
     } catch {
-      toast.error(t('Failed to save API info'))
+      // Error toast already shown by updateOne.
     }
   }
 

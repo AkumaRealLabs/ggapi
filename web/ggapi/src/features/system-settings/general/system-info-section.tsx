@@ -80,18 +80,20 @@ function normalizeValue(value: unknown): string {
   return typeof value === 'string' ? value : String(value)
 }
 
+function normalizeFrontendTheme(
+  value: string | undefined
+): SystemInfoFormValues['theme']['frontend'] {
+  if (value === 'classic' || value === 'ggapi') return value
+  return 'default'
+}
+
 export function SystemInfoSection({ defaultValues }: SystemInfoSectionProps) {
   const { t } = useTranslation()
   const updateOption = useUpdateOption()
 
   const normalizedDefaults: SystemInfoFormValues = {
     theme: {
-      frontend:
-        defaultValues.theme?.frontend === 'classic'
-          ? 'classic'
-          : defaultValues.theme?.frontend === 'ggapi'
-            ? 'ggapi'
-            : 'default',
+      frontend: normalizeFrontendTheme(defaultValues.theme?.frontend),
     },
     SystemName: normalizeValue(defaultValues.SystemName),
     ServerAddress: normalizeValue(defaultValues.ServerAddress),
@@ -131,49 +133,51 @@ export function SystemInfoSection({ defaultValues }: SystemInfoSectionProps) {
         SystemInfoFormValues
       >,
       defaultValues: normalizedDefaults,
-      onSubmit: async (_data, changedFields) => {
-        // 主题切换会改变后端返回的前端产物，需放到最后处理：先更新其余设置项，
-        // 仅当它们全部成功后才提交主题切换，避免其它设置失败时就切换了主题，
-        // 导致用户停留或刷新到另一套前端不存在的路由而 404。
+      onSubmit: async (_data, changedFields, { form: settingsForm }) => {
+        // Theme last: switching shells changes which frontend the server
+        // serves. Fail-fast on earlier keys so a failed non-theme write never
+        // leaves the admin on another shell (404). Not a transaction — keys
+        // already written are not rolled back.
         const entries = Object.entries(changedFields)
         const themeEntry = entries.find(([key]) => key === 'theme.frontend')
         const otherEntries = entries.filter(([key]) => key !== 'theme.frontend')
 
-        let allSucceeded = true
-        for (const [key, value] of otherEntries) {
-          let v = normalizeValue(value)
-          if (key === 'ServerAddress') {
-            v = v.replace(/\/+$/, '')
-          }
-          const res = await updateOption.mutateAsync({
-            key,
-            value: v,
-          })
-          if (!res.success) {
-            allSucceeded = false
-          }
-        }
-        if (themeEntry && !allSucceeded) {
-          // Theme was not submitted; keep form state consistent with backend.
-          _data.theme.frontend = normalizedDefaults.theme.frontend
-          return
-        }
-        if (themeEntry && allSucceeded) {
-          const res = await updateOption.mutateAsync({
-            key: themeEntry[0],
-            value: normalizeValue(themeEntry[1]),
-          })
-          if (res.success) {
-            // 当前路由在另一套前端中并不存在，主题切换成功后重置到首页以避免 404。
-            // 延时用于让表单脏状态先清除（移除 beforeunload 拦截）并展示成功提示后再刷新；
-            // 使用 replace 让已失效的路由不进入历史，防止返回按钮再次触发 404。
-            setTimeout(() => {
-              window.location.replace('/')
-            }, 600)
-          } else {
-            // Theme update failed; revert to the last saved value.
-            _data.theme.frontend = normalizedDefaults.theme.frontend
-          }
+        const requests = [
+          ...otherEntries.map(([key, value]) => {
+            let v = normalizeValue(value)
+            if (key === 'ServerAddress') {
+              v = v.replace(/\/+$/, '')
+            }
+            return { key, value: v }
+          }),
+          ...(themeEntry
+            ? [
+                {
+                  key: themeEntry[0],
+                  value: normalizeValue(themeEntry[1]),
+                },
+              ]
+            : []),
+        ]
+
+        try {
+          await updateOption.updateMany(requests)
+          if (!themeEntry) return
+          // New shell may not have this route — home after success toast / dirty clear.
+          // replace avoids back-button into a 404 route.
+          setTimeout(() => {
+            window.location.replace('/')
+          }, 600)
+        } catch (error) {
+          // Any failure (including others failed before theme was sent): do not
+          // leave the select on an unpersisted theme value. shouldDirty so the
+          // field drops out of dirty state when it matches the last saved value.
+          settingsForm.setValue(
+            'theme.frontend',
+            normalizedDefaults.theme.frontend,
+            { shouldDirty: true, shouldValidate: true }
+          )
+          throw error
         }
       },
     })

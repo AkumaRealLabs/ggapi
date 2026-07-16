@@ -316,12 +316,11 @@ export function ChannelAffinitySection(props: Props) {
         return
       }
 
-      for (const u of updates) {
-        await updateOption.mutateAsync(u)
+      try {
+        await updateOption.updateMany(updates)
+      } catch {
+        // updateMany already showed the error toast.
       }
-      toast.success(t('Saved successfully'))
-    } catch {
-      toast.error(t('Failed to save'))
     } finally {
       setSaving(false)
     }

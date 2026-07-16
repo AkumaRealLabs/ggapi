@@ -121,17 +121,14 @@ export function FAQSection({ enabled, data }: FAQSectionProps) {
     setIsEnabled(enabled)
   }, [enabled])
 
-  const handleToggleEnabled = async (checked: boolean) => {
-    try {
-      await updateOption.mutateAsync({
+  const handleToggleEnabled = (checked: boolean) => {
+    updateOption.mutate(
+      {
         key: 'console_setting.faq_enabled',
         value: checked,
-      })
-      setIsEnabled(checked)
-      toast.success(t('Setting saved'))
-    } catch {
-      toast.error(t('Failed to update setting'))
-    }
+      },
+      { onSuccess: () => setIsEnabled(checked) }
+    )
   }
 
   const handleAdd = () => {
@@ -207,14 +204,16 @@ export function FAQSection({ enabled, data }: FAQSectionProps) {
 
   const handleSaveAll = async () => {
     try {
-      await updateOption.mutateAsync({
-        key: 'console_setting.faq',
-        value: JSON.stringify(faqList),
-      })
+      await updateOption.updateOne(
+        {
+          key: 'console_setting.faq',
+          value: JSON.stringify(faqList),
+        },
+        { successMessage: t('FAQ saved successfully') }
+      )
       setHasChanges(false)
-      toast.success(t('FAQ saved successfully'))
     } catch {
-      toast.error(t('Failed to save FAQ'))
+      // Error toast already shown by updateOne.
     }
   }
 

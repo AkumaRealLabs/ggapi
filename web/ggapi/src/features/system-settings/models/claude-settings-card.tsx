@@ -175,9 +175,9 @@ export function ClaudeSettingsCard({ defaultValues }: ClaudeSettingsCardProps) {
       return
     }
 
-    for (const key of updates) {
-      await updateOption.mutateAsync({ key, value: normalized[key] })
-    }
+    await updateOption.updateMany(
+      updates.map((key) => ({ key, value: normalized[key] }))
+    )
   }
 
   return (

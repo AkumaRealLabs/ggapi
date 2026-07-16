@@ -718,8 +718,11 @@ export function PaymentSettingsSection({
       return
     }
 
-    for (const update of updates) {
-      await updateOption.mutateAsync(update)
+    if (updates.length > 0) {
+      // Quiet when Waffo Pancake still follows so the final toast is one message.
+      await updateOption.updateMany(updates, {
+        quiet: hasWaffoPancakeChanges,
+      })
     }
 
     if (!hasWaffoPancakeChanges) {

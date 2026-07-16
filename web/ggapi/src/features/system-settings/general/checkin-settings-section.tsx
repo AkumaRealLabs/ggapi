@@ -104,9 +104,7 @@ export function CheckinSettingsSection({
       return
     }
 
-    for (const update of updates) {
-      await updateOption.mutateAsync(update)
-    }
+    await updateOption.updateMany(updates)
 
     form.reset(values)
   }

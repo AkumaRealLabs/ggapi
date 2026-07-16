@@ -16,6 +16,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import axios from 'axios'
+import i18next from 'i18next'
+
 import { api } from '@/lib/api'
 
 import type {
@@ -31,14 +34,42 @@ import type {
   UpstreamRatiosResponse,
 } from './types'
 
+function optionUpdateErrorMessage(error: unknown): string {
+  if (axios.isAxiosError(error)) {
+    const body = error.response?.data as { message?: string } | undefined
+    return body?.message || error.message || i18next.t('Failed to update setting')
+  }
+  if (error instanceof Error && error.message) {
+    return error.message
+  }
+  return i18next.t('Failed to update setting')
+}
+
 export async function getSystemOptions() {
   const res = await api.get<SystemOptionsResponse>('/api/option/')
   return res.data
 }
 
+/**
+ * Persist one system option. Treats HTTP 200 + `{ success: false }` as failure
+ * (throws) so every caller — React Query hook or direct — gets the same contract.
+ * Toast ownership stays with the caller (global interceptor is skipped).
+ */
 export async function updateSystemOption(request: UpdateOptionRequest) {
-  const res = await api.put<UpdateOptionResponse>('/api/option/', request)
-  return res.data
+  let data: UpdateOptionResponse
+  try {
+    const res = await api.put<UpdateOptionResponse>('/api/option/', request, {
+      skipBusinessError: true,
+      skipErrorHandler: true,
+    })
+    data = res.data
+  } catch (error) {
+    throw new Error(optionUpdateErrorMessage(error))
+  }
+  if (!data?.success) {
+    throw new Error(data?.message || i18next.t('Failed to update setting'))
+  }
+  return data
 }
 
 export async function confirmPaymentCompliance() {

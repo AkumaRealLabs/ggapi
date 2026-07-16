@@ -185,12 +185,12 @@ export function GlobalSettingsCard({ defaultValues }: GlobalSettingsCardProps) {
       return
     }
 
-    for (const [key, value] of updates) {
-      await updateOption.mutateAsync({
+    await updateOption.updateMany(
+      updates.map(([key, value]) => ({
         key,
         value,
-      })
-    }
+      }))
+    )
   }
 
   return (
