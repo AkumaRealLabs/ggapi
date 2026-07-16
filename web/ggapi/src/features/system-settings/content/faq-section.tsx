@@ -66,15 +66,24 @@ type FAQSectionProps = {
   data: string
 }
 
+/** Unicode code points (Go runes), not UTF-16 units — matches backend validation. */
+function unicodeLength(value: string): number {
+  return [...value].length
+}
+
 const faqSchema = z.object({
   question: z
     .string()
     .min(1, 'Question is required')
-    .max(200, 'Question must be less than 200 characters'),
+    .refine((value) => unicodeLength(value) <= 200, {
+      message: 'Question must be less than 200 characters',
+    }),
   answer: z
     .string()
     .min(1, 'Answer is required')
-    .max(1000, 'Answer must be less than 1000 characters'),
+    .refine((value) => unicodeLength(value) <= 1000, {
+      message: 'Answer must be less than 1000 characters',
+    }),
 })
 
 type FAQFormValues = z.infer<typeof faqSchema>

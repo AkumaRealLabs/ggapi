@@ -79,16 +79,25 @@ type AnnouncementsSectionProps = {
   data: string
 }
 
+/** Unicode code points (Go runes), not UTF-16 units — matches backend validation. */
+function unicodeLength(value: string): number {
+  return [...value].length
+}
+
 const announcementSchema = z.object({
   content: z
     .string()
     .min(1, 'Content is required')
-    .max(500, 'Content must be less than 500 characters'),
+    .refine((value) => unicodeLength(value) <= 500, {
+      message: 'Content must be less than 500 characters',
+    }),
   publishDate: z.string().min(1, 'Publish date is required'),
   type: z.enum(['default', 'ongoing', 'success', 'warning', 'error']),
   extra: z
     .string()
-    .max(100, 'Extra must be less than 100 characters')
+    .refine((value) => unicodeLength(value) <= 200, {
+      message: 'Extra must be less than 200 characters',
+    })
     .optional(),
 })
 

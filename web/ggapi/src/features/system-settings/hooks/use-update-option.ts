@@ -47,8 +47,13 @@ export type UpdateOptionToastOptions = {
    */
   quiet?: boolean
   /**
+   * Skip both success and error toasts so the caller owns all UX messaging
+   * (e.g. model saved but pricing failed).
+   */
+  silent?: boolean
+  /**
    * Override the default success toast copy (domain-specific save messages).
-   * Ignored when `quiet` is true.
+   * Ignored when `quiet` or `silent` is true.
    */
   successMessage?: string
 }
@@ -162,7 +167,7 @@ export function useUpdateOption() {
           await updateSystemOption(request)
         }
         invalidateForKeys(keys)
-        if (!options?.quiet) {
+        if (!options?.silent && !options?.quiet) {
           toast.success(
             options?.successMessage ??
               i18next.t('Setting updated successfully')
@@ -176,7 +181,9 @@ export function useUpdateOption() {
           error instanceof Error
             ? error.message
             : i18next.t('Failed to update setting')
-        toast.error(message)
+        if (!options?.silent) {
+          toast.error(message)
+        }
         throw error instanceof Error ? error : new Error(message)
       } finally {
         endBatch()

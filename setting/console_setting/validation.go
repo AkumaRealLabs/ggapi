@@ -173,8 +173,8 @@ func validateAnnouncements(announcementsStr string) error {
 				}
 			}
 		}
-		// Count Unicode code points (runes), not UTF-8 bytes — Chinese content
-		// must match frontend zod max(500) and the error copy "字符".
+		// Unicode code points (runes), not UTF-8 bytes — matches frontend
+		// [...s].length checks and the error copy "字符".
 		if utf8.RuneCountInString(content) > 500 {
 			return fmt.Errorf("第%d个公告的内容长度不能超过500字符", i+1)
 		}
