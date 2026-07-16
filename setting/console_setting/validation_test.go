@@ -1,13 +1,14 @@
 package console_setting
 
 import (
-	"encoding/json"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/QuantumNous/new-api/common"
 )
 
 func announcementJSON(t *testing.T, content string) string {
@@ -19,7 +20,7 @@ func announcementJSON(t *testing.T, content string) string {
 			"type":        "default",
 		},
 	}
-	raw, err := json.Marshal(payload)
+	raw, err := common.Marshal(payload)
 	require.NoError(t, err)
 	return string(raw)
 }
@@ -32,7 +33,7 @@ func faqJSON(t *testing.T, question, answer string) string {
 			"answer":   answer,
 		},
 	}
-	raw, err := json.Marshal(payload)
+	raw, err := common.Marshal(payload)
 	require.NoError(t, err)
 	return string(raw)
 }

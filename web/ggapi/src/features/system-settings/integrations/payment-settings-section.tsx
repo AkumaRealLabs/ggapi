@@ -718,7 +718,23 @@ export function PaymentSettingsSection({
       return
     }
 
-    if (updates.length > 0) {
+    // Validate Pancake before writing other payment options so a missing
+    // merchant/store/product does not leave ordinary keys half-applied.
+    if (hasWaffoPancakeChanges) {
+      if (!sanitized.WaffoPancakeMerchantID) {
+        toast.error(t('Merchant ID is required'))
+        return
+      }
+      if (!waffoPancakeSelection.storeID || !waffoPancakeSelection.productID) {
+        toast.error(
+          t('Pick or create both a store and a product before saving.')
+        )
+        return
+      }
+    }
+
+    const wroteOtherOptions = updates.length > 0
+    if (wroteOtherOptions) {
       // Quiet when Waffo Pancake still follows so the final toast is one message.
       await updateOption.updateMany(updates, {
         quiet: hasWaffoPancakeChanges,
@@ -729,14 +745,16 @@ export function PaymentSettingsSection({
       return
     }
 
-    if (!sanitized.WaffoPancakeMerchantID) {
-      toast.error(t('Merchant ID is required'))
-      return
-    }
-
-    if (!waffoPancakeSelection.storeID || !waffoPancakeSelection.productID) {
-      toast.error(t('Pick or create both a store and a product before saving.'))
-      return
+    const reportPancakeFailure = (detail?: string) => {
+      const base = detail
+        ? `${t('Waffo Pancake save failed')}: ${detail}`
+        : t('Waffo Pancake save failed')
+      // Ordinary options may already be on the server (no multi-option txn).
+      toast.error(
+        wroteOtherOptions
+          ? `${base}. ${t('Other payment settings were already saved.')}`
+          : base
+      )
     }
 
     try {
@@ -766,16 +784,10 @@ export function PaymentSettingsSection({
       }
 
       const reason = typeof body?.data === 'string' ? body.data : undefined
-      toast.error(
-        reason
-          ? `${t('Waffo Pancake save failed')}: ${reason}`
-          : t('Waffo Pancake save failed')
-      )
+      reportPancakeFailure(reason)
     } catch (error) {
-      toast.error(
-        `${t('Waffo Pancake save failed')}: ${
-          error instanceof Error ? error.message : String(error)
-        }`
+      reportPancakeFailure(
+        error instanceof Error ? error.message : String(error)
       )
     }
   }

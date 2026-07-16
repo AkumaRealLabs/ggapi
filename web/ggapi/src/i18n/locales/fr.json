@@ -5345,6 +5345,7 @@
     "The membership plan type cannot be changed while active or queued subscriptions or pending orders exist.": "Le type de forfait d'adhésion ne peut pas être modifié tant qu'il existe des abonnements actifs ou en attente, ou des commandes en attente de paiement.",
     "The user has no active subscription for this plan.": "L'utilisateur ne dispose d'aucun abonnement actif pour ce forfait.",
     "Total quota cannot be negative.": "Le quota total ne peut pas être négatif.",
-    "Upgrade group does not exist.": "Le groupe de mise à niveau n'existe pas."
+    "Upgrade group does not exist.": "Le groupe de mise à niveau n'existe pas.",
+    "Other payment settings were already saved.": "Les autres paramètres de paiement ont déjà été enregistrés."
   }
 }

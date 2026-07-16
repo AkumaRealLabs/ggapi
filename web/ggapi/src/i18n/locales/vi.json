@@ -5345,6 +5345,7 @@
     "The membership plan type cannot be changed while active or queued subscriptions or pending orders exist.": "Không thể thay đổi loại gói hội viên khi vẫn còn gói đăng ký đang hoạt động, đang xếp hàng hoặc đơn hàng chờ thanh toán.",
     "The user has no active subscription for this plan.": "Người dùng không có gói đăng ký đang hoạt động cho gói này.",
     "Total quota cannot be negative.": "Tổng hạn mức không được âm.",
-    "Upgrade group does not exist.": "Nhóm nâng cấp không tồn tại."
+    "Upgrade group does not exist.": "Nhóm nâng cấp không tồn tại.",
+    "Other payment settings were already saved.": "Các cài đặt thanh toán khác đã được lưu."
   }
 }

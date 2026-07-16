@@ -5345,6 +5345,7 @@
     "The membership plan type cannot be changed while active or queued subscriptions or pending orders exist.": "有効または予約済みのサブスクリプション、もしくは支払い待ち注文がある間は、メンバーシッププランの種類を変更できません。",
     "The user has no active subscription for this plan.": "ユーザーにはこのプランの有効なサブスクリプションがありません。",
     "Total quota cannot be negative.": "合計クォータを負数にはできません。",
-    "Upgrade group does not exist.": "アップグレードグループが存在しません。"
+    "Upgrade group does not exist.": "アップグレードグループが存在しません。",
+    "Other payment settings were already saved.": "他の支払い設定は既に保存されています。"
   }
 }
