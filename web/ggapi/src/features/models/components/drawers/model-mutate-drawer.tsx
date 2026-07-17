@@ -441,7 +441,20 @@ export function ModelMutateDrawer({
             ? await updateModel({ ...modelData, id: currentModelId })
             : await createModel(modelData)
 
-        if (response.success) {
+        if (!response.success) {
+          toast.error(response.message || 'Operation failed')
+          return
+        }
+
+        // Model row is already on the server from here. Pricing lives in
+        // system options; if that step fails we still refresh models so the
+        // UI does not invite a duplicate create on retry.
+        const reconcileModelWrite = () => {
+          queryClient.invalidateQueries({ queryKey: modelsQueryKeys.lists() })
+          queryClient.invalidateQueries({ queryKey: ['system-options'] })
+        }
+
+        try {
           // Handle ratio configuration updates in system settings
           const finalModelName = values.model_name
           const hasRatioConfig =
@@ -617,25 +630,39 @@ export function ModelMutateDrawer({
               })
             }
 
-            // Apply all updates (including deletions when clearing fields)
-            for (const update of updates) {
-              await updateOption.mutateAsync(update)
+            // Silent: caller reports model+pricing outcome in one message.
+            if (updates.length > 0) {
+              await updateOption.updateMany(updates, { silent: true })
             }
           }
 
           toast.success(
             isEditing
-              ? 'Model updated successfully'
-              : 'Model created successfully'
+              ? t('Model updated successfully')
+              : t('Model created successfully')
           )
-          queryClient.invalidateQueries({ queryKey: modelsQueryKeys.lists() })
-          queryClient.invalidateQueries({ queryKey: ['system-options'] })
+          reconcileModelWrite()
           onOpenChange(false)
-        } else {
-          toast.error(response.message || 'Operation failed')
+        } catch (error: unknown) {
+          reconcileModelWrite()
+          const detail =
+            (error as Error)?.message || t('Pricing settings failed to save')
+          toast.error(
+            isEditing
+              ? t(
+                  'Model updated, but pricing was not fully saved: {{detail}}',
+                  { detail }
+                )
+              : t(
+                  'Model created, but pricing was not fully saved: {{detail}}',
+                  { detail }
+                )
+          )
+          // Close so retry goes through edit-from-list, not another create.
+          onOpenChange(false)
         }
       } catch (error: unknown) {
-        toast.error((error as Error)?.message || 'Operation failed')
+        toast.error((error as Error)?.message || t('Operation failed'))
       } finally {
         setIsSubmitting(false)
       }
@@ -649,6 +676,7 @@ export function ModelMutateDrawer({
       oldModelName,
       modelSettings,
       updateOption,
+      t,
     ]
   )
 

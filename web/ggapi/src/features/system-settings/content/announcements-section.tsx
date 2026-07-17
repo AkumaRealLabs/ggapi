@@ -79,16 +79,25 @@ type AnnouncementsSectionProps = {
   data: string
 }
 
+/** Unicode code points (Go runes), not UTF-16 units — matches backend validation. */
+function unicodeLength(value: string): number {
+  return [...value].length
+}
+
 const announcementSchema = z.object({
   content: z
     .string()
     .min(1, 'Content is required')
-    .max(500, 'Content must be less than 500 characters'),
+    .refine((value) => unicodeLength(value) <= 500, {
+      message: 'Content must be less than 500 characters',
+    }),
   publishDate: z.string().min(1, 'Publish date is required'),
   type: z.enum(['default', 'ongoing', 'success', 'warning', 'error']),
   extra: z
     .string()
-    .max(100, 'Extra must be less than 100 characters')
+    .refine((value) => unicodeLength(value) <= 200, {
+      message: 'Extra must be less than 200 characters',
+    })
     .optional(),
 })
 
@@ -175,17 +184,14 @@ export function AnnouncementsSection({
     setIsEnabled(enabled)
   }, [enabled])
 
-  const handleToggleEnabled = async (checked: boolean) => {
-    try {
-      await updateOption.mutateAsync({
+  const handleToggleEnabled = (checked: boolean) => {
+    updateOption.mutate(
+      {
         key: 'console_setting.announcements_enabled',
         value: checked,
-      })
-      setIsEnabled(checked)
-      toast.success(t('Setting saved'))
-    } catch {
-      toast.error(t('Failed to update setting'))
-    }
+      },
+      { onSuccess: () => setIsEnabled(checked) }
+    )
   }
 
   const handleAdd = () => {
@@ -267,14 +273,16 @@ export function AnnouncementsSection({
 
   const handleSaveAll = async () => {
     try {
-      await updateOption.mutateAsync({
-        key: 'console_setting.announcements',
-        value: JSON.stringify(announcements),
-      })
+      await updateOption.updateOne(
+        {
+          key: 'console_setting.announcements',
+          value: JSON.stringify(announcements),
+        },
+        { successMessage: t('Announcements saved successfully') }
+      )
       setHasChanges(false)
-      toast.success(t('Announcements saved successfully'))
     } catch {
-      toast.error(t('Failed to save announcements'))
+      // Error toast already shown by updateOne.
     }
   }
 

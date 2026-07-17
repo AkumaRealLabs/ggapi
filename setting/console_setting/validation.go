@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 var (
@@ -172,11 +173,13 @@ func validateAnnouncements(announcementsStr string) error {
 				}
 			}
 		}
-		if len(content) > 500 {
+		// Unicode code points (runes), not UTF-8 bytes — matches frontend
+		// [...s].length checks and the error copy "字符".
+		if utf8.RuneCountInString(content) > 500 {
 			return fmt.Errorf("第%d个公告的内容长度不能超过500字符", i+1)
 		}
 		if extra, exists := ann["extra"]; exists {
-			if extraStr, ok := extra.(string); ok && len(extraStr) > 200 {
+			if extraStr, ok := extra.(string); ok && utf8.RuneCountInString(extraStr) > 200 {
 				return fmt.Errorf("第%d个公告的说明长度不能超过200字符", i+1)
 			}
 		}
@@ -201,10 +204,10 @@ func validateFAQ(faqStr string) error {
 		if !ok || answer == "" {
 			return fmt.Errorf("第%d个FAQ缺少答案字段", i+1)
 		}
-		if len(question) > 200 {
+		if utf8.RuneCountInString(question) > 200 {
 			return fmt.Errorf("第%d个FAQ的问题长度不能超过200字符", i+1)
 		}
-		if len(answer) > 1000 {
+		if utf8.RuneCountInString(answer) > 1000 {
 			return fmt.Errorf("第%d个FAQ的答案长度不能超过1000字符", i+1)
 		}
 	}

@@ -66,15 +66,24 @@ type FAQSectionProps = {
   data: string
 }
 
+/** Unicode code points (Go runes), not UTF-16 units — matches backend validation. */
+function unicodeLength(value: string): number {
+  return [...value].length
+}
+
 const faqSchema = z.object({
   question: z
     .string()
     .min(1, 'Question is required')
-    .max(200, 'Question must be less than 200 characters'),
+    .refine((value) => unicodeLength(value) <= 200, {
+      message: 'Question must be less than 200 characters',
+    }),
   answer: z
     .string()
     .min(1, 'Answer is required')
-    .max(1000, 'Answer must be less than 1000 characters'),
+    .refine((value) => unicodeLength(value) <= 1000, {
+      message: 'Answer must be less than 1000 characters',
+    }),
 })
 
 type FAQFormValues = z.infer<typeof faqSchema>
@@ -121,17 +130,14 @@ export function FAQSection({ enabled, data }: FAQSectionProps) {
     setIsEnabled(enabled)
   }, [enabled])
 
-  const handleToggleEnabled = async (checked: boolean) => {
-    try {
-      await updateOption.mutateAsync({
+  const handleToggleEnabled = (checked: boolean) => {
+    updateOption.mutate(
+      {
         key: 'console_setting.faq_enabled',
         value: checked,
-      })
-      setIsEnabled(checked)
-      toast.success(t('Setting saved'))
-    } catch {
-      toast.error(t('Failed to update setting'))
-    }
+      },
+      { onSuccess: () => setIsEnabled(checked) }
+    )
   }
 
   const handleAdd = () => {
@@ -207,14 +213,16 @@ export function FAQSection({ enabled, data }: FAQSectionProps) {
 
   const handleSaveAll = async () => {
     try {
-      await updateOption.mutateAsync({
-        key: 'console_setting.faq',
-        value: JSON.stringify(faqList),
-      })
+      await updateOption.updateOne(
+        {
+          key: 'console_setting.faq',
+          value: JSON.stringify(faqList),
+        },
+        { successMessage: t('FAQ saved successfully') }
+      )
       setHasChanges(false)
-      toast.success(t('FAQ saved successfully'))
     } catch {
-      toast.error(t('Failed to save FAQ'))
+      // Error toast already shown by updateOne.
     }
   }
 

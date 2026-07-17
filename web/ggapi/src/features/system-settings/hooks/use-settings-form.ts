@@ -21,13 +21,22 @@ import { useEffect, useMemo, useRef } from 'react'
 import {
   useForm,
   type UseFormProps,
+  type UseFormReturn,
   type FieldValues,
   type FieldNamesMarkedBoolean,
 } from 'react-hook-form'
 import { toast } from 'sonner'
 
+export type SettingsFormSubmitHelpers<T extends FieldValues> = {
+  form: UseFormReturn<T>
+}
+
 type SettingsFormOptions<T extends FieldValues> = UseFormProps<T> & {
-  onSubmit: (data: T, changedFields: Record<string, unknown>) => Promise<void>
+  onSubmit: (
+    data: T,
+    changedFields: Record<string, unknown>,
+    helpers: SettingsFormSubmitHelpers<T>
+  ) => Promise<void>
   compareValues?: (a: unknown, b: unknown) => boolean
 }
 
@@ -174,10 +183,10 @@ function expandDotPaths<T extends FieldValues>(
  * const { form, handleSubmit, handleReset } = useSettingsForm({
  *   resolver: zodResolver(schema),
  *   defaultValues,
- *   onSubmit: async (data, changed) => {
- *     for (const [key, value] of Object.entries(changed)) {
- *       await updateOption.mutateAsync({ key, value })
- *     }
+ *   onSubmit: async (data, changed, { form }) => {
+ *     await updateOption.updateMany(
+ *       Object.entries(changed).map(([key, value]) => ({ key, value }))
+ *     )
  *   }
  * })
  * ```
@@ -261,7 +270,7 @@ export function useSettingsForm<T extends FieldValues>({
       {}
     )
 
-    await onSubmit(data, changedFields)
+    await onSubmit(data, changedFields, { form })
 
     const flattenedValues = flattenValues(data)
     baselineRef.current = flattenedValues

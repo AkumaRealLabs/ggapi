@@ -345,12 +345,12 @@ export function OAuthSection(props: OAuthSectionProps) {
       return
     }
 
-    for (const key of changedKeys) {
-      await updateOption.mutateAsync({
+    await updateOption.updateMany(
+      changedKeys.map((key) => ({
         key,
         value: normalized[key],
-      })
-    }
+      }))
+    )
 
     baselineRef.current = normalized
     baselineSerializedRef.current = JSON.stringify(normalized)

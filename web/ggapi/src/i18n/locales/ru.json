@@ -5345,6 +5345,12 @@
     "The membership plan type cannot be changed while active or queued subscriptions or pending orders exist.": "Тип плана членства нельзя изменить, пока существуют активные или запланированные подписки либо ожидающие оплаты заказы.",
     "The user has no active subscription for this plan.": "У пользователя нет активной подписки на этот план.",
     "Total quota cannot be negative.": "Общая квота не может быть отрицательной.",
-    "Upgrade group does not exist.": "Группа повышения не существует."
+    "Upgrade group does not exist.": "Группа повышения не существует.",
+    "Other payment settings were already saved.": "Остальные платёжные настройки уже сохранены.",
+    "Model updated successfully": "Модель успешно обновлена",
+    "Model created successfully": "Модель успешно создана",
+    "Pricing settings failed to save": "Не удалось сохранить настройки цен",
+    "Model updated, but pricing was not fully saved: {{detail}}": "Модель обновлена, но цены сохранены не полностью: {{detail}}",
+    "Model created, but pricing was not fully saved: {{detail}}": "Модель создана, но цены сохранены не полностью: {{detail}}"
   }
 }
