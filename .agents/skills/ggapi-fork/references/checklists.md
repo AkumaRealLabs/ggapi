@@ -21,15 +21,15 @@ Copy into PR bodies or walk verbally with the user. Keep items checkable.
 - [ ] Billing changes: read `pkg/billingexpr/expr.md`; full pre-consume→settle path checked
 - [ ] DB changes: SQLite + MySQL + PostgreSQL considered
 - [ ] JSON via `common.Marshal/Unmarshal*` (not raw `encoding/json` calls)
-- [ ] Frontend product work in **`web/ggapi`** (not only `web/default`); typecheck on the shell you edited
+- [ ] Frontend product work in **`web/ggapi`** (not only `web/default`); typecheck on shell when available; **lint ship-unit paths** (not full-tree baseline)
 - [ ] Frontend: i18n keys via **i18n-translate** skill; keys under `translation`; all locales incl. **zh-TW**
 
 ### Verification
 
 - [ ] Scoped `go test` for touched packages
-- [ ] Frontend typecheck/lint if applicable (`(cd web/ggapi && bun run typecheck)`; make targets from **repo root**)
+- [ ] Frontend: ggapi/default → `bun run typecheck` + path-scoped oxlint on **changed files**; classic → path-scoped eslint/prettier (no typecheck); full-tree lint optional if baseline-noisy
 - [ ] Manual smoke for user-visible behavior
-- [ ] **C1b** third-shell/embed checks done **before** C2-pre when GG-005 wiring touched; any resulting edits re-run C2-pre
+- [ ] **C1b** third-shell/embed checks (incl. path-scoped lint on touched UI) done **before** C2-pre when GG-005 wiring touched; any resulting edits re-run C2-pre
 - [ ] **Pre-commit Codex gate (C2-pre):** companion/`codex review` (or user `/codex:review`) on **combined** base→final tree; mixed committed+dirty → materialize then one `--base origin/main`; findings fixed; re-reviewed until clean **or** explicit user skip/override recorded
 - [ ] If Codex unavailable: user chose retry / skip — not silent pass; docs/skill not auto-skipped
 - [ ] If materialize used: temp commit message **amended** before push
@@ -95,6 +95,7 @@ Copy into PR bodies or walk verbally with the user. Keep items checkable.
 - [ ] DB backup completed
 - [ ] Version / tag strategy recorded: `v<upstream-baseline>.N` (e.g. `v1.0.0-rc.20.1`); formal tags only on `origin/main` tip
 - [ ] Default product: tag → **GHCR** + **Release metadata** (`docker-build.yml`); `:latest` only after tip recheck; **not** Docker Hub `calciumion/new-api`
+- [ ] After tag push: list/watch run **for that tag** (`gh run list --branch "$REL_TAG"` + `gh run watch --exit-status`); only then claim 发版完成; on failure see §24
 - [ ] Bare binary assets: only if user wants — `release.yml` **manual dispatch + required tag**
 - [ ] Migrations reviewed for target DB
 - [ ] Dockerfile builds **ggapi** (+ default + classic) for image path; local bare binary still needs `make build-all-web` first

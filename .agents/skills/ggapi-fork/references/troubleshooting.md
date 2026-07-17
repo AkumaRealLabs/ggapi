@@ -43,6 +43,9 @@ git fetch upstream 2>&1
 | Update check 401/404 on private repo | §19 |
 | i18n sync report missingCount on zh-TW | §20 |
 | Pre-commit Codex review fails / loops / skip? | §21 |
+| Third shell / theme / embed | §22 |
+| `gh pr merge` EOF / timeout but PR might be merged | §23 |
+| Tag pushed but GHCR / docker-build not “done” | §24 |
 
 ---
 
@@ -63,7 +66,7 @@ git remote set-url --push upstream DISABLED
 git remote -v   # push URL should show DISABLED
 ```
 
-**Fetch auth errors to GitHub**  
+**Fetch auth errors to GitHub**
 Check network/token/SSH; do not disable TLS or store secrets in repo files.
 
 ---
@@ -85,7 +88,7 @@ git checkout docs-or-feat/<topic>
 
 Then Mode C: push branch + PR.
 
-**If already pushed commits to `origin/main`**  
+**If already pushed commits to `origin/main`**
 Do **not** force-push `main` unless the user explicitly owns that decision and
 team policy allows. Prefer revert PR or forward-fix PR.
 
@@ -114,39 +117,39 @@ git pull --rebase origin <branch>   # only on private topic branch if team ok wi
 git pull origin <branch>
 ```
 
-**Rejected push to main**  
+**Rejected push to main**
 Good — main is protected. Move work to a branch (§2) and PR.
 
-**Permission denied to origin**  
+**Permission denied to origin**
 User/token lacks write access to `AkumaRealLabs/ggapi` — escalate to human, do not switch remotes silently.
 
 ---
 
 ## §5 Merge conflicts (sync)
 
-1. List conflicts: `git status`  
-2. Open `docs/fork/diff-inventory.md` — mark impacted rows `needs-rebase`  
-3. Resolve file-by-file using Mode E table in `workflows.md`  
-4. `git add` resolved paths  
-5. `git commit` only to conclude the merge (if merge stopped mid-way)  
-6. Run scoped tests  
-7. Restore inventory + baseline SHA  
+1. List conflicts: `git status`
+2. Open `docs/fork/diff-inventory.md` — mark impacted rows `needs-rebase`
+3. Resolve file-by-file using Mode E table in `workflows.md`
+4. `git add` resolved paths
+5. `git commit` only to conclude the merge (if merge stopped mid-way)
+6. Run scoped tests
+7. Restore inventory + baseline SHA
 
 **Anti-patterns**
 
-- `git checkout --theirs .` / `--ours .` on entire tree  
-- Deleting inventory `active` rows to "make sync green"  
-- Mixing a product feature into the sync merge commit  
+- `git checkout --theirs .` / `--ours .` on entire tree
+- Deleting inventory `active` rows to "make sync green"
+- Mixing a product feature into the sync merge commit
 
 ---
 
 ## §6 Customization disappeared after sync
 
-1. `git log --oneline upstream/main..main` and search for the feature commits  
-2. `git log -p -- path/to/file` across sync merge  
-3. Check inventory: was it `active`? Was conflict resolved wrong?  
-4. Recover with targeted `git show <sha>:path` / cherry-pick / re-apply minimal patch  
-5. Add regression note so it does not vanish next sync  
+1. `git log --oneline upstream/main..main` and search for the feature commits
+2. `git log -p -- path/to/file` across sync merge
+3. Check inventory: was it `active`? Was conflict resolved wrong?
+4. Recover with targeted `git show <sha>:path` / cherry-pick / re-apply minimal patch
+5. Add regression note so it does not vanish next sync
 
 ---
 
@@ -161,10 +164,10 @@ git log --oneline upstream/main..main | head
 
 Plan:
 
-1. Inventory `high` items first  
-2. Prefer smaller intermediate syncs if behind many months  
-3. Still use `sync/upstream-YYYYMMDD` + merge + PR  
-4. Do not rewrite shared history with rebase of `main` onto upstream  
+1. Inventory `high` items first
+2. Prefer smaller intermediate syncs if behind many months
+3. Still use `sync/upstream-YYYYMMDD` + merge + PR
+4. Do not rewrite shared history with rebase of `main` onto upstream
 
 ---
 
@@ -176,9 +179,9 @@ git status -sb
 
 Options (ask user preference):
 
-- Finish and commit on current branch  
-- `git stash push -u -m "wip"` then switch (remind to `stash pop`)  
-- Discard only if user explicitly wants (`git restore` / clean) — confirm first  
+- Finish and commit on current branch
+- `git stash push -u -m "wip"` then switch (remind to `stash pop`)
+- Discard only if user explicitly wants (`git restore` / clean) — confirm first
 
 Never `git clean -fdx` without explicit approval.
 
@@ -200,11 +203,11 @@ Manual fallback: GitHub UI compare `main`...`<branch>` after push.
 
 ## §10 Tests fail after upstream merge
 
-1. Identify whether failure is upstream-known or fork patch  
-2. If fork patch on hotspot: re-read upstream change; re-apply with new APIs  
-3. Prefer fixing fork patch over disabling tests  
-4. Billing failures: read `pkg/billingexpr/expr.md` + `common/quota_math.go` invariants  
-5. DB failures: check SQLite/MySQL/PostgreSQL dialect assumptions  
+1. Identify whether failure is upstream-known or fork patch
+2. If fork patch on hotspot: re-read upstream change; re-apply with new APIs
+3. Prefer fixing fork patch over disabling tests
+4. Billing failures: read `pkg/billingexpr/expr.md` + `common/quota_math.go` invariants
+5. DB failures: check SQLite/MySQL/PostgreSQL dialect assumptions
 
 ---
 
@@ -219,10 +222,10 @@ validate bounds → EstimateBilling/OtherRatios → QuotaFrom*Checked
 
 Rules of thumb:
 
-- No negative charges from overflow  
-- No bare `int(float64…)` quota casts  
-- Multipliers bounded; unsigned fields need upper bounds  
-- Dual review before merge  
+- No negative charges from overflow
+- No bare `int(float64…)` quota casts
+- Multipliers bounded; unsigned fields need upper bounds
+- Dual review before merge
 
 If unsure, **do not ship** — flag for human billing owner.
 
@@ -248,9 +251,9 @@ git merge-base main upstream/main | xargs git rev-parse --short
 
 Update `docs/fork/diff-inventory.md` meta:
 
-- 基准 upstream commit  
-- 最近更新日期  
-- Note if `VERSION` empty  
+- 基准 upstream commit
+- 最近更新日期
+- Note if `VERSION` empty
 
 Re-scan `git diff --stat upstream/main...main` for unregistered permanent paths.
 
@@ -260,25 +263,25 @@ Re-scan `git diff --stat upstream/main...main` for unregistered permanent paths.
 
 If `origin` is not `AkumaRealLabs/ggapi`:
 
-1. Show `git remote -v` to user  
-2. Do not `push` until they confirm correct origin  
-3. Fix remote URL only with explicit approval  
+1. Show `git remote -v` to user
+2. Do not `push` until they confirm correct origin
+3. Fix remote URL only with explicit approval
 
 ---
 
 ## §15 Skill self-upgrade felt chaotic
 
-1. Open `references/self-upgrade.md` and `references/CHANGELOG.md`.  
-2. Check last entries: were they L1 noise or L3 without consent?  
-3. Recovery: `git log -- .agents/skills/ggapi-fork` / revert the skill-only PR.  
-4. Remind gates: no auto-commit; L2/L3 need plan; Hard rules frozen without explicit L3.  
+1. Open `references/self-upgrade.md` and `references/CHANGELOG.md`.
+2. Check last entries: were they L1 noise or L3 without consent?
+3. Recovery: `git log -- .agents/skills/ggapi-fork` / revert the skill-only PR.
+4. Remind gates: no auto-commit; L2/L3 need plan; Hard rules frozen without explicit L3.
 5. If agent upgraded mid-feature: separate skill commit or revert skill hunks from the feature PR.
 
 ## §16 Skill teaches steps that contradict docs/fork
 
-1. **Trust docs** for what you do now.  
-2. Diff the relevant section vs skill Mode.  
-3. Mode I **L1**: patch skill to match docs (do not “fix” docs unless SOP change is intended).  
+1. **Trust docs** for what you do now.
+2. Diff the relevant section vs skill Mode.
+3. Mode I **L1**: patch skill to match docs (do not “fix” docs unless SOP change is intended).
 4. Bump version + CHANGELOG; ship via docs branch when user wants it on main.
 
 ---
@@ -391,8 +394,8 @@ Fallback: `codex review --help` for CLI-equivalent invocation.
 
 ### Codex unavailable / CLI not ready
 
-1. Confirm plugin/CLI: `/codex:setup` or companion readiness if present.  
-2. Do **not** mark the gate as passed.  
+1. Confirm plugin/CLI: `/codex:setup` or companion readiness if present.
+2. Do **not** mark the gate as passed.
 3. Tell the user options in 中文:
 
 | Option | When |
@@ -404,27 +407,27 @@ Fallback: `codex review --help` for CLI-equivalent invocation.
 ### Partial review of mixed committed + dirty work
 
 Symptom: only uncommitted files were reviewed, or only `origin/main...HEAD`, or
-two disjoint reviews were treated as “full unit.”  
+two disjoint reviews were treated as “full unit.”
 Fix: **materialize** (temp commit of staged intentional files) then **one**
 `review --wait --base origin/main` so Codex sees base→final tree (workflows
 C2-pre). On findings: `git reset --soft HEAD~1`, fix, re-materialize.
 
 ### Review ↔ fix loop spinning
 
-- Cap at **3** cycles (review → fix → re-review).  
-- After 3: stop, paste/summarize remaining findings, ask whether to continue fixing or commit with known issues.  
-- Do not weaken findings just to “get green.”  
+- Cap at **3** cycles (review → fix → re-review).
+- After 3: stop, paste/summarize remaining findings, ask whether to continue fixing or commit with known issues.
+- Do not weaken findings just to “get green.”
 - If Codex repeats the same false positive twice, document why it is wrong and ask the user once before skipping that item.
 
 ### “Nothing to review” vs empty commit
 
-- Empty working tree **and** no commits to land → skip with reason.  
-- Untracked files count as reviewable even when `git diff` is empty (plugin rule).  
+- Empty working tree **and** no commits to land → skip with reason.
+- Untracked files count as reviewable even when `git diff` is empty (plugin rule).
 - Full ship unit = single combined review of final tree vs `origin/main` (materialize when mixed).
 
 ### User wants skip
 
-Accept only clear phrases:「跳过 Codex」「不审了直接提交」「skip review」。  
+Accept only clear phrases:「跳过 Codex」「不审了直接提交」「skip review」。
 Docs/skill-only is **not** an automatic skip. Record the skip in the coach reply.
 Still refuse secrets / broken branding / hard-rule violations.
 
@@ -458,9 +461,9 @@ make build-all-web      # all three shells
 
 ### Release / Docker binary missing ggapi assets
 
-Symptom: tag image or optional bare binary serves blank/wrong theme when `theme.frontend=ggapi`.  
-Cause: only default/classic built; go embed has no `web/ggapi/dist`.  
-Fix: ensure **Dockerfile** (`builder-ggapi`) for the default **tag → GHCR** path; if dispatching **`release.yml`** bare binaries, that workflow must also build ggapi; local bare `go build` needs `make build-all-web`.  
+Symptom: tag image or optional bare binary serves blank/wrong theme when `theme.frontend=ggapi`.
+Cause: only default/classic built; go embed has no `web/ggapi/dist`.
+Fix: ensure **Dockerfile** (`builder-ggapi`) for the default **tag → GHCR** path; if dispatching **`release.yml`** bare binaries, that workflow must also build ggapi; local bare `go build` needs `make build-all-web`.
 Lesson from PR #7 Codex review.
 
 ### Admin theme selector cannot choose ggapi
@@ -489,6 +492,69 @@ OK short-term if documented; prefer **i18n-translate** for real copy).
 
 C5 leaves you on clean `main`. Next feature → new branch from latest
 `origin/main`. Do not keep coding on a deleted topic branch.
+
+---
+
+## §23 `gh pr merge` GraphQL EOF / timeout (PR may already be merged)
+
+**Symptom:** `gh pr merge` exits non-zero with GraphQL EOF, connection reset,
+deadline exceeded, or similar transport error. Agent or user assumes merge
+failed and may re-run merge or leave the branch “stuck.”
+
+**Cause:** Client/API flake; GitHub may have completed the merge. Seen on
+internal PRs (e.g. #23) with `--merge --delete-branch`.
+
+**Fix — verify before retry:**
+
+```bash
+gh pr view <N> --repo AkumaRealLabs/ggapi \
+  --json state,mergedAt,mergeCommit,autoMergeRequest,mergeStateStatus,headRefOid,url
+# If GraphQL also fails: gh api repos/AkumaRealLabs/ggapi/pulls/<N>
+# state == MERGED / merged:true → success: fetch origin, checkout main, pull, prune
+# OPEN + autoMergeRequest / checks pending → wait; do not REST-force; do not tag
+# OPEN + no auto-merge after flake → retry merge; REST only with -f sha=<headRefOid>
+```
+
+| Observed | Do |
+|----------|-----|
+| MERGED | Continue C5 clean-up; **do not** merge again |
+| OPEN + auto-merge / merge queue / checks | Poll until MERGED or failure; **never** Mode F on old main |
+| OPEN + no auto-merge + transport flake | Retry `gh pr merge`; REST with pinned `sha`/head; check branch protection |
+| View + REST both fail | Stop; do not assume merged |
+| CLOSED unmerged | User closed without merge — do not invent success |
+
+Always pass `--repo AkumaRealLabs/ggapi` (same wrong-default risk as §17).
+
+---
+
+## §24 Tag pushed — waiting for GHCR (`docker-build.yml`)
+
+**Symptom:** Annotated tag is on `origin`, but coach reports “发版完成” while
+image is still building, or user asks whether GHCR is ready.
+
+**Expected:** Tag push triggers **Publish Docker image** (~8–15 min on
+org-linux). Product path is GHCR + Release metadata (GG-003 / SOP §5.1), not
+bare binary.
+
+```bash
+REL_TAG=v1.0.0-rc.21.7   # example — must match the tag you pushed
+gh run list --repo AkumaRealLabs/ggapi --workflow=docker-build.yml \
+  --branch "$REL_TAG" --limit 5
+# Use the run id for this tag (headBranch == REL_TAG / matching headSha), then:
+gh run watch <run-id> --exit-status --repo AkumaRealLabs/ggapi
+# On success (exit 0):
+# docker pull ghcr.io/akumareallabs/ggapi:${REL_TAG}
+```
+
+| Status | Action |
+|--------|--------|
+| `in_progress` / `queued` | Wait or share run URL; **do not** claim 发版完成 |
+| `success` and watch exit 0 | Report image tag; optional pull; then regression notes |
+| `failure` / watch exit ≠ 0 | `gh run view <id> --log-failed`; fix CI (often Dockerfile/embed §22) before re-tag |
+| No run for `$REL_TAG` | Do **not** pick another tag’s green run; confirm tag form, workflow paths, §18 |
+
+Do not re-push the same tag name. If main moved after tag, tag still pins the
+old SHA (SOP §5.1 post-push warning) — human decides re-cut.
 
 ---
 

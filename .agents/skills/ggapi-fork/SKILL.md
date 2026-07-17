@@ -20,7 +20,7 @@ description: >
   C2-pre). When improving this skill itself, follow Mode I / self-upgrade
   policy.
 metadata:
-  skill_version: "1.5.1"
+  skill_version: "1.6.0"
 ---
 
 # ggapi Fork Maintenance Playbook
@@ -93,7 +93,7 @@ workflow end-to-end.
 |------|--------------|------|
 | **A. Bootstrap** | 首次配置, remote, 环境, 怎么开始二开 | `references/workflows.md` §A |
 | **B. Daily feature/fix** | 新功能, bug, 开分支, 实现, 本地验证 | `references/workflows.md` §B |
-| **C. Ship (commit + push + PR)** | 提交, commit, 最终提交, push, PR, 合入, push 还是 PR | `references/workflows.md` §C + `references/checklists.md` §Pre-PR |
+| **C. Ship (commit + push + PR)** | 提交, commit, 最终提交, push, PR, 合入, push 还是 PR; 链式「提交→push→PR→merge(→发版)」 | `references/workflows.md` §C (含 **C0**) + `references/checklists.md` §Pre-PR |
 | **D. Upstream sync** | 同步上游, merge upstream, sync | `references/workflows.md` §D + `references/checklists.md` §Post-sync |
 | **E. Conflict / inventory** | 冲突, 差异清单, GG-xxx, needs-rebase | `references/workflows.md` §E + `references/troubleshooting.md` |
 | **F. Release** | 发版, 部署, 回归 | `references/workflows.md` §F + `references/checklists.md` §Release |
@@ -106,11 +106,11 @@ from Mode C hard decision table **without** running push/PR unless they ask.
 
 ### Mode I quick gate (self-upgrade)
 
-1. Load `references/self-upgrade.md` fully before editing this skill.  
-2. Classify change **L0 / L1 / L2 / L3**.  
-3. **L0:** explain gap only. **L1:** may edit skill files after one-line notice; no commit. **L2/L3:** written plan → user confirms → then edit.  
-4. Always bump `metadata.skill_version` + `references/CHANGELOG.md` when files change.  
-5. Ship skill changes via `docs/…` branch + PR like any other docs change; do not mix with unrelated features unless user insists.  
+1. Load `references/self-upgrade.md` fully before editing this skill.
+2. Classify change **L0 / L1 / L2 / L3**.
+3. **L0:** explain gap only. **L1:** may edit skill files after one-line notice; no commit. **L2/L3:** written plan → user confirms → then edit.
+4. Always bump `metadata.skill_version` + `references/CHANGELOG.md` when files change.
+5. Ship skill changes via `docs/…` branch + PR like any other docs change; do not mix with unrelated features unless user insists.
 6. If `docs/fork` must change for truth: edit docs first (or same PR), skill second.
 
 ## Coaching language (user-facing)
@@ -167,10 +167,10 @@ Full ship checklist: `references/checklists.md` §Pre-PR.
 
 Prefer this order when implementing 二开 features:
 
-1. **Config / env / setting** — no code fork if possible  
-2. **New independent path** — e.g. `relay/channel/<new>/`, `pkg/<own>/`, `oauth/<new>/`, frontend feature module  
-3. **Thin registration hook** — one-line router/registry touch + isolated impl (`medium` inventory risk)  
-4. **Patch upstream file** — last resort; mark `patch` + risk in inventory; plan for rebase pain  
+1. **Config / env / setting** — no code fork if possible
+2. **New independent path** — e.g. `relay/channel/<new>/`, `pkg/<own>/`, `oauth/<new>/`, frontend feature module
+3. **Thin registration hook** — one-line router/registry touch + isolated impl (`medium` inventory risk)
+4. **Patch upstream file** — last resort; mark `patch` + risk in inventory; plan for rebase pain
 
 Never "drive-by" edit billing/auth/relay core without inventory + dual review plan.
 
@@ -182,7 +182,7 @@ aligned with active rows (not replace them):
 | ID | Topic |
 |----|--------|
 | GG-001 | `docs/fork/` + `AGENTS.md` 二开入口 |
-| GG-002 | this skill (`/ggapi-fork`, v1.5.1+; Modes A–I + C2-pre; release tag `v<upstream>.N` → GHCR) |
+| GG-002 | this skill (`/ggapi-fork`, v1.6.0+; Modes A–I + C2-pre; chained C→F ship; release tag `v<upstream>.N` → GHCR wait) |
 | GG-003 | CI org-linux Linux amd64; **tag → GHCR**; no Docker Hub `calciumion/new-api`; bare binary optional (manual) |
 | GG-004 | Server-side update check URL + GitHub PAT |
 | GG-005 | Third frontend shell `web/ggapi` (default `theme.frontend=ggapi`; feature tracks `web/default`) |
@@ -231,8 +231,8 @@ user explicitly wants an SOP change.
 
 Always leave the user with:
 
-1. Current branch + whether it is pushed  
-2. Whether `diff-inventory` needs an update  
-3. Exact next command **or** "done for this mode"  
-4. If they finished a permanent customization: remind GG-xxx registration before merge to `main`  
+1. Current branch + whether it is pushed
+2. Whether `diff-inventory` needs an update
+3. Exact next command **or** "done for this mode"
+4. If they finished a permanent customization: remind GG-xxx registration before merge to `main`
 5. If a skill gap was found: optional one-line Mode I offer (do not force upgrade)
