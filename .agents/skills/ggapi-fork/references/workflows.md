@@ -213,6 +213,39 @@ Coach one-liner after parsing:
 下一步: <first concrete command>
 ```
 
+### C-continue. 「继续」when a ship unit is already in flight
+
+User phrases: `继续` / `接着` / `/ggapi-fork 继续` **without** new feature/fix
+scope.
+
+**Detect stage first** (preflight: branch, dirty tree, open PR, CI).
+
+**Resume rules:**
+
+1. **C0 still wins** — `继续` never invents missing verbs (提交 / push / 开 PR / 合并 / 发版).
+2. **If this unit ran C2-pre** (pass or recorded user skip): apply **Stale pass** before
+   resumed C3/C4/C5. Stale → re-run gate (or stop); do not push/merge unreviewed content.
+3. **If this unit never needed C2-pre** (e.g. C0 was push-only on already-committed clean
+   tip, no new 提交): do **not** invent a gate on `继续`; resume authorized C3/C4/C5 only.
+4. **C5 remote head:** after any push of the reviewed tree, record
+   `git rev-parse HEAD` / remote tip as the **merge pin**. Before merge, fetch and require
+   PR `headRefOid` == that pin (same rule as C5 table).
+
+| Current stage | What 「继续」means | Do **not** |
+|---------------|-------------------|------------|
+| Mode B coding mid-feature, dirty or unfinished | Resume **B** (implement / verify) | Jump to commit without 提交 verb |
+| Ready to ship, dirty tree, no commit auth yet | Coach next Mode C step; **stop** for 提交 if dirty | Invent C2-pre/C2 |
+| Commits on branch, not pushed | **Coach only:** next is C3; push **only** if chain already has push auth **or** user says 推上去/push now. If unit had C2-pre, require non-stale. Prior **提交 alone** ≠ push | Silent C3; push stale gated unit |
+| Branch pushed, no PR | **Coach only:** next is C4; open PR **only** if chain has 开 PR **or** user says 开 PR now. Gated units: non-stale | Silent C4 from 继续 alone |
+| PR **OPEN**, gated unit still OK (clean pass **or** recorded skip for same tree; pin matches remote) | Report CI; if C0 already included 合并/merge → resume **C5**; else wait for **合并** | Invent merge; merge when pin ≠ remote head |
+| PR OPEN, gated unit **stale** | Re-run C2-pre (or stop) before claim clean / push / merge | Claim “Codex 已通过” for unreviewed content |
+| PR **MERGED**, local not cleaned | C5 hygiene if merge/cleanup authorized; else coach | Silent merge; 发版 without auth |
+| On `main`, 发版 intent | Mode **F** only if 发版 authorized; else ask | |
+
+**Lesson (PR #26):** after Codex clean + PR open, `/ggapi-fork 继续` = Mode C
+post-ship (CI / merge auth / cleanup), **not** more product code unless the user
+names a new defect.
+
 ### C1. Pre-flight
 
 ```bash
@@ -371,10 +404,13 @@ amend to a proper why-focused message in **C2**, or soft-reset and recommit,
 |------|--------|
 | Trigger | Any final-commit intent on this repo → Mode C + C2-pre (not only “push/PR” wording). |
 | Prefer wait | Small/medium diffs: `--wait` so the gate completes in-session. |
-| Invocation | Agent uses **companion / `codex review` CLI**; slash is optional UX for humans. |
+| Invocation | Agent uses **companion / `codex review` CLI**; slash is optional UX for humans. Companion auth/path fail → fall back to `codex review` CLI (same scope); both fail → §21, **not** pass. |
 | Full unit | Always one combined base→final-tree review; mixed → materialize then `--base origin/main`. |
 | Fix owner | **ggapi-fork agent** applies fixes; never claim review will edit code. |
+| Re-review mandatory | After **any** fix batch that **changes ship-file content**, run Codex **again** on the full unit before C2 / push / “gate 通过”. |
+| Stale pass | **Record at pass** (coach notes): content fingerprint of the **final ship tree** — stage **all intentional ship paths including untracked**, then `git write-tree` (preferred; covers dirty + new files). Also record `origin/main` SHA. **After C2/C3**, set **merge pin** = pushed tip SHA whose tree OID matches that fingerprint. Invalidate if ship content changes (fingerprint), if recorded `origin/main` SHA moves, or if before C5 remote `headRefOid` ≠ merge pin. Do **not** stale merely because `HEAD..origin/main > 0` when the user declined update against the same recorded main SHA. Message-only amend of the same tree does not stale. |
 | Round limit | Default **3** full cycles (review → fix → re-review). Then stop and escalate. |
+| No agent self-skip | Agent must **never** skip the gate, “带病通过”, or treat stall/timeout as pass. Only **user** clear opt-out (table below) or empty-tree case. |
 | No silent skip | Skipping requires an allowed case below **and** a one-line reason. Docs/skill changes are **not** auto-exempt. |
 | Still need auth | Passing the gate does **not** auto-commit; C2 still needs explicit commit intent. |
 | Optional extra | `/codex:adversarial-review` or bundled `/review` only if user asks; not a substitute. |
@@ -385,12 +421,14 @@ amend to a proper why-focused message in **C2**, or soft-reset and recommit,
 |------|--------|
 | Empty tree and nothing to land | Yes — nothing to review |
 | Codex plugin / CLI / companion unavailable or auth failure | Do **not** pretend passed: stop, §21; **default = 先不提交** until user chooses retry / install / 「跳过审查并提交」 |
-| User explicitly:「跳过 Codex / 不审了直接提交」 / skip review | Yes — record in reply; still do normal git hygiene |
+| User explicitly:「跳过 Codex / 不审了直接提交 / skip review」 | Yes — record in reply; still do normal git hygiene. **Reject** agent-proposed skip if user instead says「不行得过 codex / 必须过审查」→ resume fix→re-review |
 
 Gate is a **Mode C quality step** (user-confirmed L2 playbook), not a Hard-rule rewrite: user may always opt out with clear language; agent never auto-skip docs/skill.
 
-**Not** an allowed unilateral skip: pure docs, skill-only, or “small wording”
-changes — including changes to this gate. Same gate unless the user opts out.
+**Not** an allowed unilateral skip: pure docs, skill-only, “small wording”,
+“已经够好了”, time pressure, or companion flake — including changes to this gate.
+Same gate unless the user opts out. Lesson (PR #26): user may **insist** the gate
+re-run after a stalled or skipped attempt; treat that as mandatory re-entry.
 
 #### Coach frame after gate
 
@@ -497,7 +535,7 @@ gh pr view <N> --repo AkumaRealLabs/ggapi \
 |-------------------|--------|
 | `MERGED` / REST `merged: true` | Success → clean-up (do **not** re-merge) |
 | `OPEN` + `autoMergeRequest` set / merge queue pending / `mergeStateStatus` waiting on checks | **Wait** (poll view or REST). Do **not** REST-force merge; do **not** enter Mode F or tag old `main` |
-| `OPEN` + no auto-merge, CLI was transport flake | Retry `gh pr merge` once. REST only if user still wants immediate merge, and **pin the reviewed head**: `gh api -X PUT repos/AkumaRealLabs/ggapi/pulls/<N>/merge -f merge_method=merge -f sha='<headRefOid>'` (or `gh pr merge --match-head-commit <oid>`). If head moved since C2-pre → **stop**, re-review; do not land unreviewed tip |
+| `OPEN` + no auto-merge, CLI was transport flake | Retry `gh pr merge` once. REST only if user still wants immediate merge, and **pin the reviewed head**: `gh api -X PUT repos/AkumaRealLabs/ggapi/pulls/<N>/merge -f merge_method=merge -f sha='<mergePin>'` (or `gh pr merge --match-head-commit <oid>`). Before any merge: fetch and compare remote `headRefOid` to the **merge pin** (pushed tip whose tree matches the C2-pre fingerprint); if moved → **stop**, re-review; do not land unreviewed tip |
 | `CLOSED` unmerged | Stop — not landed |
 | Both GraphQL view and REST fail | Stop; do not guess MERGED; do not Mode F |
 
@@ -523,6 +561,8 @@ User phrases like「开 PR 并合并清理」mean: create PR → merge → delet
 topic branch → leave `main` clean. Still require explicit merge wording; do not
 merge on open alone. Full chains with 提交/push/发版: see **C0**.
 If merge verify fails with flake symptoms → troubleshooting **§23**.
+Ambiguous `继续` while PR is open: see **C-continue** (CI / wait for 合并 — not
+silent merge, not re-code).
 
 ### Decision table (teach the user)
 

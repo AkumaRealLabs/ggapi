@@ -2,6 +2,17 @@
 
 格式：`## version — YYYY-MM-DD` + 级别 + 摘要。最新在上。
 
+## 1.7.0 — 2026-07-17
+
+- **级别:** L2 / minor（Mode C 续跑 + C2-pre 强化；**未**改 Hard rules）
+- **原因:** PR #26 全链路：`继续` 在 PR 已开时被当成再写代码；用户拒绝 agent 侧跳过 Codex；gate 须按树内容失效而非仅 SHA
+- **变更:**
+  - Mode **C-continue**：按阶段路由 `继续`（不默认 Mode B；不补 push/PR 词；C0 已含 merge 则续 C5；**仅**本单元跑过 C2-pre 时做 stale 检查；push-only 链不发明 gate）
+  - **C2-pre**：禁 agent 自跳；修完再审；fingerprint=`write-tree`（含 untracked）；C2/C3 后更新 **merge pin**；C5 比对 remote `headRefOid`；`origin/main` SHA 漂移才 stale（非 count>0）；companion→CLI
+  - checklists / troubleshooting §21 对齐；GG-002 → **v1.7.0**；`docs/fork/README` skill 版本锚点
+  - `skill_version` → **1.7.0**（L2 走 minor，不用 1.6.1 patch）
+- **未改:** Hard rules；不自动 commit/push/merge；C2-pre 仍可由**用户**明确 opt-out
+
 ## 1.6.0 — 2026-07-16
 
 - **级别:** L2 / minor（Mode C/F 发车实战补齐；**未**改 Hard rules）
