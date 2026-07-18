@@ -43,6 +43,8 @@ git fetch upstream 2>&1
 | Update check 401/404 on private repo | §19 |
 | i18n sync report missingCount on zh-TW | §20 |
 | Pre-commit Codex review fails / loops / skip? | §21 |
+| Agent self-skip / stale Codex pass / 「必须过审查」 | §21 |
+| `继续` after PR open re-codes instead of CI/merge | §21 + workflows **C-continue** |
 | Third shell / theme / embed | §22 |
 | `gh pr merge` EOF / timeout but PR might be merged | §23 |
 | Tag pushed but GHCR / docker-build not “done” | §24 |
@@ -430,6 +432,25 @@ C2-pre). On findings: `git reset --soft HEAD~1`, fix, re-materialize.
 Accept only clear phrases:「跳过 Codex」「不审了直接提交」「skip review」。
 Docs/skill-only is **not** an automatic skip. Record the skip in the coach reply.
 Still refuse secrets / broken branding / hard-rule violations.
+
+### Agent must not self-skip or claim a stale pass
+
+| Anti-pattern | Correct |
+|--------------|---------|
+| Companion 401 / timeout → “先提交再说” without user opt-out | Stop; §21 options; or fall back to `codex review` CLI |
+| Fixed findings, no re-review → claim 通过 | Re-run full-unit review after every fix batch |
+| Prior clean review, then **content** changes in tip **or worktree** → still “Codex 已通过” | Gate is **stale**; re-run before push / claim clean |
+| Clean pass then C2 creates the reviewed final tree as a commit | Pass **still valid** (same tree) |
+| Clean pass then recorded `origin/main` SHA advances | Gate **stale**; preferably merge main + re-review |
+| Behind main, user declined update, same main SHA as at pass | Pass **still valid** (do not use count>0 alone) |
+| User:「不行得过 codex / 必须过审查」after a skip attempt | Resume fix→re-review; do **not** keep the skip |
+
+### 「继续」routed wrong (re-coding after PR open)
+
+Symptom: ship unit already at C4 (PR OPEN, clean tip), user says `继续`, agent
+starts new feature edits.
+Fix: **C-continue** — report CI, wait for 合并 wording, or C5 hygiene. Only
+re-enter Mode B if user names a new defect/scope.
 
 ### Optional tools
 

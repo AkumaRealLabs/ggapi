@@ -20,7 +20,7 @@ description: >
   C2-pre). When improving this skill itself, follow Mode I / self-upgrade
   policy.
 metadata:
-  skill_version: "1.6.0"
+  skill_version: "1.7.0"
 ---
 
 # ggapi Fork Maintenance Playbook
@@ -79,8 +79,10 @@ git rev-parse --short upstream/main 2>/dev/null || true
 Before the **final** commit of a ship unit (user said 提交 / commit / 最终提交 —
 even without `/ggapi-fork`), run the **C2-pre Codex gate**: companion CLI
 (preferred) or user `/codex:review`, review the **combined** final tree vs
-`origin/main` (see workflows), fix findings, re-review until clean or escalate.
-Docs/skill not auto-exempt. Does **not** auto-commit or replace Hard rules.
+`origin/main` (see workflows), fix findings, **re-review after every fix batch**
+until clean or escalate. Agent **must not** self-skip or claim pass after skip;
+only clear user opt-out phrases count (workflows C2-pre / §21). Docs/skill not
+auto-exempt. Does **not** auto-commit or replace Hard rules.
 Full procedure: Mode C **C2-pre**.
 
 ## Mode router
@@ -93,7 +95,7 @@ workflow end-to-end.
 |------|--------------|------|
 | **A. Bootstrap** | 首次配置, remote, 环境, 怎么开始二开 | `references/workflows.md` §A |
 | **B. Daily feature/fix** | 新功能, bug, 开分支, 实现, 本地验证 | `references/workflows.md` §B |
-| **C. Ship (commit + push + PR)** | 提交, commit, 最终提交, push, PR, 合入, push 还是 PR; 链式「提交→push→PR→merge(→发版)」 | `references/workflows.md` §C (含 **C0**) + `references/checklists.md` §Pre-PR |
+| **C. Ship (commit + push + PR)** | 提交, commit, 最终提交, push, PR, 合入, 合并, 继续 (when ship in progress), push 还是 PR; 链式「提交→push→PR→merge(→发版)」 | `references/workflows.md` §C (含 **C0** / **C-continue**) + `references/checklists.md` §Pre-PR |
 | **D. Upstream sync** | 同步上游, merge upstream, sync | `references/workflows.md` §D + `references/checklists.md` §Post-sync |
 | **E. Conflict / inventory** | 冲突, 差异清单, GG-xxx, needs-rebase | `references/workflows.md` §E + `references/troubleshooting.md` |
 | **F. Release** | 发版, 部署, 回归 | `references/workflows.md` §F + `references/checklists.md` §Release |
@@ -182,7 +184,7 @@ aligned with active rows (not replace them):
 | ID | Topic |
 |----|--------|
 | GG-001 | `docs/fork/` + `AGENTS.md` 二开入口 |
-| GG-002 | this skill (`/ggapi-fork`, v1.6.0+; Modes A–I + C2-pre; chained C→F ship; release tag `v<upstream>.N` → GHCR wait) |
+| GG-002 | this skill (`/ggapi-fork`, v1.7.0+; Modes A–I + C2-pre no self-skip; C-continue; chained C→F ship; release tag `v<upstream>.N` → GHCR wait) |
 | GG-003 | CI org-linux Linux amd64; **tag → GHCR**; no Docker Hub `calciumion/new-api`; bare binary optional (manual) |
 | GG-004 | Server-side update check URL + GitHub PAT |
 | GG-005 | Third frontend shell `web/ggapi` (default `theme.frontend=ggapi`; feature tracks `web/default`) |
