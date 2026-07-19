@@ -1,0 +1,615 @@
+# Project rules are loaded only for a trusted checkout. Git hooks provide the
+# cross-client backstop for Codex App, Codex CLI, Grok Build CLI, and terminals.
+
+prefix_rule(
+    pattern = [
+        "git",
+        "-c",
+        [
+            "core.hooksPath=/dev/null",
+            "core.hooksPath=",
+            "core.hooksPath=/var/empty",
+            "core.hooksPath=/var/empty/",
+            "core.hooksPath=/tmp",
+            "core.hooksPath=/tmp/empty",
+            "core.hooksPath=.git/hooks",
+            "core.hooksPath=NUL",
+        ],
+    ],
+    decision = "forbidden",
+    justification = "Do not disable repository Git Hooks through a per-command core.hooksPath override.",
+    match = [
+        "git -c core.hooksPath=/dev/null push upstream main",
+        "git -c core.hooksPath=/tmp/empty commit -m test",
+    ],
+    not_match = [
+        "git -c color.ui=false status",
+        "git config --local core.hooksPath .githooks",
+    ],
+)
+
+prefix_rule(
+    pattern = ["git", "push", ["--no-verify", "-n"]],
+    decision = "forbidden",
+    justification = "Skipping pre-push hooks is forbidden; use the normal reviewed push path.",
+    match = [
+        "git push --no-verify origin feat/example",
+        "git push -n origin main",
+    ],
+    not_match = [
+        "git push origin feat/example",
+        "git status --short",
+    ],
+)
+
+prefix_rule(
+    pattern = ["git", "push", "origin", ["--no-verify", "-n"]],
+    decision = "forbidden",
+    justification = "Skipping pre-push hooks is forbidden even when the option follows origin.",
+    match = [
+        "git push origin --no-verify main",
+        "git push origin -n feat/example",
+    ],
+    not_match = [
+        "git push origin feat/example",
+        "git fetch origin main",
+    ],
+)
+
+# Options may precede --no-verify; keep the bypass forbidden regardless of
+# whether git's remote and refspec follow it.
+prefix_rule(
+    pattern = [
+        "git",
+        "push",
+        ["-u", "--set-upstream", "-f", "--force", "--force-with-lease", "--atomic", "--porcelain", "--quiet", "-q", "--verbose", "--progress", "--follow-tags"],
+        "--no-verify",
+    ],
+    decision = "forbidden",
+    justification = "Skipping pre-push hooks is forbidden regardless of option order.",
+    match = [
+        "git push --force-with-lease --no-verify origin feat/example",
+    ],
+    not_match = [
+        "git push --force-with-lease origin feat/example",
+    ],
+)
+
+prefix_rule(
+    pattern = [
+        "git",
+        "push",
+        ["-u", "--set-upstream", "-f", "--force", "--force-with-lease", "--atomic", "--porcelain", "--quiet", "-q", "--verbose", "--progress", "--follow-tags"],
+        ["-u", "--set-upstream", "-f", "--force", "--force-with-lease", "--atomic", "--porcelain", "--quiet", "-q"],
+        "--no-verify",
+    ],
+    decision = "forbidden",
+    justification = "Skipping pre-push hooks is forbidden with multiple preceding options.",
+    match = [
+        "git push --atomic --force --no-verify origin feat/example",
+    ],
+    not_match = [
+        "git push --atomic --force origin feat/example",
+    ],
+)
+
+prefix_rule(
+    pattern = [
+        "git",
+        "push",
+        ["-u", "--set-upstream", "-f", "--force", "--force-with-lease", "--atomic", "--porcelain", "--quiet", "-q", "--verbose", "--progress", "--follow-tags"],
+        ["-u", "--set-upstream", "-f", "--force", "--force-with-lease", "--atomic", "--porcelain", "--quiet", "-q", "--verbose", "--progress", "--follow-tags"],
+        ["-u", "--set-upstream", "-f", "--force", "--force-with-lease", "--atomic", "--porcelain", "--quiet", "-q", "--verbose", "--progress", "--follow-tags"],
+        ["-u", "--set-upstream", "-f", "--force", "--force-with-lease", "--atomic", "--porcelain", "--quiet", "-q", "--verbose", "--progress", "--follow-tags"],
+        "--no-verify",
+    ],
+    decision = "forbidden",
+    justification = "Skipping pre-push hooks is forbidden with four preceding options.",
+    match = [
+        "git push --verbose --progress --atomic --force --no-verify origin feat/example",
+    ],
+    not_match = [
+        "git push --verbose --progress --atomic --force origin feat/example",
+    ],
+)
+
+prefix_rule(
+    pattern = ["git", "push", "upstream"],
+    decision = "forbidden",
+    justification = "upstream is fetch-only; push the topic branch to origin instead.",
+    match = [
+        "git push upstream main",
+        "git push upstream HEAD",
+        "git push upstream refs/tags/v1",
+    ],
+    not_match = [
+        "git fetch upstream",
+        "git push origin HEAD",
+    ],
+)
+
+prefix_rule(
+    pattern = [
+        "git",
+        "push",
+        ["-u", "--set-upstream", "-f", "--force", "--force-with-lease", "--atomic", "--porcelain", "--quiet", "-q"],
+        ["-u", "--set-upstream", "-f", "--force", "--force-with-lease", "--atomic", "--porcelain", "--quiet", "-q"],
+        ["-u", "--set-upstream", "-f", "--force", "--force-with-lease", "--atomic", "--porcelain", "--quiet", "-q"],
+        "upstream",
+    ],
+    decision = "forbidden",
+    justification = "upstream is fetch-only even when several options precede the remote.",
+    match = [
+        "git push --atomic --force --porcelain upstream main",
+    ],
+    not_match = [
+        "git push --atomic --force --porcelain origin feat/example",
+    ],
+)
+
+prefix_rule(
+    pattern = [
+        "git",
+        "push",
+        ["-u", "--set-upstream", "-f", "--force", "--force-with-lease", "--atomic", "--no-verify", "-n"],
+        "upstream",
+    ],
+    decision = "forbidden",
+    justification = "upstream is fetch-only, including flagged pushes; use origin for topic branches.",
+    match = [
+        "git push -u upstream main",
+        "git push --force upstream HEAD",
+    ],
+    not_match = [
+        "git push -u origin feat/example",
+    ],
+)
+
+prefix_rule(
+    pattern = [
+        "git",
+        "push",
+        ["-u", "--set-upstream", "-f", "--force", "--force-with-lease", "--atomic", "--porcelain", "--no-verify", "-n", "--verbose", "--progress", "--follow-tags"],
+        ["-u", "--set-upstream", "-f", "--force", "--force-with-lease", "--atomic", "--porcelain", "--no-verify", "-n", "--verbose", "--progress", "--follow-tags"],
+        ["-u", "--set-upstream", "-f", "--force", "--force-with-lease", "--atomic", "--porcelain", "--no-verify", "-n", "--verbose", "--progress", "--follow-tags"],
+        [
+            "https://github.com/QuantumNous/new-api",
+            "https://github.com/QuantumNous/new-api.git",
+            "git@github.com:QuantumNous/new-api.git",
+            "ssh://git@github.com/QuantumNous/new-api.git",
+        ],
+    ],
+    decision = "forbidden",
+    justification = "Never push to the upstream repository URL with common three-option forms.",
+    match = [
+        "git push --atomic --force --porcelain https://github.com/QuantumNous/new-api.git HEAD",
+    ],
+    not_match = [
+        "git push --atomic --force --porcelain https://github.com/AkumaRealLabs/ggapi.git HEAD",
+    ],
+)
+
+# Git accepts several options before the remote. Keep the common one- and
+# two-option forms explicit because prefix_rule matches fixed token positions.
+prefix_rule(
+    pattern = [
+        "git",
+        "push",
+        ["-u", "--set-upstream", "-f", "--force", "--force-with-lease", "--atomic", "--no-verify", "-n"],
+        ["-u", "--set-upstream", "-f", "--force", "--force-with-lease", "--atomic", "--no-verify", "-n"],
+        "upstream",
+    ],
+    decision = "forbidden",
+    justification = "upstream is fetch-only, including common multi-flag pushes.",
+    match = [
+        "git push -u --force-with-lease upstream main",
+        "git push --atomic --force upstream HEAD",
+    ],
+    not_match = [
+        "git push -u --force-with-lease origin feat/example",
+    ],
+)
+
+prefix_rule(
+    pattern = [
+        "git",
+        "push",
+        [
+            "https://github.com/QuantumNous/new-api",
+            "https://github.com/QuantumNous/new-api.git",
+            "git@github.com:QuantumNous/new-api.git",
+            "ssh://git@github.com/QuantumNous/new-api.git",
+        ],
+    ],
+    decision = "forbidden",
+    justification = "Never push ggapi fork changes to the upstream repository URL; use origin.",
+    match = [
+        "git push https://github.com/QuantumNous/new-api.git HEAD",
+        "git push git@github.com:QuantumNous/new-api.git HEAD",
+    ],
+    not_match = [
+        "git fetch https://github.com/QuantumNous/new-api.git",
+        "git push https://github.com/AkumaRealLabs/ggapi.git HEAD",
+    ],
+)
+
+prefix_rule(
+    pattern = [
+        "git",
+        "push",
+        ["-u", "--set-upstream", "-f", "--force", "--force-with-lease", "--atomic", "--no-verify", "-n"],
+        ["-u", "--set-upstream", "-f", "--force", "--force-with-lease", "--atomic", "--no-verify", "-n"],
+        [
+            "https://github.com/QuantumNous/new-api",
+            "https://github.com/QuantumNous/new-api.git",
+            "git@github.com:QuantumNous/new-api.git",
+            "ssh://git@github.com/QuantumNous/new-api.git",
+        ],
+    ],
+    decision = "forbidden",
+    justification = "Never push to the upstream repository URL, including common multi-flag pushes.",
+    match = [
+        "git push -u --force-with-lease https://github.com/QuantumNous/new-api.git HEAD",
+    ],
+    not_match = [
+        "git push -u --force-with-lease https://github.com/AkumaRealLabs/ggapi.git HEAD",
+    ],
+)
+
+prefix_rule(
+    pattern = [
+        "git",
+        "push",
+        ["-u", "--set-upstream", "-f", "--force", "--force-with-lease", "--atomic", "--no-verify", "-n"],
+        [
+            "https://github.com/QuantumNous/new-api",
+            "https://github.com/QuantumNous/new-api.git",
+            "git@github.com:QuantumNous/new-api.git",
+            "ssh://git@github.com/QuantumNous/new-api.git",
+        ],
+    ],
+    decision = "forbidden",
+    justification = "Never push to the upstream repository URL, including flagged pushes.",
+    match = [
+        "git push --force https://github.com/QuantumNous/new-api.git HEAD",
+    ],
+    not_match = [
+        "git push --force https://github.com/AkumaRealLabs/ggapi.git HEAD",
+    ],
+)
+
+prefix_rule(
+    pattern = [
+        "git",
+        "push",
+        ["-u", "--set-upstream", "-f", "--force", "--force-with-lease", "--atomic", "--no-verify", "-n"],
+        ["-u", "--set-upstream", "-f", "--force", "--force-with-lease", "--atomic", "--no-verify", "-n"],
+        "origin",
+        [
+            "main",
+            "main:main",
+            "+main:main",
+            ":main",
+            "HEAD:main",
+            "refs/heads/main",
+            "+refs/heads/main:refs/heads/main",
+            ":refs/heads/main",
+            "HEAD:refs/heads/main",
+            "refs/heads/main:refs/heads/main",
+        ],
+    ],
+    decision = "forbidden",
+    justification = "Flagged direct pushes to origin/main are forbidden, including common multi-flag refspecs.",
+    match = [
+        "git push -u --force-with-lease origin +main:main",
+        "git push --atomic --force origin :main",
+    ],
+    not_match = [
+        "git push -u --force-with-lease origin feat/example",
+    ],
+)
+
+prefix_rule(
+    pattern = [
+        "git",
+        "push",
+        ["-u", "--set-upstream", "-f", "--force", "--force-with-lease", "--atomic", "--porcelain", "--no-verify", "-n"],
+        ["-u", "--set-upstream", "-f", "--force", "--force-with-lease", "--atomic", "--porcelain", "--no-verify", "-n"],
+        ["-u", "--set-upstream", "-f", "--force", "--force-with-lease", "--atomic", "--porcelain", "--no-verify", "-n"],
+        "origin",
+        [
+            "main",
+            "main:main",
+            "+main:main",
+            ":main",
+            "HEAD:main",
+            "refs/heads/main",
+            "+refs/heads/main:refs/heads/main",
+            ":refs/heads/main",
+            "HEAD:refs/heads/main",
+            "refs/heads/main:refs/heads/main",
+        ],
+    ],
+    decision = "forbidden",
+    justification = "Direct pushes to origin/main remain forbidden with three common options before the remote.",
+    match = [
+        "git push --atomic --force --porcelain origin main",
+    ],
+    not_match = [
+        "git push --atomic --force --porcelain origin feat/example",
+    ],
+)
+
+prefix_rule(
+    pattern = [
+        "git",
+        "push",
+        "origin",
+        [
+            "main",
+            "main:main",
+            "+main:main",
+            ":main",
+            "HEAD:main",
+            "refs/heads/main",
+            "+refs/heads/main:refs/heads/main",
+            ":refs/heads/main",
+            "HEAD:refs/heads/main",
+            "refs/heads/main:refs/heads/main",
+        ],
+    ],
+    decision = "forbidden",
+    justification = "Routine work must push a topic branch to origin and land on main through a PR.",
+    match = [
+        "git push origin main",
+        "git push origin HEAD:refs/heads/main",
+        "git push origin refs/heads/main:refs/heads/main",
+    ],
+    not_match = [
+        "git push origin HEAD",
+        "git push origin feat/example",
+        "git fetch origin main",
+    ],
+)
+
+prefix_rule(
+    pattern = [
+        "git",
+        "push",
+        "origin",
+        ["-u", "--set-upstream", "-f", "--force", "--force-with-lease", "--atomic", "--porcelain", "--no-verify", "-n"],
+        ["-u", "--set-upstream", "-f", "--force", "--force-with-lease", "--atomic", "--porcelain", "--no-verify", "-n"],
+        ["-u", "--set-upstream", "-f", "--force", "--force-with-lease", "--atomic", "--porcelain", "--no-verify", "-n"],
+        [
+            "main",
+            "main:main",
+            "+main:main",
+            ":main",
+            "HEAD:main",
+            "refs/heads/main",
+            "+refs/heads/main:refs/heads/main",
+            ":refs/heads/main",
+            "HEAD:refs/heads/main",
+            "refs/heads/main:refs/heads/main",
+        ],
+    ],
+    decision = "forbidden",
+    justification = "Direct pushes to origin/main remain forbidden with three common options after the remote.",
+    match = [
+        "git push origin --atomic --force --porcelain main",
+    ],
+    not_match = [
+        "git push origin --atomic --force --porcelain feat/example",
+    ],
+)
+
+prefix_rule(
+    pattern = [
+        "git",
+        "push",
+        "origin",
+        ["-u", "--set-upstream", "-f", "--force", "--force-with-lease", "--atomic", "--no-verify", "-n"],
+        [
+            "main",
+            "main:main",
+            "+main:main",
+            ":main",
+            "HEAD:main",
+            "refs/heads/main",
+            "+refs/heads/main:refs/heads/main",
+            ":refs/heads/main",
+            "HEAD:refs/heads/main",
+            "refs/heads/main:refs/heads/main",
+        ],
+    ],
+    decision = "forbidden",
+    justification = "Direct pushes to origin/main remain forbidden when options follow the remote.",
+    match = [
+        "git push origin --atomic main",
+        "git push origin --force-with-lease +main:main",
+    ],
+    not_match = [
+        "git push origin --atomic feat/example",
+    ],
+)
+
+prefix_rule(
+    pattern = [
+        "git",
+        "push",
+        "origin",
+        ["-u", "--set-upstream", "-f", "--force", "--force-with-lease", "--atomic", "--no-verify", "-n"],
+        ["-u", "--set-upstream", "-f", "--force", "--force-with-lease", "--atomic", "--no-verify", "-n"],
+        [
+            "main",
+            "main:main",
+            "+main:main",
+            ":main",
+            "HEAD:main",
+            "refs/heads/main",
+            "+refs/heads/main:refs/heads/main",
+            ":refs/heads/main",
+            "HEAD:refs/heads/main",
+            "refs/heads/main:refs/heads/main",
+        ],
+    ],
+    decision = "forbidden",
+    justification = "Direct pushes to origin/main remain forbidden with common multi-option forms.",
+    match = [
+        "git push origin --atomic --force main",
+    ],
+    not_match = [
+        "git push origin --atomic --force feat/example",
+    ],
+)
+
+prefix_rule(
+    pattern = [
+        "git",
+        "push",
+        ["-u", "--set-upstream", "-f", "--force", "--force-with-lease", "--atomic", "--no-verify", "-n"],
+        "origin",
+        [
+            "main",
+            "main:main",
+            "+main:main",
+            ":main",
+            "HEAD:main",
+            "refs/heads/main",
+            "+refs/heads/main:refs/heads/main",
+            ":refs/heads/main",
+            "HEAD:refs/heads/main",
+            "refs/heads/main:refs/heads/main",
+        ],
+    ],
+    decision = "forbidden",
+    justification = "Flagged direct pushes to origin/main are forbidden; use a topic branch and PR.",
+    match = [
+        "git push --force origin main",
+        "git push -u origin HEAD:main",
+    ],
+    not_match = [
+        "git push -u origin feat/example",
+    ],
+)
+
+prefix_rule(
+    pattern = ["git", "commit"],
+    decision = "prompt",
+    justification = "A commit requires an explicit verb in the current user message.",
+    match = [
+        "git commit -m test",
+        "git commit --amend",
+    ],
+    not_match = [
+        "git status",
+        "git log --oneline",
+    ],
+)
+
+prefix_rule(
+    pattern = ["git", "push"],
+    decision = "prompt",
+    justification = "A push requires an explicit verb in the current user message.",
+    match = [
+        "git push origin HEAD",
+        "git push -u origin feat/example",
+    ],
+    not_match = [
+        "git fetch origin",
+        "git remote -v",
+    ],
+)
+
+prefix_rule(
+    pattern = ["gh", "pr", "create"],
+    decision = "prompt",
+    justification = "Creating a PR requires explicit authorization in the current user message.",
+    match = [
+        "gh pr create --repo AkumaRealLabs/ggapi --base main",
+    ],
+    not_match = [
+        "gh pr view 1",
+        "gh run list",
+    ],
+)
+
+prefix_rule(
+    pattern = ["gh", "pr", "merge"],
+    decision = "prompt",
+    justification = "Merging a PR requires explicit authorization in the current user message.",
+    match = [
+        "gh pr merge 1 --repo AkumaRealLabs/ggapi --merge",
+    ],
+    not_match = [
+        "gh pr checks 1",
+        "gh pr view 1",
+    ],
+)
+
+prefix_rule(
+    pattern = ["gh", "api", "-X", ["POST", "PUT"]],
+    decision = "prompt",
+    justification = "REST PR mutations require explicit authorization in the current user message.",
+    match = [
+        "gh api -X POST repos/AkumaRealLabs/ggapi/pulls -f title=Test",
+        "gh api -X PUT repos/AkumaRealLabs/ggapi/pulls/1/merge -f sha=abc",
+    ],
+    not_match = [
+        "gh api repos/AkumaRealLabs/ggapi/pulls/1",
+    ],
+)
+
+prefix_rule(
+    pattern = ["gh", "api", ["-f", "--field", "--raw-field", "--input"]],
+    decision = "prompt",
+    justification = "REST write fields require explicit authorization in the current user message.",
+    match = [
+        "gh api -f title=Test repos/AkumaRealLabs/ggapi/pulls",
+        "gh api --field title=Test repos/AkumaRealLabs/ggapi/pulls",
+    ],
+    not_match = [
+        "gh api repos/AkumaRealLabs/ggapi/pulls/1",
+        "gh pr view 1",
+    ],
+)
+
+prefix_rule(
+    pattern = ["gh", "api", "repos/AkumaRealLabs/ggapi/pulls", ["-f", "--field", "--raw-field", "--input"]],
+    decision = "prompt",
+    justification = "REST PR creation fields require explicit authorization in the current user message.",
+    match = [
+        "gh api repos/AkumaRealLabs/ggapi/pulls -f title=Test",
+    ],
+    not_match = [
+        "gh api repos/AkumaRealLabs/ggapi/pulls/1",
+    ],
+)
+
+prefix_rule(
+    pattern = ["git", "tag"],
+    decision = "prompt",
+    justification = "Creating or deleting a tag requires explicit authorization in the current user message.",
+    match = [
+        "git tag v1.0.0-rc.21.1",
+        "git tag -a v1.0.0-rc.21.1 -m release",
+    ],
+    not_match = [
+        "git describe --tags",
+        "git show v1.0.0-rc.21.1",
+    ],
+)
+
+prefix_rule(
+    pattern = ["gh", "release", "create"],
+    decision = "prompt",
+    justification = "Creating a release requires explicit authorization in the current user message.",
+    match = [
+        "gh release create v1.0.0-rc.21.1",
+        "gh release create v1.0.0-rc.21.1 --generate-notes",
+    ],
+    not_match = [
+        "gh release view v1.0.0-rc.21.1",
+        "gh release list",
+    ],
+)

@@ -2,6 +2,24 @@
 
 格式：`## version — YYYY-MM-DD` + 级别 + 摘要。最新在上。
 
+## 1.8.0 — 2026-07-18
+
+- **级别:** L2 / minor（C2-pre 多运行面适配；**未**改 Hard rules）
+- **原因:** 同一仓库需要在 Codex App、Codex CLI、Grok Build CLI 中执行一致的最终提交审查，旧流程却把 Grok companion 当成全局默认入口
+- **变更:**
+  - 增加 skill 调用与审查运行面路由：Codex App / Codex CLI 用 Skills / `$ggapi-fork` 调用；App 原生 `/review` 优先、CLI 使用 `codex review` / `/review`；Grok Build CLI 用 `/ggapi-fork` 调用、companion / `/codex:review` 审查并可回退 CLI
+  - 统一 `--uncommitted`、`--base origin/main`、`--commit <sha>` 与 mixed-tree materialize 范围；所有入口保持 review-only、修后再审、最多 3 轮
+  - reviewer/auth/path 全部不可用时 fail closed，不把超时或入口缺失当成通过
+  - Codex App 嵌套 CLI 须服从 `~/.codex` 状态写入与私有 diff 外传审批；拒绝后不绕过，改走原生 `/review` 或停止
+  - `docs/fork`、checklists、troubleshooting §21、GG-002 与 `skill_version` 同步到 **1.8.0**
+  - 统一跨运行面阶段 `B → C1 → C2-pre → C2 → C3 → C4 → C5 → F`、当前消息授权边界和完整 Ship Status Contract；`继续` 不再补推历史权限
+  - 新增项目 `.codex` Hooks（SessionStart/UserPromptSubmit/PreToolUse/PostToolUse/Stop），只读本地 Git、输出上下文并 fail-safe，不深度解析 transcript、不伪造 PR/验证结果
+  - 新增 `.codex/rules/ggapi.rules` 与 `.githooks` 安全门禁（含常见 `git -c core.hooksPath=...` 绕过）、`make setup-git-hooks`；新增 `docs/fork/codex-workflow-guardrails.md`
+  - 新增 `pull_request` PR CI（scoped Go、三壳质量、条件 full-shell build），扩充模板状态字段和 anti-slop 触发器；私有套餐未启用 branch protection 时明确为可见门禁
+  - 私有 diff 审查后加固：原生 review 不受 Stop 状态块干扰；远端 URL 脱敏；成功阶段不被后续失败覆盖；release/tag push、已提交 inventory 和 tracking divergence 正确报告；禁止 `--no-verify`，pre-push 改为 origin URL 白名单；CI 编译 root/router 并忽略 classic 二进制资源
+  - 根据最终私有审查补强：复合/空操作不再推进阶段，Git 状态异常 fail-closed，REST PR 写操作纳入 Hook/execpolicy，拒绝 remote URL 的错误输出脱敏，CI 覆盖全部 scoped Go 包和 Hook 测试，并针对合并 ref 做前端质量检查
+- **未改:** Hard rules；不自动 commit/push/merge；C2-pre 仍仅可由**用户**明确 opt-out
+
 ## 1.7.0 — 2026-07-17
 
 - **级别:** L2 / minor（Mode C 续跑 + C2-pre 强化；**未**改 Hard rules）

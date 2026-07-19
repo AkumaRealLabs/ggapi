@@ -178,25 +178,27 @@ Land work on `origin/main` via PR. Answer push-vs-PR without ambiguity.
 
 ### C0. Chained ship authorization (one user message)
 
-When the user **in one message** stacks several Mode C/F verbs, treat that as
-**one authorization chain** — run the named steps **in order** in the same
-session without re-asking for each sub-step already listed.
+When the user **in one current message** stacks several Mode C/F verbs, treat that
+as one authorization chain — run only the named steps **in order** in that turn.
+The chain is not persisted into a later user message.
 
 | User phrase (examples) | Authorized steps |
 |------------------------|------------------|
 | 提交 / commit / 最终提交 | C2-pre → C2 only |
 | 提交并 push / 提交并推上去 | C2-pre → C2 → C3 |
 | 推上去 / push（**无**提交词） | **C3 only** on **existing** commits not on `origin/main`. If worktree dirty → **stop**, ask for 提交 (do **not** invent C2) |
-| 开 PR / 提 PR（**无**提交词） | **C4** (push first if branch has unpushed commits). Dirty tree → **stop**, ask for 提交 |
-| 开 PR 并合并 / 合并清理 | → through C5 (still no silent C2 if dirty without 提交) |
+| 开 PR / 提 PR（**无**提交词） | **C4** only when the topic branch is already pushed. Unpushed commits stop at C3 and dirty tree stops for 提交 |
+| 开 PR 并合并 | C4 → C5 when the branch is already pushed; create the PR if absent, then merge it |
+| 合并清理 | C5 only when the branch is already pushed and a PR exists; do not invent push or PR creation |
 | 提交 → push → PR → merge | C2-pre → C2 → C3 → C4 → C5 |
 | …→ merge → **发版** / 合并后打 tag | Same as merge chain **plus** Mode F only after PR is **MERGED** (merge verb **required**) |
 | **发版** / tag / 打 tag / GHCR alone | Mode **F only** on already-landed `origin/main`. **Does not** authorize C5/merge |
 
 Rules:
 
-- **Missing verb = not authorized.** 「只提交」does **not** imply merge or 发版.
-- **Push/PR wording ≠ commit.** 「推上去」「开 PR」alone never run C2-pre/C2 on a dirty tree; only move **already committed** work.
+- **Missing verb = not authorized.** 「只提交」does **not** imply push, PR, merge or 发版；每个授权只来自当前用户消息。
+- **Push/PR wording ≠ commit.** 「推上去」「开 PR」alone never run C2-pre/C2 on a dirty tree; only move **already committed** work. `开 PR` also does not silently push an unpushed branch.
+- **PR wording ≠ merge.** 单独「开 PR」只打开 C4；「开 PR 并合并」同时明确打开 C4/C5，允许先创建缺失的 PR 再合并。单独「合并」仍要求已有 PR。
 - **发版 ≠ merge.** 「提交并发版」without 合并/merge does **not** open C5; either the change is already on `origin/main`, or stop and ask for merge authorization.
 - Still require a **topic branch** for routine ship (no routine commit/push to `main`).
 - Still **never** `git push upstream`.
@@ -216,31 +218,27 @@ Coach one-liner after parsing:
 ### C-continue. 「继续」when a ship unit is already in flight
 
 User phrases: `继续` / `接着` / `/ggapi-fork 继续` **without** new feature/fix
-scope.
+scope. A new user message containing only these phrases carries no new ship
+authorization.
 
 **Detect stage first** (preflight: branch, dirty tree, open PR, CI).
 
 **Resume rules:**
 
-1. **C0 still wins** — `继续` never invents missing verbs (提交 / push / 开 PR / 合并 / 发版).
-2. **If this unit ran C2-pre** (pass or recorded user skip): apply **Stale pass** before
-   resumed C3/C4/C5. Stale → re-run gate (or stop); do not push/merge unreviewed content.
-3. **If this unit never needed C2-pre** (e.g. C0 was push-only on already-committed clean
-   tip, no new 提交): do **not** invent a gate on `继续`; resume authorized C3/C4/C5 only.
-4. **C5 remote head:** after any push of the reviewed tree, record
-   `git rev-parse HEAD` / remote tip as the **merge pin**. Before merge, fetch and require
-   PR `headRefOid` == that pin (same rule as C5 table).
+1. **当前消息无动词即无新授权** — `继续` 只允许重新读取状态、报告 CI 和给出下一步，不执行提交、push、PR、merge 或发版。
+2. 任何暂停后恢复都重新检查 C2-pre stale；不能用上一轮授权或旧 review 代替当前消息授权。
+3. **C5 remote head:** 只有当前消息明确授权 merge 时，才记录并核对 `merge pin`；远端 head 变化则停下重审。
 
 | Current stage | What 「继续」means | Do **not** |
 |---------------|-------------------|------------|
 | Mode B coding mid-feature, dirty or unfinished | Resume **B** (implement / verify) | Jump to commit without 提交 verb |
 | Ready to ship, dirty tree, no commit auth yet | Coach next Mode C step; **stop** for 提交 if dirty | Invent C2-pre/C2 |
-| Commits on branch, not pushed | **Coach only:** next is C3; push **only** if chain already has push auth **or** user says 推上去/push now. If unit had C2-pre, require non-stale. Prior **提交 alone** ≠ push | Silent C3; push stale gated unit |
-| Branch pushed, no PR | **Coach only:** next is C4; open PR **only** if chain has 开 PR **or** user says 开 PR now. Gated units: non-stale | Silent C4 from 继续 alone |
-| PR **OPEN**, gated unit still OK (clean pass **or** recorded skip for same tree; pin matches remote) | Report CI; if C0 already included 合并/merge → resume **C5**; else wait for **合并** | Invent merge; merge when pin ≠ remote head |
-| PR OPEN, gated unit **stale** | Re-run C2-pre (or stop) before claim clean / push / merge | Claim “Codex 已通过” for unreviewed content |
-| PR **MERGED**, local not cleaned | C5 hygiene if merge/cleanup authorized; else coach | Silent merge; 发版 without auth |
-| On `main`, 发版 intent | Mode **F** only if 发版 authorized; else ask | |
+| Commits on branch, not pushed | **Coach only:** report C3 and ask for current-message push authorization | Silent C3; use prior 提交 auth |
+| Branch pushed, no PR | **Coach only:** report C4 and ask for current-message PR authorization | Silent C4 from 继续 alone |
+| PR **OPEN** | Report CI and wait for current-message merge authorization | Invent merge from earlier chain |
+| PR OPEN, gated unit **stale** | Report stale and require C2-pre before any later ship action | Claim “Codex 已通过” for unreviewed content |
+| PR **MERGED**, local not cleaned | Report C5 hygiene; cleanup/tag still need current-message authorization | Silent cleanup or 发版 |
+| On `main`, 发版 intent | Mode **F** only if current message explicitly authorizes 发版/tag | |
 
 **Lesson (PR #26):** after Codex clean + PR open, `/ggapi-fork 继续` = Mode C
 post-ship (CI / merge auth / cleanup), **not** more product code unless the user
@@ -291,36 +289,54 @@ on `origin/main`).
 **Why:** Catch real defects before they enter history. Codex review is
 **review-only** (does not patch). **This skill** owns the fix → re-review loop.
 
-#### How to invoke (agent-callable — do not rely on slash alone)
+#### How to invoke (surface-aware and agent-callable)
 
-The installed `/codex:review` slash command is often marked
-`disable-model-invocation: true` (user-only). **Agents must not stall waiting
-for the user to type the slash command.** Prefer the companion (same backend
-as the slash command):
+Use the current surface's native route. Slash commands are user-interactive;
+do not ask the user to type one when an already-approved agent-callable route
+is available. If Codex App blocks nested CLI state writes or private-diff
+transfer, do not circumvent the denial: ask the user to run native `/review`,
+or stop under §21.
+
+| Surface | Native/default route | User-interactive entry | Fallback |
+|---------|----------------------|------------------------|----------|
+| Codex App | `/review` in the app | `/review` | `codex review` only after required local-write and private-diff-transfer approval; then an installed Grok companion |
+| Codex CLI | `codex review` | `/review` | Grok companion only if it is also installed |
+| Grok Build CLI | `codex-companion.mjs review --wait` | `/codex:review --wait` | `codex review` |
+| Unknown compatible agent | `codex review` when `command -v codex` succeeds | Surface-specific review command | Discover Grok companion; otherwise stop |
+
+Codex CLI commands, also usable as Codex App fallback when permissions allow
+(each invocation chooses exactly one target):
 
 ```bash
-# Plugin root: installed Codex plugin path (e.g. ~/.grok/installed-plugins/codex-*)
-export CLAUDE_PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$HOME/.grok/installed-plugins/codex-807cef0a}"
-# Adjust codex-* dir if the install id differs; or discover:
-# ls "$HOME/.grok/installed-plugins" | grep -E '^codex'
-
-# Prefer foreground for the gate:
-node "${CLAUDE_PLUGIN_ROOT}/scripts/codex-companion.mjs" review --wait
+codex review --uncommitted
+codex review --base origin/main
+SHA="$(git rev-parse HEAD)"
+codex review --commit "$SHA"
 ```
 
-If companion path is wrong, fall back to `codex review` CLI with equivalent
-scope flags per `codex review --help`. If **both** fail → troubleshooting §21
-(not a silent pass).
+Grok Build CLI companion discovery and invocation:
 
-User may still run `/codex:review --wait` themselves; treat that output as the
-gate result for this round.
+```bash
+CODEX_COMPANION="${CODEX_COMPANION:-$(find "$HOME/.grok/installed-plugins" -path '*/codex-*/scripts/codex-companion.mjs' -print -quit 2>/dev/null)}"
+test -f "$CODEX_COMPANION" || { echo "Codex companion not found"; exit 1; }
+node "$CODEX_COMPANION" review --wait
+```
+
+Do not assume a fixed `codex-*` installation ID. If the current surface's
+default route fails because of path, auth, transport, sandbox, or approval,
+try only an **allowed** fallback from the table with the same review scope.
+Never work around a denial that protects local Codex state or private source
+transfer. If every permitted route fails, go to troubleshooting §21; this is
+not a pass. A completed user `/review` or `/codex:review --wait` result may
+count for the round when it covers the same scope.
 
 #### Scope: one combined target (base → final tree)
 
-Plugin `auto` reviews **only** the working tree when dirty, and **only**
-branch commits when clean. Two disjoint runs (worktree vs `HEAD` **plus**
-`origin/main...HEAD`) **do not** equal one review of `origin/main` → final
-worktree: interactions across commits + dirty fixes can be missed.
+Auto-selected review scopes commonly choose **only** the working tree when
+dirty, or **only** branch commits when clean. Two disjoint runs (working tree
+vs `HEAD` **plus** `origin/main...HEAD`) **do not** equal one review of
+`origin/main` → final working tree: interactions across commits + dirty fixes
+can be missed.
 
 **Base freshness (before the gate counts as “vs current main”):**
 
@@ -337,12 +353,13 @@ git rev-list --count HEAD..origin/main
 
 Do not claim “完整相对最新 main” unless the branch contains current `origin/main` (count was 0 after fetch, or merge/rebase done).
 
-| Situation | What to run |
-|-----------|-------------|
-| Dirty only (no unique commits vs `origin/main`) | One review: working tree (default / `auto`) |
-| Clean tree, commits on branch | One review: `review --wait --base origin/main` (or `--scope branch`) |
-| **Both** dirty **and** commits not on `origin/main` | **Materialize** then **one** branch review (below) — do not stop at two disjoint reviews |
-| Empty tree and nothing to land | Skip with reason |
+| Situation | Codex App | Codex CLI | Grok Build CLI |
+|-----------|-----------|-----------|----------------|
+| Dirty only (no unique commits vs `origin/main`) | `/review` → uncommitted; permitted CLI fallback: `--uncommitted` | `codex review --uncommitted` or `/review` → uncommitted | companion `review --wait` or `/codex:review --wait` |
+| Clean tree, commits on branch | `/review` → base branch; permitted CLI fallback: `--base origin/main` | `codex review --base origin/main` or `/review` → base branch | companion `review --wait --base origin/main` |
+| Exact single commit is the whole ship unit | review the commit in the app, or permitted CLI fallback: `--commit <sha>` | `codex review --commit <sha>` | use `codex review --commit <sha>` |
+| **Both** dirty **and** commits not on `origin/main` | **Materialize** then `/review` → base branch; permitted CLI fallback: `--base origin/main` | **Materialize** then one `codex review --base origin/main` | **Materialize** then one companion `review --wait --base origin/main` |
+| Empty tree and nothing to land | Skip with reason | Skip with reason | Skip with reason |
 
 **Materialize (mixed committed + dirty), only after user already authorized 提交:**
 
@@ -355,8 +372,12 @@ git add <paths…>
 # 2) Ephemeral commit so branch tip == intended final tree
 git commit -m "chore: temp codex gate snapshot"
 
-# 3) Single combined review
-node "${CLAUDE_PLUGIN_ROOT}/scripts/codex-companion.mjs" review --wait --base origin/main
+# 3a) Codex App: user /review → Review against origin/main
+# 3b) Codex CLI (or permitted App fallback):
+codex review --base origin/main
+
+# Grok Build CLI equivalent:
+# node "$CODEX_COMPANION" review --wait --base origin/main
 ```
 
 | Review result | Next |
@@ -364,10 +385,10 @@ node "${CLAUDE_PLUGIN_ROOT}/scripts/codex-companion.mjs" review --wait --base or
 | Findings | `git reset --soft HEAD~1` → fix in worktree → re-materialize from step 1 (counts as one cycle) |
 | Clean | Keep tip; in **C2** amend to a proper why-focused message (`git commit --amend`) **only if** not pushed and hooks OK; or reset soft + one final commit with the real message |
 
-Do not invent staged-only flags the plugin does not support. Do not leave the
-temp message on a pushed branch. Temp message must not reach a pushed tip:
-amend to a proper why-focused message in **C2**, or soft-reset and recommit,
-**before** `git push`.
+Do not combine conflicting review targets or invent staged-only flags. Do not
+leave the temp message on a pushed branch. Temp message must not reach a pushed
+tip: amend to a proper why-focused message in **C2**, or soft-reset and
+recommit, **before** `git push`.
 
 #### Loop
 
@@ -378,10 +399,10 @@ amend to a proper why-focused message in **C2**, or soft-reset and recommit,
   有可审 diff？（dirty 和/或 origin/main...HEAD）
         │ 无 → 跳过并说明 → C2
         ▼
-  用 companion（或用户 slash）跑 **一次** Codex review
+  用当前运行面的原生入口跑 **一次** Codex review
   覆盖完整 ship unit（见上表；混合时先 materialize 再
   `--base origin/main`，禁止两段割裂审查当通过）
-  优先 --wait
+  Grok companion 显式使用 --wait；codex review 本身等待结果
         │
         ├─ 无实质问题 / 仅 nit → 进入 C2
         │
@@ -403,9 +424,10 @@ amend to a proper why-focused message in **C2**, or soft-reset and recommit,
 | Rule | Detail |
 |------|--------|
 | Trigger | Any final-commit intent on this repo → Mode C + C2-pre (not only “push/PR” wording). |
-| Prefer wait | Small/medium diffs: `--wait` so the gate completes in-session. |
-| Invocation | Agent uses **companion / `codex review` CLI**; slash is optional UX for humans. Companion auth/path fail → fall back to `codex review` CLI (same scope); both fail → §21, **not** pass. |
-| Full unit | Always one combined base→final-tree review; mixed → materialize then `--base origin/main`. |
+| Foreground completion | `codex review` waits for its result; Grok companion uses `--wait` so the gate completes in-session. |
+| Invocation | Route by surface: Codex App → native `/review`, with approval-gated CLI fallback; Codex CLI → `codex review`; Grok Build CLI → companion, then `codex review` fallback. Every fallback keeps the same scope; all permitted routes failing → §21, **not** pass. |
+| Approval boundary | Agent-callable reviewers may send a private diff to a reviewer service; nested `codex review` may also need to write local Codex state. Request the required approval; if denied, do not retry indirectly or use a workaround. |
+| Full unit | Always one combined base→final-tree review; mixed → materialize then one base-branch review (`--base origin/main` on CLI/companion). |
 | Fix owner | **ggapi-fork agent** applies fixes; never claim review will edit code. |
 | Re-review mandatory | After **any** fix batch that **changes ship-file content**, run Codex **again** on the full unit before C2 / push / “gate 通过”. |
 | Stale pass | **Record at pass** (coach notes): content fingerprint of the **final ship tree** — stage **all intentional ship paths including untracked**, then `git write-tree` (preferred; covers dirty + new files). Also record `origin/main` SHA. **After C2/C3**, set **merge pin** = pushed tip SHA whose tree OID matches that fingerprint. Invalidate if ship content changes (fingerprint), if recorded `origin/main` SHA moves, or if before C5 remote `headRefOid` ≠ merge pin. Do **not** stale merely because `HEAD..origin/main > 0` when the user declined update against the same recorded main SHA. Message-only amend of the same tree does not stale. |
@@ -413,20 +435,20 @@ amend to a proper why-focused message in **C2**, or soft-reset and recommit,
 | No agent self-skip | Agent must **never** skip the gate, “带病通过”, or treat stall/timeout as pass. Only **user** clear opt-out (table below) or empty-tree case. |
 | No silent skip | Skipping requires an allowed case below **and** a one-line reason. Docs/skill changes are **not** auto-exempt. |
 | Still need auth | Passing the gate does **not** auto-commit; C2 still needs explicit commit intent. |
-| Optional extra | `/codex:adversarial-review` or bundled `/review` only if user asks; not a substitute. |
+| Optional extra | Grok `/codex:adversarial-review` or a separate custom-focus review only if user asks; not a substitute for the full-unit gate. |
 
 #### Allowed skip (must state reason)
 
 | Case | Skip? |
 |------|--------|
 | Empty tree and nothing to land | Yes — nothing to review |
-| Codex plugin / CLI / companion unavailable or auth failure | Do **not** pretend passed: stop, §21; **default = 先不提交** until user chooses retry / install / 「跳过审查并提交」 |
+| Every applicable reviewer route is unavailable or has auth failure | Do **not** pretend passed: stop, §21; **default = 先不提交** until user chooses retry / install / 「跳过审查并提交」 |
 | User explicitly:「跳过 Codex / 不审了直接提交 / skip review」 | Yes — record in reply; still do normal git hygiene. **Reject** agent-proposed skip if user instead says「不行得过 codex / 必须过审查」→ resume fix→re-review |
 
 Gate is a **Mode C quality step** (user-confirmed L2 playbook), not a Hard-rule rewrite: user may always opt out with clear language; agent never auto-skip docs/skill.
 
 **Not** an allowed unilateral skip: pure docs, skill-only, “small wording”,
-“已经够好了”, time pressure, or companion flake — including changes to this gate.
+“已经够好了”, time pressure, or reviewer transport flake — including changes to this gate.
 Same gate unless the user opts out. Lesson (PR #26): user may **insist** the gate
 re-run after a stalled or skipped attempt; treat that as mandatory re-entry.
 

@@ -374,31 +374,56 @@ aligned across locales.
 
 ---
 
-## §21 Pre-commit Codex gate (`/codex:review` / companion)
+## §21 Pre-commit Codex gate (Codex App / CLI / Grok Build CLI)
 
 Mode C **C2-pre** requires a Codex review before the final commit. Review is
 **review-only**; this skill applies fixes and re-runs review.
 
-### Agent cannot “run the slash command”
+### Slash commands are user-interactive
 
-`/codex:review` may have `disable-model-invocation: true` → only the **user**
-can fire that slash entry. Agents should call the companion instead:
+Do not wait for a user slash command when an already-approved agent-callable
+route is available. In Codex App, however, native `/review` is the first route;
+nested CLI is only a fallback after required local-write and private-diff
+transfer approval.
+
+| Surface | Native/default route | Alternate route |
+|---------|----------------------|-----------------|
+| Codex App | `/review` | `codex review --uncommitted\|--base\|--commit` only with required approval |
+| Codex CLI | `codex review --uncommitted\|--base\|--commit` | `/review` |
+| Grok Build CLI | companion `review --wait` | `/codex:review --wait` |
+
+Codex CLI examples (also Codex App fallback when permissions allow):
 
 ```bash
-export CLAUDE_PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$HOME/.grok/installed-plugins/codex-807cef0a}"
-node "${CLAUDE_PLUGIN_ROOT}/scripts/codex-companion.mjs" review --wait
-# mixed ship unit also needs branch coverage:
-node "${CLAUDE_PLUGIN_ROOT}/scripts/codex-companion.mjs" review --wait --base origin/main
+codex review --uncommitted
+codex review --base origin/main
+SHA="$(git rev-parse HEAD)"
+codex review --commit "$SHA"
 ```
 
-If the install directory name differs, list `~/.grok/installed-plugins/codex-*`.
-Fallback: `codex review --help` for CLI-equivalent invocation.
+Grok Build CLI example (discover the current install ID; do not hard-code it):
+
+```bash
+CODEX_COMPANION="${CODEX_COMPANION:-$(find "$HOME/.grok/installed-plugins" -path '*/codex-*/scripts/codex-companion.mjs' -print -quit 2>/dev/null)}"
+test -f "$CODEX_COMPANION" || { echo "Codex companion not found"; exit 1; }
+node "$CODEX_COMPANION" review --wait
+# mixed ship unit also needs branch coverage:
+node "$CODEX_COMPANION" review --wait --base origin/main
+```
+
+On Grok, fall back to `codex review` with the same scope. On Codex App, use a
+completed native `/review` when nested CLI is blocked; a locally installed
+Grok companion is another fallback only when its use is allowed, not a required
+dependency.
 
 ### Codex unavailable / CLI not ready
 
-1. Confirm plugin/CLI: `/codex:setup` or companion readiness if present.
-2. Do **not** mark the gate as passed.
-3. Tell the user options in 中文:
+1. Identify the surface and check its native route: `codex review --help` for
+   Codex CLI; native `/review` for Codex App; companion readiness or
+   `/codex:setup` for Grok.
+2. Try the alternate installed route with the same scope.
+3. Do **not** mark the gate as passed.
+4. Tell the user options in 中文:
 
 | Option | When |
 |--------|------|
@@ -406,12 +431,27 @@ Fallback: `codex review --help` for CLI-equivalent invocation.
 | 跳过审查并提交 | User must say so explicitly |
 | 先不提交 | Default if unclear |
 
+### Codex App nested CLI is denied
+
+Symptoms include a read-only `~/.codex/state_*.sqlite`, failure to initialize
+the in-process app-server, or rejection because reviewing would send private
+uncommitted source to an external reviewer while requesting unsandboxed writes.
+
+1. Do not relocate `CODEX_HOME`, copy the diff elsewhere, or otherwise bypass
+   the denial.
+2. Use native App `/review` with the same scope; this makes the review action
+   explicit to the user.
+3. If native review is unavailable, stop and present the retry / explicit skip
+   / no-commit options above.
+
 ### Partial review of mixed committed + dirty work
 
 Symptom: only uncommitted files were reviewed, or only `origin/main...HEAD`, or
 two disjoint reviews were treated as “full unit.”
 Fix: **materialize** (temp commit of staged intentional files) then **one**
-`review --wait --base origin/main` so Codex sees base→final tree (workflows
+base-branch review: App `/review` against `origin/main`, CLI
+`codex review --base origin/main`, or Grok companion
+`review --wait --base origin/main`. Codex must see base→final tree (workflows
 C2-pre). On findings: `git reset --soft HEAD~1`, fix, re-materialize.
 
 ### Review ↔ fix loop spinning
@@ -424,7 +464,7 @@ C2-pre). On findings: `git reset --soft HEAD~1`, fix, re-materialize.
 ### “Nothing to review” vs empty commit
 
 - Empty working tree **and** no commits to land → skip with reason.
-- Untracked files count as reviewable even when `git diff` is empty (plugin rule).
+- Untracked files count as reviewable even when `git diff` is empty.
 - Full ship unit = single combined review of final tree vs `origin/main` (materialize when mixed).
 
 ### User wants skip
@@ -437,7 +477,7 @@ Still refuse secrets / broken branding / hard-rule violations.
 
 | Anti-pattern | Correct |
 |--------------|---------|
-| Companion 401 / timeout → “先提交再说” without user opt-out | Stop; §21 options; or fall back to `codex review` CLI |
+| Native reviewer auth / timeout → “先提交再说” without user opt-out | Try another installed route with the same scope; if all fail, stop and show §21 options |
 | Fixed findings, no re-review → claim 通过 | Re-run full-unit review after every fix batch |
 | Prior clean review, then **content** changes in tip **or worktree** → still “Codex 已通过” | Gate is **stale**; re-run before push / claim clean |
 | Clean pass then C2 creates the reviewed final tree as a commit | Pass **still valid** (same tree) |
@@ -445,20 +485,23 @@ Still refuse secrets / broken branding / hard-rule violations.
 | Behind main, user declined update, same main SHA as at pass | Pass **still valid** (do not use count>0 alone) |
 | User:「不行得过 codex / 必须过审查」after a skip attempt | Resume fix→re-review; do **not** keep the skip |
 
-### 「继续」routed wrong (re-coding after PR open)
+### 「继续」routed wrong (re-coding or shipping after PR open)
 
 Symptom: ship unit already at C4 (PR OPEN, clean tip), user says `继续`, agent
 starts new feature edits.
-Fix: **C-continue** — report CI, wait for 合并 wording, or C5 hygiene. Only
-re-enter Mode B if user names a new defect/scope.
+Fix: **C-continue** — report status/CI and the next authorized stage only. A new
+message containing `继续` does not carry prior commit/push/PR/merge/tag
+authorization; wait for the explicit current-message verb. Only re-enter Mode B
+if user names a new defect/scope.
 
 ### Optional tools
 
 | Tool | Role |
 |------|------|
-| Companion `review --wait` / user `/codex:review` | **Default gate** |
-| `/codex:adversarial-review` | Extra depth when user asks |
-| Bundled `/review` | Optional second opinion; not a substitute for the Codex gate |
+| Codex App `/review` | **Native gate in the App** |
+| Codex CLI `codex review` or interactive `/review` | **Native gate in the CLI** |
+| Grok companion `review --wait` or user `/codex:review` | **Native gate on Grok Build CLI** |
+| Grok `/codex:adversarial-review` | Extra depth when user asks; not a substitute for the full-unit gate |
 
 ---
 
@@ -578,6 +621,60 @@ Do not re-push the same tag name. If main moved after tag, tag still pins the
 old SHA (SOP §5.1 post-push warning) — human decides re-cut.
 
 ---
+
+## §25 Workflow guardrails (Hooks / execpolicy / Git Hooks / PR CI)
+
+### Project Hooks are not visible
+
+Project `.codex/` layers load only after the checkout is trusted. Open `/hooks`,
+review the exact command and current hash, then trust it. Do not use
+`--dangerously-bypass-hook-trust` as a repository setup shortcut. Grok Build CLI
+does not depend on these hooks; use `$ggapi-fork` / `/ggapi-fork` plus Git Hooks.
+
+### Hook output is not a hard block
+
+`PreToolUse` / `PostToolUse` only add context and observed-result status. A hook
+cannot reliably prevent every shell wrapper. Check `.codex/rules/ggapi.rules`
+with `codex execpolicy check`, and install `.githooks` with:
+
+```bash
+make setup-git-hooks
+```
+
+The Git Hooks reject main commits, every push remote except the expected
+`origin` URL for `AkumaRealLabs/ggapi`, and direct pushes to `refs/heads/main`
+for every client and terminal. They do not read chat or record authorization,
+and there is no environment-variable bypass. Project execpolicy separately
+forbids standard `--no-verify` push forms.
+
+### `codex execpolicy check` says allow unexpectedly
+
+Pass the project rules explicitly and test the exact token order:
+
+```bash
+codex execpolicy check --pretty --rules .codex/rules/ggapi.rules -- git push upstream main
+codex execpolicy check --pretty --rules .codex/rules/ggapi.rules -- git push origin main
+codex execpolicy check --pretty --rules .codex/rules/ggapi.rules -- git push --no-verify origin main
+codex execpolicy check --pretty --rules .codex/rules/ggapi.rules -- git push origin feat/example
+```
+
+`forbidden` is more restrictive than user-layer `allow`; `prompt` still requires
+the user’s current-message business authorization. Flags or shell wrappers that
+change token order must be tested separately and remain covered by Git Hooks.
+
+### PR CI is skipped
+
+The workflow uses `pull_request` and compares the event’s base/head SHA. A skipped
+scope is a successful job with an explicit skip step. `synchronize` reruns after a
+new PR head; any prior C2-pre review is stale when the final tree changes.
+CI is a visible gate only while private-repository branch protection is unavailable;
+do not report it as server-enforced required checks.
+
+### Final status is incomplete
+
+Do not omit empty stages. Use the full contract in the docs and write a reason such
+as `PR: 未创建，等待 commit + push`; Hook status is evidence to check, not a
+replacement for actual tool output.
 
 ## Emergency "I already ran a dangerous command"
 

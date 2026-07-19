@@ -30,11 +30,14 @@ Copy into PR bodies or walk verbally with the user. Keep items checkable.
 - [ ] Frontend: ggapi/default → `bun run typecheck` + path-scoped oxlint on **changed files**; classic → path-scoped eslint/prettier (no typecheck); full-tree lint optional if baseline-noisy
 - [ ] Manual smoke for user-visible behavior
 - [ ] **C1b** third-shell/embed checks (incl. path-scoped lint on touched UI) done **before** C2-pre when GG-005 wiring touched; any resulting edits re-run C2-pre
-- [ ] **Pre-commit Codex gate (C2-pre):** companion/`codex review` (or user `/codex:review`) on **combined** base→final tree; mixed committed+dirty → materialize then one `--base origin/main`; findings fixed; **re-reviewed after every fix batch** until clean **or** explicit **user** skip/override recorded (agent never self-skips)
-- [ ] If Codex unavailable: user chose retry / skip — not silent pass; companion fail → try CLI; docs/skill not auto-skipped
+- [ ] **Pre-commit Codex gate (C2-pre):** current surface's native reviewer on **combined** base→final tree — Codex App: native `/review` first, nested CLI only with required approval; Codex CLI: `codex review` (interactive `/review`); Grok Build CLI: companion (user `/codex:review`) with `codex review` fallback; mixed committed+dirty → materialize then one base-branch review; findings fixed; **re-reviewed after every fix batch** until clean **or** explicit **user** skip/override recorded (agent never self-skips)
+- [ ] If the native reviewer is unavailable: try another installed agent-callable route; if all fail, user chose retry / skip — never a silent pass; docs/skill not auto-skipped
+- [ ] Reviewer fallback did not bypass sandbox, local-state-write approval, or private-diff-transfer approval
 - [ ] Gate not **stale**: final ship tree (tip + dirty at pass) unchanged and recorded `origin/main` SHA unchanged; C2 commit / message-only amend of same tree OK; behind-main with user-declined update stays valid until that main SHA moves
 - [ ] If materialize used: temp commit message **amended** before push
 - [ ] Ambiguous `继续`: stage detected (C-continue) — post-PR open → CI/merge coach; never invent push/PR/merge verbs; not silent Mode B
+- [ ] Ship authorization is read only from the current user message; no prior turn, dirty tree, existing PR, or `继续` grants a new commit/push/PR/merge/tag action
+- [ ] Final response includes the complete Ship Status Contract: `当前阶段` / `当前分支` / `Commit` / `Push` / `PR` / `Merge` / `diff-inventory` / `验证` / `下一步授权`
 
 ### Fork governance
 
@@ -159,6 +162,7 @@ Risk cheat sheet:
 - [ ] Chinese coaching defaults intact
 - [ ] No auto-commit / auto-push language introduced
 - [ ] Pre-commit Codex gate (C2-pre) still documented if ship-path changed
+- [ ] Codex App / Codex CLI / Grok Build CLI review routes still agree on scope and fail-closed behavior
 - [ ] User shown summary; commit only if they asked
 
 ### Skill PR

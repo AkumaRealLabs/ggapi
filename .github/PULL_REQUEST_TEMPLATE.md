@@ -15,6 +15,15 @@
 ## 🔗 关联任务 / Related Issue
 - Closes # (如有)
 
+## 🔍 审查与发车状态 / Review and Ship Status
+- Codex 审查范围:
+- Reviewed tree/fingerprint:
+- Commit:
+- Push:
+- PR head:
+- diff-inventory:
+- 本地验证:
+
 ## ✅ 提交前检查项 / Checklist
 - [ ] **人工确认:** 我已亲自整理并撰写此描述，没有直接粘贴未经处理的 AI 输出。
 - [ ] **非重复提交:** 我已搜索现有的 [Issues](https://github.com/QuantumNous/new-api/issues) 与 [PRs](https://github.com/QuantumNous/new-api/pulls)，确认不是重复提交。

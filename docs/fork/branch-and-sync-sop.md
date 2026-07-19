@@ -50,15 +50,42 @@ git pull origin main
 git checkout -b feat/your-topic
 ```
 
+### 3.0 跨运行面阶段与授权
+
+完整门禁见 [Codex 工作流守卫](./codex-workflow-guardrails.md)。统一阶段为：
+
+```text
+B → C1 → C2-pre → C2 → C3 → C4 → C5 → F
+```
+
+用户当前消息中的明确动词是唯一 ship 授权来源；授权不持久化，不从历史消息、
+dirty tree 或“继续”补推权限。`提交` 只到 C2，`push` 只到 C3，`PR` 只到 C4，
+`合并` 只到 C5，`发版/tag` 只到 F。`开 PR` 不隐含 push，分支尚未推送时必须停下；
+没有 PR 时最终回复写 `PR: 未创建，等待 commit + push` 等明确原因。
+
+所有运行面的最终回复必须逐项报告：
+
+```text
+当前阶段:
+当前分支:
+Commit:
+Push:
+PR:
+Merge:
+diff-inventory:
+验证:
+下一步授权:
+```
+
 ---
 
 ## 3. 日常开发闭环
 
 ```
-Issue/任务 → 分支 → 实现 → 本地验证 → 最终提交前 /codex:review（有问题则修后再审）→ commit → push 分支 → PR → Review → 合入 main → 更新差异清单（如有）
+Issue/任务 → 分支 → 实现 → 本地验证 → 最终提交前 Codex review（按运行面选择入口；有问题则修后再审）→ commit → push 分支 → PR → Review → 合入 main → 更新差异清单（如有）
 ```
 
-提交前 Codex 门禁由 skill **ggapi-fork** Mode C（C2-pre）执行：审查本身只读；通过后再 commit。详见 skill `references/workflows.md` 与 `docs/fork/README.md` Agent 技能小节。
+提交前 Codex 门禁由 skill **ggapi-fork** Mode C（C2-pre）执行：Codex App 优先走原生 `/review`，Codex CLI 走 `codex review`（交互入口 `/review`），Grok Build CLI 走 companion 或回退 `codex review`；所有 agent-callable reviewer 的本地状态写入与私有 diff 外传须服从当前沙箱/审批，审查本身只读，通过后再 commit。详见 skill `references/workflows.md` 与 `docs/fork/README.md` Agent 技能小节。
 
 ### 3.1 实现约束（摘要）
 

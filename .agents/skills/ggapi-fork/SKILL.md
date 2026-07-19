@@ -3,13 +3,14 @@ name: ggapi-fork
 description: >
   End-to-end playbook for maintaining the ggapi fork of QuantumNous/new-api:
   daily feature/fix workflow, branch naming, push-vs-PR decisions, pre-commit
-  Codex review loop (/codex:review → fix → re-review), upstream sync/merge,
+  multi-surface Codex review loop (Codex App / Codex CLI / Grok Build CLI
+  → fix → re-review), upstream sync/merge,
   conflict resolution, diff-inventory updates, release regression, contributing
   back upstream, third product shell web/ggapi (GG-005; feature tracks
   web/default), org-linux CI runners, private-repo update-check PAT, common
   git/remote/billing/hotspot pitfalls, and controlled self-upgrade of this
   skill (Mode I) without chaotic rewrites.
-  Use when the user runs /ggapi-fork, asks how to 二开, fork 开发, 开分支,
+  Use when the user runs $ggapi-fork or /ggapi-fork, asks how to 二开, fork 开发, 开分支,
   提 PR, push 还是 PR, 提交, commit, 最终提交, 提交前审查, codex review,
   同步上游, merge upstream, 冲突解决, 差异清单, diff-inventory, 发版回归,
   origin/upstream 远程, web/ggapi, 第三壳, paper-sketch, org-linux, runner
@@ -20,7 +21,7 @@ description: >
   C2-pre). When improving this skill itself, follow Mode I / self-upgrade
   policy.
 metadata:
-  skill_version: "1.7.0"
+  skill_version: "1.8.0"
 ---
 
 # ggapi Fork Maintenance Playbook
@@ -71,18 +72,24 @@ git rev-parse --short upstream/main 2>/dev/null || true
 | Branding | Never remove/replace **new-api** / **QuantumNous** protected identity (AGENTS.md). |
 | Engineering rules | JSON via `common/*`, three DBs, billing safety, frontend i18n — all still apply. |
 | Confirm before risk | Force-push, `reset --hard`, deploy, production DB, or anything shared: **ask user first**. |
-| Commit/PR policy | Only commit/push/open PR when the user explicitly asks. Follow repo commit/PR rules. |
+| Commit/PR policy | Only commit/push/open PR when the user explicitly asks in the **current message**; do not persist authorization or infer it from history, dirty state, or “继续”. Follow repo commit/PR rules. |
 | Skill self-upgrade | May improve `.agents/skills/ggapi-fork/**` only per `references/self-upgrade.md`. **Never** silent L2/L3 rewrites; **never** auto-commit/push; **never** weaken Hard rules to “make it easier”. Prefer aligning skill → docs, not docs → bad skill. |
 
 ### Ship quality gate (Mode C — not a Hard rule)
 
 Before the **final** commit of a ship unit (user said 提交 / commit / 最终提交 —
-even without `/ggapi-fork`), run the **C2-pre Codex gate**: companion CLI
-(preferred) or user `/codex:review`, review the **combined** final tree vs
-`origin/main` (see workflows), fix findings, **re-review after every fix batch**
-until clean or escalate. Agent **must not** self-skip or claim pass after skip;
-only clear user opt-out phrases count (workflows C2-pre / §21). Docs/skill not
-auto-exempt. Does **not** auto-commit or replace Hard rules.
+even without `/ggapi-fork`), run the **C2-pre Codex gate** through the current
+surface's native route: Codex App prefers user-native `/review` and uses nested
+`codex review` only when local-state writes and private-diff transfer are
+approved; Codex CLI uses `codex review` (user UI: `/review`); Grok Build CLI
+uses the Codex companion (user UI: `/codex:review`) with `codex review`
+fallback. Review the **combined** final tree vs `origin/main` (see workflows),
+fix findings, **re-review after every fix batch** until clean or escalate.
+Agent **must not** bypass sandbox/approval failures, self-skip, or claim pass
+after skip; only clear user opt-out phrases count (workflows C2-pre / §21).
+Every agent-callable reviewer must obey current auth and private-diff-transfer
+approval. Docs/skill not auto-exempt. Does **not** auto-commit or replace Hard
+rules.
 Full procedure: Mode C **C2-pre**.
 
 ## Mode router
@@ -184,10 +191,11 @@ aligned with active rows (not replace them):
 | ID | Topic |
 |----|--------|
 | GG-001 | `docs/fork/` + `AGENTS.md` 二开入口 |
-| GG-002 | this skill (`/ggapi-fork`, v1.7.0+; Modes A–I + C2-pre no self-skip; C-continue; chained C→F ship; release tag `v<upstream>.N` → GHCR wait) |
+| GG-002 | this skill (Codex `$ggapi-fork` / Grok `/ggapi-fork`, v1.8.0+; Modes A–I + multi-surface C2-pre no self-skip; C-continue; chained C→F ship; release tag `v<upstream>.N` → GHCR wait) |
 | GG-003 | CI org-linux Linux amd64; **tag → GHCR**; no Docker Hub `calciumion/new-api`; bare binary optional (manual) |
 | GG-004 | Server-side update check URL + GitHub PAT |
 | GG-005 | Third frontend shell `web/ggapi` (default `theme.frontend=ggapi`; feature tracks `web/default`) |
+| GG-008 | Cross-surface workflow guardrails: project Hooks, execpolicy, Git Hooks, Ship Status Contract, and PR CI |
 
 ## Product shell (frontend placement)
 
@@ -203,9 +211,10 @@ Rule of thumb (canonical: `docs/fork` SOP §3.5): **skin/product in `web/ggapi`;
 
 | Topic | Skill |
 |-------|--------|
-| Pre-commit / final-ship code review (Codex) | **`/codex:review`** (Codex plugin; review-only — this skill owns the fix→re-review loop) |
-| Adversarial / custom-focus Codex review | `/codex:adversarial-review` (optional; not the default gate) |
-| Bundled local/PR reviewer (non-Codex) | `review` / `/review` — optional extra; does **not** replace `/codex:review` for the pre-commit gate |
+| Pre-commit / final-ship code review (Codex App) | Native **`/review`** first; nested `codex review` only with required local-write and private-diff-transfer approval |
+| Pre-commit / final-ship code review (Codex CLI) | Agent-callable **`codex review`** or interactive **`/review`**; review-only — this skill owns the fix→re-review loop |
+| Pre-commit / final-ship code review (Grok Build CLI) | Codex companion or user **`/codex:review`**; fall back to `codex review` when companion is unavailable |
+| Adversarial / custom-focus Codex review (Grok plugin) | `/codex:adversarial-review` (optional; not the default gate) |
 | Frontend i18n keys (all locales incl. **zh-TW**; use `web/ggapi` or `web/default` paths) | `i18n-translate` (shell-aware) |
 | classic → default UI port | `classic-to-default-sync` |
 | default → ggapi feature port | Same *diff-review* idea as classic→default: map paths `web/default` → `web/ggapi` (no separate skill) |
@@ -220,6 +229,7 @@ Rule of thumb (canonical: `docs/fork` SOP §3.5): **skin/product in `web/ggapi`;
 | `docs/fork/README.md` | Fork doc index + principles |
 | `docs/fork/branch-and-sync-sop.md` | Branch names, daily loop, sync, release |
 | `docs/fork/diff-inventory.md` | Permanent diffs + baseline upstream SHA |
+| `docs/fork/codex-workflow-guardrails.md` | Stage, current-message authorization, Hooks, execpolicy, Git Hooks, and PR CI contract |
 | `AGENTS.md` | Engineering rules + protected branding |
 | `pkg/billingexpr/expr.md` | Billing expression system (read before quota work) |
 | `.github/PULL_REQUEST_TEMPLATE.md` | Official-style PR structure when contributing upstream |
@@ -231,10 +241,22 @@ user explicitly wants an SOP change.
 
 ## After completing a mode
 
-Always leave the user with:
+Always leave the user with this complete Ship Status Contract, even when a mode has
+not reached PR:
 
-1. Current branch + whether it is pushed
-2. Whether `diff-inventory` needs an update
-3. Exact next command **or** "done for this mode"
-4. If they finished a permanent customization: remind GG-xxx registration before merge to `main`
-5. If a skill gap was found: optional one-line Mode I offer (do not force upgrade)
+```text
+当前阶段:
+当前分支:
+Commit:
+Push:
+PR:
+Merge:
+diff-inventory:
+验证:
+下一步授权:
+```
+
+Then include the exact next command (or “done for this mode”), remind the user to
+register GG-xxx before merging a permanent customization, and mention a skill gap
+only as an optional Mode I offer. Every action field must be explicit; for example,
+`PR: 未创建，等待 commit + push`.

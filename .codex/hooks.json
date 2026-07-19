@@ -1,0 +1,66 @@
+{
+  "description": "ggapi workflow context and ship-status hooks.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$(git rev-parse --show-toplevel)/.codex/hooks/ggapi-workflow.mjs\"",
+            "timeout": 10,
+            "statusMessage": "Loading ggapi workflow status"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$(git rev-parse --show-toplevel)/.codex/hooks/ggapi-workflow.mjs\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "^Bash$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$(git rev-parse --show-toplevel)/.codex/hooks/ggapi-workflow.mjs\"",
+            "timeout": 10,
+            "statusMessage": "Checking ggapi ship context"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "^Bash$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$(git rev-parse --show-toplevel)/.codex/hooks/ggapi-workflow.mjs\"",
+            "timeout": 10,
+            "statusMessage": "Refreshing ggapi ship status"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$(git rev-parse --show-toplevel)/.codex/hooks/ggapi-workflow.mjs\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

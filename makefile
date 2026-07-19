@@ -12,7 +12,7 @@ DEV_POSTGRES_DB = new-api
 DEV_POSTGRES_USER = root
 DEV_SQLITE_PATH ?= one-api.db
 
-.PHONY: all build-web build-web-classic build-web-ggapi build-all-web start-api dev dev-api dev-api-rebuild dev-web dev-web-classic dev-web-ggapi reset-setup
+.PHONY: all build-web build-web-classic build-web-ggapi build-all-web start-api dev dev-api dev-api-rebuild dev-web dev-web-classic dev-web-ggapi reset-setup setup-git-hooks
 
 all: build-all-web start-api
 
@@ -65,6 +65,10 @@ dev-web-ggapi:
 
 # Local full stack prefers the ggapi shell for fork work.
 dev: dev-api dev-web-ggapi
+
+setup-git-hooks:
+	@git config --local core.hooksPath .githooks
+	@echo "Configured core.hooksPath=.githooks for this clone."
 
 reset-setup:
 	@echo "Resetting local setup wizard state..."

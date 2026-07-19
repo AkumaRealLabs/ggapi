@@ -1,0 +1,274 @@
+name: PR CI
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    name: Changes
+    runs-on:
+      group: org-linux
+    outputs:
+      go: ${{ steps.classify.outputs.go }}
+      ggapi: ${{ steps.classify.outputs.ggapi }}
+      default: ${{ steps.classify.outputs.default }}
+      classic: ${{ steps.classify.outputs.classic }}
+      frontend: ${{ steps.classify.outputs.frontend }}
+      full_shell: ${{ steps.classify.outputs.full_shell }}
+      guardrails: ${{ steps.classify.outputs.guardrails }}
+    steps:
+      - name: Check out PR head
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Classify changed paths
+        id: classify
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          go=false
+          ggapi=false
+          default=false
+          classic=false
+          full_shell=false
+          guardrails=false
+
+          while IFS= read -r path; do
+            case "$path" in
+              *.go|go.mod|go.sum)
+                go=true
+                ;;
+            esac
+
+            case "$path" in
+              .codex/hooks.json|.codex/hooks/*|.codex/rules/*|.githooks/*)
+                guardrails=true
+                ;;
+            esac
+
+            case "$path" in
+              web/ggapi/*)
+                ggapi=true
+                ;;
+              web/default/*)
+                default=true
+                ;;
+              web/classic/*)
+                classic=true
+                ;;
+            esac
+
+            case "$path" in
+              web/package.json|web/bun.lock|web/bun.lockb|web/ggapi/package.json|web/default/package.json|web/classic/package.json)
+                ggapi=true
+                default=true
+                classic=true
+                full_shell=true
+                ;;
+              main.go|common/embed-file-system.go|common/constants.go|router/web-router.go|setting/system_setting/theme.go|controller/option.go|Dockerfile|makefile)
+                full_shell=true
+                ;;
+              web/default/src/lib/theme-*|web/default/src/context/theme-*|web/default/src/styles/theme*|web/ggapi/src/lib/theme-*|web/ggapi/src/context/theme-*|web/ggapi/src/styles/theme*|web/classic/src/helpers/frontendTheme.*)
+                full_shell=true
+                ;;
+              .github/workflows/release.yml|.github/workflows/docker-build.yml|.github/workflows/docker-image-branch.yml)
+                full_shell=true
+                ;;
+            esac
+          done < <(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
+
+          frontend=false
+          if $ggapi || $default || $classic; then
+            frontend=true
+          fi
+
+          {
+            echo "go=$go"
+            echo "ggapi=$ggapi"
+            echo "default=$default"
+            echo "classic=$classic"
+            echo "frontend=$frontend"
+            echo "full_shell=$full_shell"
+            echo "guardrails=$guardrails"
+          } >> "$GITHUB_OUTPUT"
+
+  backend:
+    name: Backend
+    needs: changes
+    runs-on:
+      group: org-linux
+    steps:
+      - name: No backend changes
+        if: needs.changes.outputs.go != 'true'
+        run: echo "Skipped - no Go-related paths changed."
+
+      - name: Check out PR head
+        if: needs.changes.outputs.go == 'true'
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Set up Go
+        if: needs.changes.outputs.go == 'true'
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version: "1.25.1"
+          cache: true
+
+      - name: Compile application and run scoped backend tests
+        if: needs.changes.outputs.go == 'true'
+        run: |
+          mkdir -p web/default/dist web/classic/dist web/ggapi/dist
+          printf '<!doctype html>\n' > web/default/dist/index.html
+          printf '<!doctype html>\n' > web/classic/dist/index.html
+          printf '<!doctype html>\n' > web/ggapi/dist/index.html
+          go test -count=1 . ./router/... ./common/... ./controller/... ./model/... ./relay/... ./service/... ./dto/... ./middleware/... ./oauth/... ./pkg/... ./setting/... ./types/... ./i18n/... ./logger/...
+
+  workflow-guardrails:
+    name: Workflow Guardrails
+    needs: changes
+    runs-on:
+      group: org-linux
+    steps:
+      - name: No workflow guardrail changes
+        if: needs.changes.outputs.guardrails != 'true'
+        run: echo "Skipped - no Codex or Git Hook paths changed."
+
+      - name: Check out PR merge ref
+        if: needs.changes.outputs.guardrails == 'true'
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Set up Node
+        if: needs.changes.outputs.guardrails == 'true'
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "24"
+
+      - name: Test hooks and policy syntax
+        if: needs.changes.outputs.guardrails == 'true'
+        run: |
+          node --check .codex/hooks/ggapi-workflow.mjs
+          node --test .codex/hooks/ggapi-workflow.test.mjs
+
+  frontend-quality:
+    name: Frontend Quality
+    needs: changes
+    runs-on:
+      group: org-linux
+    steps:
+      - name: No frontend changes
+        if: needs.changes.outputs.frontend != 'true'
+        run: echo "Skipped - no frontend shell paths changed."
+
+      - name: Check out PR head
+        if: needs.changes.outputs.frontend == 'true'
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Bun
+        if: needs.changes.outputs.frontend == 'true'
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+
+      - name: Install frontend dependencies
+        if: needs.changes.outputs.frontend == 'true'
+        working-directory: web
+        run: bun install --frozen-lockfile
+
+      - name: Typecheck and lint changed ggapi files
+        if: needs.changes.outputs.ggapi == 'true'
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          (cd web/ggapi && bun run typecheck)
+          mapfile -t files < <(
+            git diff --name-only --diff-filter=ACMR "$BASE_SHA" "$HEAD_SHA" -- web/ggapi \
+              | sed 's#^web/ggapi/##' \
+              | grep -E '\.(js|jsx|ts|tsx)$' || true
+          )
+          if ((${#files[@]})); then
+            (cd web/ggapi && bunx oxlint -c .oxlintrc.json "${files[@]}")
+          else
+            echo "Skipped oxlint - no changed ggapi JS/TS files."
+          fi
+
+      - name: Typecheck and lint changed default files
+        if: needs.changes.outputs.default == 'true'
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          (cd web/default && bun run typecheck)
+          mapfile -t files < <(
+            git diff --name-only --diff-filter=ACMR "$BASE_SHA" "$HEAD_SHA" -- web/default \
+              | sed 's#^web/default/##' \
+              | grep -E '\.(js|jsx|ts|tsx)$' || true
+          )
+          if ((${#files[@]})); then
+            (cd web/default && bunx oxlint -c .oxlintrc.json "${files[@]}")
+          else
+            echo "Skipped oxlint - no changed default JS/TS files."
+          fi
+
+      - name: Format and lint changed classic files
+        if: needs.changes.outputs.classic == 'true'
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          mapfile -t prettier_files < <(
+            git diff --name-only --diff-filter=ACMR "$BASE_SHA" "$HEAD_SHA" -- web/classic \
+              | sed 's#^web/classic/##'
+          )
+          if ((${#prettier_files[@]})); then
+            (cd web/classic && bunx prettier "${prettier_files[@]}" --check --ignore-unknown)
+          else
+            echo "Skipped prettier - no changed classic files."
+          fi
+
+          mapfile -t eslint_files < <(
+            git diff --name-only --diff-filter=ACMR "$BASE_SHA" "$HEAD_SHA" -- web/classic \
+              | sed 's#^web/classic/##' \
+              | grep -E '\.(js|jsx)$' || true
+          )
+          if ((${#eslint_files[@]})); then
+            (cd web/classic && bunx eslint "${eslint_files[@]}")
+          else
+            echo "Skipped eslint - no changed classic JS/JSX files."
+          fi
+
+  full-shell-build:
+    name: Full Shell Build
+    needs: changes
+    runs-on:
+      group: org-linux
+    steps:
+      - name: No shell wiring changes
+        if: needs.changes.outputs.full_shell != 'true'
+        run: echo "Skipped - no dependency, embed, Docker, Make, release, or theme-wiring paths changed."
+
+      - name: Check out PR head
+        if: needs.changes.outputs.full_shell == 'true'
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Set up Bun
+        if: needs.changes.outputs.full_shell == 'true'
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+
+      - name: Build all frontend shells
+        if: needs.changes.outputs.full_shell == 'true'
+        run: make build-all-web

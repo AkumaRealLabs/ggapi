@@ -23,21 +23,26 @@ git remote -v
 |------|----------|
 | [差异清单模板](./diff-inventory.md) | 引入/修改/废弃相对上游的定制时；每次上游同步后复核 |
 | [分支命名与同步 SOP](./branch-and-sync-sop.md) | 日常开分支、合入 main、同步 upstream、发版回归 |
+| [Codex 工作流守卫](./codex-workflow-guardrails.md) | 跨 Codex App/CLI/Grok/终端的阶段、授权、Hooks、execpolicy、Git Hooks、PR CI |
 
 ## Agent 技能（逐步教练）
 
 仓库内 skill：**`ggapi-fork`**（路径 [`.agents/skills/ggapi-fork/`](../../.agents/skills/ggapi-fork/)）。
 
-在 Grok / 兼容 agent 中可用：
+在 Codex App、Codex CLI、Grok Build CLI / 兼容 agent 中可用：
 
-- 斜杠命令：`/ggapi-fork`
+- Codex App：在 Skills 侧栏选择 `ggapi-fork`，或在任务中写 `$ggapi-fork`
+- Codex CLI：`/skills` 选择，或在任务中写 `$ggapi-fork`
+- Grok Build CLI：`/ggapi-fork`
 - 自然语言：二开、开分支、push 还是 PR、同步上游、冲突、差异清单、发版回归等
 
-Skill 会按模式（日常开发 / 推送与 PR / 上游同步 / 冲突与清单 / 发版 / 排障 / **skill 自升级**）逐步给出命令，并与本目录 SOP 对齐；**流程以本目录文档为准**，skill 负责执行级指引。当前 skill 版本见清单 [GG-002](./diff-inventory.md)（**v1.7.0+**）。本仓 git tag 规则见 [SOP §5.1](./branch-and-sync-sop.md)（**`v<上游基线>.N`**，例 `v1.0.0-rc.20.1`；基线须为 `origin/main` 祖先；正式 tag 只钉 `origin/main` tip；`N` 仅在基线版本串变化时归 1；**默认产物 = GHCR 镜像**，裸二进制仅手动 dispatch）。
+Skill 会按模式（日常开发 / 推送与 PR / 上游同步 / 冲突与清单 / 发版 / 排障 / **skill 自升级**）逐步给出命令，并与本目录 SOP 对齐；**流程以本目录文档为准**，skill 负责执行级指引。当前 skill 版本见清单 [GG-002](./diff-inventory.md)（**v1.8.0+**）。本仓 git tag 规则见 [SOP §5.1](./branch-and-sync-sop.md)（**`v<上游基线>.N`**，例 `v1.0.0-rc.20.1`；基线须为 `origin/main` 祖先；正式 tag 只钉 `origin/main` tip；`N` 仅在基线版本串变化时归 1；**默认产物 = GHCR 镜像**，裸二进制仅手动 dispatch）。
 
-**最终提交前：** skill Mode C（含用户直接说「提交/commit」）会先跑 Codex 审查（agent 优先用 companion/`codex review`，用户也可用 `/codex:review`），有实质问题则修复后再审（默认最多 3 轮）；须覆盖 **相对 `origin/main` 的完整最终树**（已提交 + 未提交并存时先 materialize 再审）。通过后再落最终 commit 说明；审查本身不改代码逻辑、也不自动 push。跳过须用户明确说；文档/skill 改动不默认豁免（见 skill `references/workflows.md` C2-pre / troubleshooting §21）。
+**最终提交前：** skill Mode C（含用户直接说「提交/commit」）会先跑 Codex 审查，并按当前运行面选择原生入口：Codex App 优先使用原生 `/review`（嵌套 `codex review` 仅在本地状态写入与私有 diff 外传权限均允许时回退），Codex CLI 使用 `codex review`（交互入口为 `/review`），Grok Build CLI 使用 companion（用户入口为 `/codex:review`）并可回退到 `codex review`。所有 agent-callable reviewer 均须服从当前沙箱、认证和私有 diff 外传审批。有实质问题则修复后再审（默认最多 3 轮）；须覆盖 **相对 `origin/main` 的完整最终树**（已提交 + 未提交并存时先 materialize 再审）。通过后再落最终 commit 说明；审查本身不改代码逻辑、也不自动 push。跳过须用户明确说；文档/skill 改动不默认豁免（见 skill `references/workflows.md` C2-pre / troubleshooting §21）。
 
 自升级策略（能改进自身、禁止乱改）：见 skill 内 [`references/self-upgrade.md`](../../.agents/skills/ggapi-fork/references/self-upgrade.md)。摘要：**L1** 对齐文档/小修补可主动改文件但不自动提交；**L2/L3** 须先方案后确认；永不静默削弱 hard rules、不自动 push。
+
+统一阶段与最终回复字段见 [Codex 工作流守卫](./codex-workflow-guardrails.md)。
 
 ## 核心原则
 

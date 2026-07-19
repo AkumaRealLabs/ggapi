@@ -1,0 +1,29 @@
+#!/bin/sh
+
+remote_name=${1:-}
+remote_url=${2:-}
+
+if [ "$remote_name" != "origin" ]; then
+  echo "ggapi guard: origin is the only push remote; refusing '$remote_name'." >&2
+  exit 1
+fi
+
+normalized_url=$(printf '%s' "$remote_url" | tr '[:upper:]' '[:lower:]')
+display_url=$(printf '%s' "$remote_url" | sed -E 's#^([^:/?#]+://)?[^/@:]+(:[^/@]*)?@#\1#; s/[?#].*$//')
+case "$normalized_url" in
+  https://github.com/akumareallabs/ggapi|https://github.com/akumareallabs/ggapi.git|https://*@github.com/akumareallabs/ggapi|https://*@github.com/akumareallabs/ggapi.git|git@github.com:akumareallabs/ggapi|git@github.com:akumareallabs/ggapi.git|ssh://git@github.com/akumareallabs/ggapi|ssh://git@github.com/akumareallabs/ggapi.git)
+    ;;
+  *)
+    echo "ggapi guard: origin must point to AkumaRealLabs/ggapi; refusing '$display_url'." >&2
+    exit 1
+    ;;
+esac
+
+while read -r local_ref local_oid remote_ref remote_oid; do
+  if [ "$remote_ref" = "refs/heads/main" ]; then
+    echo "ggapi guard: direct pushes to main are forbidden; push a topic branch and open a PR." >&2
+    exit 1
+  fi
+done
+
+exit 0
