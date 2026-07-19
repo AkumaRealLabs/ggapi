@@ -1,20 +1,24 @@
 /*
  * tech-visual-explainer template-sketch.html styles — product home only.
- * Tokens match the zip; chalk maps from html.dark.
+ * Color tokens derive from the active theme (paper-family bridge maps
+ * primary/chart into paper/ink/sketch aliases). Do not hard-pin paper-sketch
+ * hex here or rose-garden / lake-view will look identical on the home diagram.
  */
 
 .gg-explainer {
-  --paper: #faf7f0;
-  --paper-alt: #fffdf8;
-  --ink: #35322b;
-  --ink-soft: #6f6a5e;
-  --ink-faint: #a8a191;
-  --line: #cfc8b8;
-  --blue: #3b6ec9;
-  --teal: #0e9d84;
-  --amber: #d9930d;
-  --red: #d64550;
-  --purple: #8958d8;
+  --paper: var(--background);
+  --paper-alt: var(--card);
+  --ink: var(--foreground);
+  --ink-soft: var(--muted-foreground);
+  --ink-faint: var(--faint-foreground, var(--muted-foreground));
+  --line: var(--border);
+  /* Prefer paper-family sketch aliases when present (correct channels).
+   * Fallbacks match paper-sketch chart ladder: 2=teal, 3=amber, 4=purple. */
+  --blue: var(--sketch-blue, var(--primary));
+  --teal: var(--sketch-teal, var(--chart-2));
+  --amber: var(--sketch-amber, var(--chart-3));
+  --red: var(--sketch-red, var(--destructive));
+  --purple: var(--sketch-purple, var(--chart-4));
   --ease: cubic-bezier(0.25, 0.1, 0.25, 1);
   --font-hand:
     'LXGW WenKai', 'Xiaolai SC', 'KaiTi', 'STKaiti', 'AR PL UKai CN', cursive;
@@ -33,20 +37,6 @@
   background-color: var(--paper);
   background-image: radial-gradient(var(--line) 0.8px, transparent 0.8px);
   background-size: 26px 26px;
-}
-
-.dark .gg-explainer {
-  --paper: #232830;
-  --paper-alt: #2a303a;
-  --ink: #e9e4d8;
-  --ink-soft: #a8a294;
-  --ink-faint: #6f6a5e;
-  --line: #4a4f58;
-  --blue: #6f9ee8;
-  --teal: #3ec9ad;
-  --amber: #e8b34b;
-  --red: #e8707a;
-  --purple: #ab8ae8;
 }
 
 .gg-explainer *,

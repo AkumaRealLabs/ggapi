@@ -133,6 +133,22 @@ export const DEFAULT_THEME_CUSTOMIZATION: ThemeCustomization = {
   contentLayout: 'full',
 }
 
+/**
+ * Presets that share the paper-family chrome (wobble borders, paper/ink
+ * tokens, no glass). They keep their own color personality via the per-preset
+ * tokens in theme-presets.css.
+ */
+export const PAPER_FAMILY_PRESETS: ReadonlySet<ThemePreset> = new Set([
+  'paper-sketch',
+  'underground',
+  'rose-garden',
+  'lake-view',
+  'sunset-glow',
+  'forest-whisper',
+  'ocean-breeze',
+  'lavender-dream',
+])
+
 export const THEME_PRESET_VALUES = new Set(
   THEME_PRESETS.map((p) => p.value)
 ) as ReadonlySet<ThemePreset>

@@ -29,7 +29,14 @@
     <!--Google Analytics-->
   </head>
 
-  <body data-theme-preset="paper-sketch" data-theme-font="hand">
+  <!-- data-paper-family: presence marker for paper chrome (empty value, same as
+       ThemeCustomizationProvider). Seeded for first paint + root error routes
+       that can render before providers re-apply attributes from cookies. -->
+  <body
+    data-theme-preset="paper-sketch"
+    data-theme-font="hand"
+    data-paper-family
+  >
     <div id="root" translate="no" class="notranslate"></div>
   </body>
 </html>

@@ -16,8 +16,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
-
 import {
   Sidebar,
   SidebarContent,
@@ -25,7 +23,6 @@ import {
 } from '@/components/design-system/sidebar'
 import { useLayout } from '@/context/layout-provider'
 import { useSidebarView } from '@/hooks/use-sidebar-view'
-import { MOTION_TRANSITION, MOTION_VARIANTS } from '@/lib/motion'
 
 import { NavGroup } from './nav-group'
 import { SidebarViewHeader } from './sidebar-view-header'
@@ -50,7 +47,6 @@ import { SidebarViewHeader } from './sidebar-view-header'
 export function AppSidebar() {
   const { collapsible, variant } = useLayout()
   const { key, view, navGroups } = useSidebarView()
-  const shouldReduce = useReducedMotion()
 
   return (
     <Sidebar collapsible={collapsible} variant={variant}>
@@ -63,22 +59,11 @@ export function AppSidebar() {
             : 'py-2 md:pt-[calc(var(--app-header-height,3rem)+0.5rem)]'
         }
       >
-        <AnimatePresence mode='wait' initial={false}>
-          <motion.div
-            key={key}
-            initial={
-              shouldReduce ? false : MOTION_VARIANTS.sidebarSlide.initial
-            }
-            animate={MOTION_VARIANTS.sidebarSlide.animate}
-            exit={shouldReduce ? undefined : MOTION_VARIANTS.sidebarSlide.exit}
-            transition={MOTION_TRANSITION.fast}
-            className='flex flex-col'
-          >
-            {navGroups.map((props) => (
-              <NavGroup key={props.id || props.title} {...props} />
-            ))}
-          </motion.div>
-        </AnimatePresence>
+        <div key={key} className='flex flex-col'>
+          {navGroups.map((props) => (
+            <NavGroup key={props.id || props.title} {...props} />
+          ))}
+        </div>
       </SidebarContent>
 
       <SidebarRail />

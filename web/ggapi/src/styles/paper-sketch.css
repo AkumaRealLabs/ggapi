@@ -22,60 +22,67 @@ For commercial licensing, please contact support@quantumnous.com
  * Source of truth: tech-visual-explainer v1.0.0 template-sketch.html
  * + references/design-system.md
  *
- * Scoped by [data-theme-preset='paper-sketch'] so other presets stay usable.
+ * Scoped by [data-paper-family] so other presets stay usable.
  * Console (admin / dashboard) is in scope — not just marketing pages.
  */
 
 /* ── Canvas ───────────────────────────────────────────────────────────── */
-[data-theme-preset='paper-sketch'] {
+[data-paper-family] {
   background-color: var(--paper);
-  background-image: radial-gradient(var(--line) 0.8px, transparent 0.8px);
-  background-size: 26px 26px;
-  background-attachment: fixed;
   color: var(--ink);
   font-family: var(--font-body, var(--font-hand));
   font-size: 15px;
   line-height: 1.7;
 }
 
-/* Soften inset chrome so the grid shows through the console */
-[data-theme-preset='paper-sketch'] [data-slot='sidebar-inset'],
-[data-theme-preset='paper-sketch'] [data-slot='sidebar-wrapper'] {
+/* The dotted coordinate-paper grid is part of the explainer-page language.
+ * It is intentionally NOT applied to the admin console: dense tables and
+ * forms on a 26px dot grid read as "busy" and can feel dizzying. */
+[data-paper-family] .gg-explainer {
+  background-image: radial-gradient(var(--line) 0.8px, transparent 0.8px);
+  background-size: 26px 26px;
+  background-attachment: fixed;
+}
+
+/* Keep inset chrome transparent so the body paper color shows through.
+ * (The dot grid lives only on .gg-explainer; console stays calm.) */
+[data-paper-family] [data-slot='sidebar-inset'],
+[data-paper-family] [data-slot='sidebar-wrapper'] {
   background: transparent !important;
 }
 
 /* Kill glass / soft SaaS elevation globally in this preset */
-[data-theme-preset='paper-sketch'] .backdrop-blur,
-[data-theme-preset='paper-sketch'] .backdrop-blur-sm,
-[data-theme-preset='paper-sketch'] .backdrop-blur-md,
-[data-theme-preset='paper-sketch'] .backdrop-blur-lg,
-[data-theme-preset='paper-sketch'] .backdrop-blur-xl {
+[data-paper-family] .backdrop-blur,
+[data-paper-family] .backdrop-blur-sm,
+[data-paper-family] .backdrop-blur-md,
+[data-paper-family] .backdrop-blur-lg,
+[data-paper-family] .backdrop-blur-xl {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
 
-[data-theme-preset='paper-sketch'] .shadow-xs,
-[data-theme-preset='paper-sketch'] .shadow-sm,
-[data-theme-preset='paper-sketch'] .shadow,
-[data-theme-preset='paper-sketch'] .shadow-md,
-[data-theme-preset='paper-sketch'] .shadow-lg {
+[data-paper-family] .shadow-xs,
+[data-paper-family] .shadow-sm,
+[data-paper-family] .shadow,
+[data-paper-family] .shadow-md,
+[data-paper-family] .shadow-lg {
   box-shadow: none !important;
 }
 
 /* ── Surfaces: cards / dialogs / sheets / menus (data-slot) ───────────── */
-[data-theme-preset='paper-sketch'] [data-slot='card'],
-[data-theme-preset='paper-sketch'] [data-slot='popover-content'],
-[data-theme-preset='paper-sketch'] [data-slot='dropdown-menu-content'],
-[data-theme-preset='paper-sketch'] [data-slot='context-menu-content'],
-[data-theme-preset='paper-sketch'] [data-slot='select-content'],
-[data-theme-preset='paper-sketch'] [data-slot='combobox-content'],
-[data-theme-preset='paper-sketch'] [data-slot='dialog-content'],
-[data-theme-preset='paper-sketch'] [data-slot='alert-dialog-content'],
-[data-theme-preset='paper-sketch'] [data-slot='sheet-content'],
-[data-theme-preset='paper-sketch'] [data-slot='drawer-content'],
-[data-theme-preset='paper-sketch'] [data-slot='titled-card'],
-[data-theme-preset='paper-sketch'] [data-slot='hover-card-content'],
-[data-theme-preset='paper-sketch'] [data-slot='command'] {
+[data-paper-family] [data-slot='card'],
+[data-paper-family] [data-slot='popover-content'],
+[data-paper-family] [data-slot='dropdown-menu-content'],
+[data-paper-family] [data-slot='context-menu-content'],
+[data-paper-family] [data-slot='select-content'],
+[data-paper-family] [data-slot='combobox-content'],
+[data-paper-family] [data-slot='dialog-content'],
+[data-paper-family] [data-slot='alert-dialog-content'],
+[data-paper-family] [data-slot='sheet-content'],
+[data-paper-family] [data-slot='drawer-content'],
+[data-paper-family] [data-slot='titled-card'],
+[data-paper-family] [data-slot='hover-card-content'],
+[data-paper-family] [data-slot='command'] {
   border-width: 1.6px !important;
   border-style: solid !important;
   border-color: color-mix(in oklch, var(--ink) 78%, transparent) !important;
@@ -85,7 +92,7 @@ For commercial licensing, please contact support@quantumnous.com
   backdrop-filter: none !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='card']:nth-child(even) {
+[data-paper-family] [data-slot='card']:nth-child(even) {
   border-radius: var(--wobble-b) !important;
 }
 
@@ -93,19 +100,19 @@ For commercial licensing, please contact support@quantumnous.com
  * Feature pages often build “cards” with Tailwind only (bg-card + rounded-*).
  * Force those into sketch panels so the admin console is not still SaaS chrome.
  */
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   [data-slot='sidebar-inset']
   .bg-card.border,
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   [data-slot='sidebar-inset']
   .bg-card.border-border,
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   [data-slot='sidebar-inset']
   section.bg-card,
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   [data-slot='sidebar-inset']
   div.bg-card.overflow-hidden,
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   [data-slot='sidebar-inset']
   article.bg-card {
   border-width: 1.6px !important;
@@ -116,26 +123,26 @@ For commercial licensing, please contact support@quantumnous.com
   box-shadow: 2px 3px 0 color-mix(in oklch, var(--ink) 8%, transparent) !important;
 }
 
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   [data-slot='sidebar-inset']
   .bg-card.border:nth-child(even),
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   [data-slot='sidebar-inset']
   section.bg-card:nth-child(even),
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   [data-slot='sidebar-inset']
   div.bg-card.overflow-hidden:nth-child(even) {
   border-radius: var(--wobble-b) !important;
 }
 
 /* Nested “soft” tiles inside panels */
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   [data-slot='sidebar-inset']
   .bg-background\/60,
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   [data-slot='sidebar-inset']
   .bg-muted\/30,
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   [data-slot='sidebar-inset']
   .bg-muted\/40 {
   background-color: color-mix(
@@ -150,7 +157,7 @@ For commercial licensing, please contact support@quantumnous.com
 /* Dialog/AlertDialog actions keep data-slot="button" (do not override in
  * components). Cascade !important beats Tailwind bg-primary emitted later —
  * without it, resting primary CTAs were near-invisible on paper. */
-[data-theme-preset='paper-sketch'] [data-slot='button'] {
+[data-paper-family] [data-slot='button'] {
   border-radius: var(--wobble-b) !important;
   border-width: 1.6px;
   border-style: solid;
@@ -166,52 +173,53 @@ For commercial licensing, please contact support@quantumnous.com
   box-shadow: none !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='button'][data-variant='default'],
-[data-theme-preset='paper-sketch']
+[data-paper-family] [data-slot='button'][data-variant='default'],
+[data-paper-family]
   [data-slot='button']:not([data-variant]):not([class*='border-']) {
   border-color: color-mix(in oklch, var(--sketch-blue) 80%, var(--ink)) !important;
   background: color-mix(in oklch, var(--sketch-blue) 92%, var(--paper-alt)) !important;
-  color: var(--paper-alt) !important;
+  /* Semantic foreground: pale primaries (e.g. lake-view) keep dark text. */
+  color: var(--primary-foreground) !important;
 }
 
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   [data-slot='button'][data-variant='outline'],
-[data-theme-preset='paper-sketch'] [data-slot='button'][data-variant='secondary'] {
+[data-paper-family] [data-slot='button'][data-variant='secondary'] {
   border-color: color-mix(in oklch, var(--ink) 75%, transparent) !important;
   background: var(--paper-alt) !important;
   color: var(--ink) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='button'][data-variant='ghost'] {
+[data-paper-family] [data-slot='button'][data-variant='ghost'] {
   border-color: transparent !important;
   background: transparent !important;
   color: var(--ink-soft) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='button'][data-variant='destructive'] {
+[data-paper-family] [data-slot='button'][data-variant='destructive'] {
   border-color: color-mix(in oklch, var(--sketch-red) 70%, var(--ink)) !important;
   background: color-mix(in oklch, var(--sketch-red) 14%, var(--paper-alt)) !important;
   color: var(--sketch-red) !important;
 }
 
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   [data-slot='button']:hover:not(:disabled):not([data-variant='link']) {
   transform: translateY(-1px);
 }
 
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   [data-slot='button'][data-variant='default']:hover:not(:disabled) {
   background: var(--sketch-blue) !important;
   box-shadow: 2px 3px 0 color-mix(in oklch, var(--ink) 18%, transparent) !important;
 }
 
 /* ── Form controls ────────────────────────────────────────────────────── */
-[data-theme-preset='paper-sketch'] [data-slot='input'],
-[data-theme-preset='paper-sketch'] [data-slot='textarea'],
-[data-theme-preset='paper-sketch'] [data-slot='select-trigger'],
-[data-theme-preset='paper-sketch'] [data-slot='combobox-trigger'],
-[data-theme-preset='paper-sketch'] [data-slot='input-group'],
-[data-theme-preset='paper-sketch'] [data-slot='native-select'] {
+[data-paper-family] [data-slot='input'],
+[data-paper-family] [data-slot='textarea'],
+[data-paper-family] [data-slot='select-trigger'],
+[data-paper-family] [data-slot='combobox-trigger'],
+[data-paper-family] [data-slot='input-group'],
+[data-paper-family] [data-slot='native-select'] {
   border-width: 1.6px !important;
   border-style: solid !important;
   border-color: color-mix(in oklch, var(--ink) 55%, transparent) !important;
@@ -221,18 +229,18 @@ For commercial licensing, please contact support@quantumnous.com
   color: var(--ink);
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='input']:focus,
-[data-theme-preset='paper-sketch'] [data-slot='textarea']:focus,
-[data-theme-preset='paper-sketch'] [data-slot='select-trigger']:focus,
-[data-theme-preset='paper-sketch'] [data-slot='input']:focus-visible,
-[data-theme-preset='paper-sketch'] [data-slot='textarea']:focus-visible {
+[data-paper-family] [data-slot='input']:focus,
+[data-paper-family] [data-slot='textarea']:focus,
+[data-paper-family] [data-slot='select-trigger']:focus,
+[data-paper-family] [data-slot='input']:focus-visible,
+[data-paper-family] [data-slot='textarea']:focus-visible {
   border-color: var(--sketch-blue) !important;
   outline: none;
   box-shadow: 0 0 0 2px color-mix(in oklch, var(--sketch-blue) 18%, transparent) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='label'],
-[data-theme-preset='paper-sketch'] label {
+[data-paper-family] [data-slot='label'],
+[data-paper-family] label {
   color: var(--ink-soft);
   font-weight: 700;
 }
@@ -241,7 +249,7 @@ For commercial licensing, please contact support@quantumnous.com
 /* Base outline-like chrome. Default variant must keep ink/blue contrast —
  * forcing paper-alt on every badge + primary-foreground made count chips
  * (bulk bar selection count) invisible on the paper surface. */
-[data-theme-preset='paper-sketch'] [data-slot='badge'] {
+[data-paper-family] [data-slot='badge'] {
   border-width: 1.4px !important;
   border-style: solid !important;
   border-color: color-mix(in oklch, var(--ink) 40%, transparent) !important;
@@ -251,45 +259,45 @@ For commercial licensing, please contact support@quantumnous.com
   color: var(--ink) !important;
 }
 
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   [data-slot='badge'][data-variant='default'] {
   border-color: color-mix(in oklch, var(--sketch-blue) 80%, var(--ink)) !important;
   background: color-mix(in oklch, var(--sketch-blue) 92%, var(--paper-alt)) !important;
-  color: var(--paper-alt) !important;
+  color: var(--primary-foreground) !important;
 }
 
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   [data-slot='badge'][data-variant='secondary'],
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   [data-slot='badge'][data-variant='outline'] {
   border-color: color-mix(in oklch, var(--ink) 55%, transparent) !important;
   background: var(--paper-alt) !important;
   color: var(--ink) !important;
 }
 
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   [data-slot='badge'][data-variant='destructive'] {
   border-color: color-mix(in oklch, var(--sketch-red) 70%, var(--ink)) !important;
   background: color-mix(in oklch, var(--sketch-red) 14%, var(--paper-alt)) !important;
   color: var(--sketch-red) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='tabs-list'] {
+[data-paper-family] [data-slot='tabs-list'] {
   border: 1.6px solid color-mix(in oklch, var(--ink) 45%, transparent);
   border-radius: var(--wobble-a);
   background: color-mix(in oklch, var(--paper) 80%, var(--paper-alt));
   padding: 3px;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='tabs-trigger'] {
+[data-paper-family] [data-slot='tabs-trigger'] {
   border-radius: var(--wobble-b);
   font-weight: 700;
   color: var(--ink-soft);
 }
 
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   [data-slot='tabs-trigger'][data-state='active'],
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   [data-slot='tabs-trigger'][aria-selected='true'] {
   background: var(--ink);
   border: 1.4px solid var(--ink);
@@ -298,12 +306,12 @@ For commercial licensing, please contact support@quantumnous.com
 }
 
 /* ── Tables ───────────────────────────────────────────────────────────── */
-[data-theme-preset='paper-sketch'] [data-slot='table-container'],
-[data-theme-preset='paper-sketch'] [data-slot='table'] {
+[data-paper-family] [data-slot='table-container'],
+[data-paper-family] [data-slot='table'] {
   border-color: color-mix(in oklch, var(--ink) 40%, transparent);
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='table-container'] {
+[data-paper-family] [data-slot='table-container'] {
   border-width: 1.6px;
   border-style: solid;
   border-radius: var(--wobble-a);
@@ -311,48 +319,48 @@ For commercial licensing, please contact support@quantumnous.com
   overflow: hidden;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='table-header'] {
+[data-paper-family] [data-slot='table-header'] {
   background: color-mix(in oklch, var(--ink) 5%, var(--paper-alt));
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='table-header'] th {
+[data-paper-family] [data-slot='table-header'] th {
   color: var(--ink-soft);
   font-weight: 700;
   font-size: 13px;
   border-bottom: 1.4px dashed var(--line) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='table-row'] {
+[data-paper-family] [data-slot='table-row'] {
   border-color: color-mix(in oklch, var(--ink) 18%, transparent);
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='table-row']:hover {
+[data-paper-family] [data-slot='table-row']:hover {
   background: color-mix(in oklch, var(--sketch-blue) 6%, var(--paper-alt));
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='table-cell'] {
+[data-paper-family] [data-slot='table-cell'] {
   border-color: color-mix(in oklch, var(--line) 80%, transparent);
 }
 
 /* ── Sidebar (console) ────────────────────────────────────────────────── */
-[data-theme-preset='paper-sketch'] [data-slot='sidebar'],
-[data-theme-preset='paper-sketch'] [data-slot='sidebar-inner'],
-[data-theme-preset='paper-sketch'] [data-slot='sidebar-container'] {
+[data-paper-family] [data-slot='sidebar'],
+[data-paper-family] [data-slot='sidebar-inner'],
+[data-paper-family] [data-slot='sidebar-container'] {
   background: color-mix(in oklch, var(--paper-alt) 96%, transparent) !important;
   border-color: color-mix(in oklch, var(--ink) 45%, transparent) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sidebar-container'] {
+[data-paper-family] [data-slot='sidebar-container'] {
   border-right-width: 1.6px !important;
   border-right-style: solid !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sidebar-header'],
-[data-theme-preset='paper-sketch'] [data-slot='sidebar-footer'] {
+[data-paper-family] [data-slot='sidebar-header'],
+[data-paper-family] [data-slot='sidebar-footer'] {
   border-color: color-mix(in oklch, var(--ink) 28%, transparent) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sidebar-group-label'] {
+[data-paper-family] [data-slot='sidebar-group-label'] {
   color: var(--ink-faint) !important;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -360,21 +368,21 @@ For commercial licensing, please contact support@quantumnous.com
   font-size: 11.5px !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sidebar-menu-button'] {
+[data-paper-family] [data-slot='sidebar-menu-button'] {
   border-radius: var(--wobble-b) !important;
   font-weight: 600;
   color: var(--ink-soft) !important;
   border: 1.4px solid transparent;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sidebar-menu-button']:hover {
+[data-paper-family] [data-slot='sidebar-menu-button']:hover {
   background: color-mix(in oklch, var(--sketch-blue) 8%, var(--paper-alt)) !important;
   color: var(--ink) !important;
 }
 
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   [data-slot='sidebar-menu-button'][data-active='true'],
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   [data-slot='sidebar-menu-button'][aria-current='page'] {
   background: color-mix(in oklch, var(--sketch-blue) 12%, var(--paper-alt)) !important;
   border: 1.4px solid color-mix(in oklch, var(--sketch-blue) 50%, var(--ink)) !important;
@@ -383,12 +391,12 @@ For commercial licensing, please contact support@quantumnous.com
   font-weight: 700;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sidebar-menu-sub-button'] {
+[data-paper-family] [data-slot='sidebar-menu-sub-button'] {
   border-radius: var(--wobble-b);
   color: var(--ink-soft);
 }
 
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   [data-slot='sidebar-menu-sub-button'][data-active='true'] {
   color: var(--ink);
   font-weight: 700;
@@ -396,52 +404,53 @@ For commercial licensing, please contact support@quantumnous.com
 }
 
 /* ── App header strip ─────────────────────────────────────────────────── */
-[data-theme-preset='paper-sketch'] [data-slot='app-header'],
-[data-theme-preset='paper-sketch'] header[data-app-header] {
+[data-paper-family] [data-slot='app-header'],
+[data-paper-family] header[data-app-header] {
   background: color-mix(in oklch, var(--paper-alt) 94%, transparent) !important;
   border-bottom: 1.6px solid color-mix(in oklch, var(--ink) 40%, transparent) !important;
   backdrop-filter: none !important;
   box-shadow: none !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='app-header'] a,
-[data-theme-preset='paper-sketch'] header[data-app-header] a {
+[data-paper-family] [data-slot='app-header'] a,
+[data-paper-family] header[data-app-header] a {
   color: var(--ink-soft);
   font-weight: 700;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='app-header'] a:hover,
-[data-theme-preset='paper-sketch'] header[data-app-header] a:hover {
+[data-paper-family] [data-slot='app-header'] a:hover,
+[data-paper-family] header[data-app-header] a:hover {
   color: var(--ink);
 }
 
 /* ── Section page layout (console pages) ──────────────────────────────── */
-[data-theme-preset='paper-sketch'] [data-slot='section-page'] {
+[data-paper-family] [data-slot='section-page'] {
   color: var(--ink);
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='section-page-header'] {
+[data-paper-family] [data-slot='section-page-header'] {
   border-bottom: 1.4px dashed var(--line);
   margin-bottom: 0.25rem;
   padding-bottom: 0.75rem;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='section-page-title'] {
-  font-size: 20px !important;
+[data-paper-family] [data-slot='section-page-title'] {
+  /* Keep density scale axis: --text-lg follows data-theme-scale. */
+  font-size: var(--text-lg) !important;
   font-weight: 700 !important;
   letter-spacing: 0 !important;
   color: var(--ink) !important;
   line-height: 1.35;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='section-page-footer'] {
+[data-paper-family] [data-slot='section-page-footer'] {
   border-top: 1.6px solid color-mix(in oklch, var(--ink) 35%, transparent) !important;
   background: color-mix(in oklch, var(--paper-alt) 90%, transparent) !important;
 }
 
 /* ── Skeleton: pencil hatch instead of glass shimmer ──────────────────── */
-[data-theme-preset='paper-sketch'] [data-slot='skeleton'],
-[data-theme-preset='paper-sketch'] .skeleton-shimmer {
+[data-paper-family] [data-slot='skeleton'],
+[data-paper-family] .skeleton-shimmer {
   background: repeating-linear-gradient(
     -45deg,
     color-mix(in oklch, var(--ink) 8%, var(--paper-alt)),
@@ -454,18 +463,18 @@ For commercial licensing, please contact support@quantumnous.com
 }
 
 /* ── Scrollbars (subtle ink) ──────────────────────────────────────────── */
-[data-theme-preset='paper-sketch'] * {
+[data-paper-family] * {
   scrollbar-width: thin;
   scrollbar-color: color-mix(in oklch, var(--ink) 35%, transparent) transparent;
 }
 
 /* ── Separators ───────────────────────────────────────────────────────── */
-[data-theme-preset='paper-sketch'] [data-slot='separator'] {
+[data-paper-family] [data-slot='separator'] {
   background: color-mix(in oklch, var(--ink) 22%, transparent) !important;
 }
 
 /* ── Public marketing header ──────────────────────────────────────────── */
-[data-theme-preset='paper-sketch'] .gg-public-header-shell {
+[data-paper-family] .gg-public-header-shell {
   pointer-events: none;
   position: fixed;
   inset-inline: 0;
@@ -473,14 +482,14 @@ For commercial licensing, please contact support@quantumnous.com
   z-index: 50;
 }
 
-[data-theme-preset='paper-sketch'] .gg-public-header-bar {
+[data-paper-family] .gg-public-header-bar {
   pointer-events: auto;
   margin-inline: auto;
   max-width: 1120px;
   padding: 0.75rem 1rem 0;
 }
 
-[data-theme-preset='paper-sketch'] .gg-public-header-nav {
+[data-paper-family] .gg-public-header-nav {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -494,7 +503,7 @@ For commercial licensing, please contact support@quantumnous.com
   backdrop-filter: none;
 }
 
-[data-theme-preset='paper-sketch'] .gg-public-nav-link {
+[data-paper-family] .gg-public-nav-link {
   border-radius: var(--wobble-b);
   border: 1.4px solid transparent;
   padding: 0.35rem 0.7rem;
@@ -507,24 +516,24 @@ For commercial licensing, please contact support@quantumnous.com
     background-color 0.15s var(--ease-sketch);
 }
 
-[data-theme-preset='paper-sketch'] .gg-public-nav-link:hover {
+[data-paper-family] .gg-public-nav-link:hover {
   color: var(--ink);
   background: color-mix(in oklch, var(--sketch-blue) 8%, var(--paper-alt));
 }
 
-[data-theme-preset='paper-sketch'] .gg-public-nav-link.is-active {
+[data-paper-family] .gg-public-nav-link.is-active {
   color: var(--ink);
   border-color: color-mix(in oklch, var(--ink) 55%, transparent);
   background: color-mix(in oklch, var(--sketch-blue) 10%, var(--paper-alt));
 }
 
-[data-theme-preset='paper-sketch'] .gg-public-mobile-overlay {
+[data-paper-family] .gg-public-mobile-overlay {
   background: color-mix(in oklch, var(--paper) 97%, transparent) !important;
   backdrop-filter: none !important;
 }
 
 /* ── Auth notebook page ───────────────────────────────────────────────── */
-[data-theme-preset='paper-sketch'] .gg-auth-shell {
+[data-paper-family] .gg-auth-shell {
   min-height: 100svh;
   display: grid;
   place-items: center;
@@ -534,7 +543,7 @@ For commercial licensing, please contact support@quantumnous.com
   background-size: 26px 26px;
 }
 
-[data-theme-preset='paper-sketch'] .gg-auth-card {
+[data-paper-family] .gg-auth-card {
   width: min(100%, 28rem);
   border: 1.6px solid color-mix(in oklch, var(--ink) 72%, transparent);
   border-radius: var(--wobble-a);
@@ -543,7 +552,7 @@ For commercial licensing, please contact support@quantumnous.com
   padding: 1.75rem 1.5rem 1.5rem;
 }
 
-[data-theme-preset='paper-sketch'] .gg-auth-brand {
+[data-paper-family] .gg-auth-brand {
   display: inline-flex;
   align-items: center;
   gap: 0.6rem;
@@ -554,25 +563,25 @@ For commercial licensing, please contact support@quantumnous.com
   font-size: 1.15rem;
 }
 
-[data-theme-preset='paper-sketch'] .gg-auth-brand img {
+[data-paper-family] .gg-auth-brand img {
   border: 1.4px solid color-mix(in oklch, var(--ink) 55%, transparent);
   border-radius: var(--wobble-b);
   object-fit: cover;
 }
 
 /* ── Footer notebook ──────────────────────────────────────────────────── */
-[data-theme-preset='paper-sketch'] .gg-footer {
+[data-paper-family] .gg-footer {
   border-top: 1.6px solid color-mix(in oklch, var(--ink) 40%, transparent);
   background: color-mix(in oklch, var(--paper-alt) 88%, transparent);
 }
 
-[data-theme-preset='paper-sketch'] .gg-footer-inner {
+[data-paper-family] .gg-footer-inner {
   max-width: 1120px;
   margin-inline: auto;
   padding: 2.5rem 1.5rem 2rem;
 }
 
-[data-theme-preset='paper-sketch'] .gg-footer-brand-box {
+[data-paper-family] .gg-footer-brand-box {
   border: 1.6px solid color-mix(in oklch, var(--ink) 60%, transparent);
   border-radius: var(--wobble-a);
   background: var(--paper-alt);
@@ -581,31 +590,31 @@ For commercial licensing, please contact support@quantumnous.com
 }
 
 /* ── Code / mono panels ───────────────────────────────────────────────── */
-[data-theme-preset='paper-sketch'] pre,
-[data-theme-preset='paper-sketch'] code,
-[data-theme-preset='paper-sketch'] .font-mono {
+[data-paper-family] pre,
+[data-paper-family] code,
+[data-paper-family] .font-mono {
   font-family:
     ui-monospace, 'SF Mono', 'Cascadia Mono', Consolas, monospace;
 }
 
-[data-theme-preset='paper-sketch'] pre {
+[data-paper-family] pre {
   border: 1.6px solid color-mix(in oklch, var(--ink) 50%, transparent);
   border-radius: 12px;
   background: color-mix(in oklch, var(--ink) 4%, var(--paper-alt));
 }
 
 /* ── Charts: notebook frame ───────────────────────────────────────────── */
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   [data-slot='sidebar-inset']
   .recharts-wrapper,
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   [data-slot='sidebar-inset']
   [class*='vchart'] {
   font-family: var(--font-body, var(--font-hand));
 }
 
 /* ── Sonner toasts ────────────────────────────────────────────────────── */
-[data-theme-preset='paper-sketch'] [data-sonner-toast] {
+[data-paper-family] [data-sonner-toast] {
   border: 1.6px solid color-mix(in oklch, var(--ink) 65%, transparent) !important;
   border-radius: var(--wobble-a) !important;
   background: var(--paper-alt) !important;
@@ -614,39 +623,39 @@ For commercial licensing, please contact support@quantumnous.com
 }
 
 /* ── Alert / empty / status panels ────────────────────────────────────── */
-[data-theme-preset='paper-sketch'] [data-slot='alert'] {
+[data-paper-family] [data-slot='alert'] {
   border: 1.6px solid color-mix(in oklch, var(--ink) 50%, transparent);
   border-radius: var(--wobble-a);
   background: var(--paper-alt);
 }
 
 /* ── Switch / checkbox / radio ────────────────────────────────────────── */
-[data-theme-preset='paper-sketch'] [data-slot='switch'],
-[data-theme-preset='paper-sketch'] [data-slot='checkbox'],
-[data-theme-preset='paper-sketch'] [data-slot='radio-group-item'] {
+[data-paper-family] [data-slot='switch'],
+[data-paper-family] [data-slot='checkbox'],
+[data-paper-family] [data-slot='radio-group-item'] {
   border-color: color-mix(in oklch, var(--ink) 55%, transparent);
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='switch'][data-state='checked'],
-[data-theme-preset='paper-sketch'] [data-slot='checkbox'][data-state='checked'] {
+[data-paper-family] [data-slot='switch'][data-state='checked'],
+[data-paper-family] [data-slot='checkbox'][data-state='checked'] {
   background: var(--sketch-blue);
   border-color: var(--sketch-blue);
 }
 
 /* ── Progress ─────────────────────────────────────────────────────────── */
-[data-theme-preset='paper-sketch'] [data-slot='progress'] {
+[data-paper-family] [data-slot='progress'] {
   background: color-mix(in oklch, var(--ink) 10%, var(--paper-alt));
   border: 1.2px solid color-mix(in oklch, var(--ink) 30%, transparent);
   border-radius: 999px;
   overflow: hidden;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='progress-indicator'] {
+[data-paper-family] [data-slot='progress-indicator'] {
   background: var(--sketch-blue);
 }
 
 /* ── Tooltip ──────────────────────────────────────────────────────────── */
-[data-theme-preset='paper-sketch'] [data-slot='tooltip-content'] {
+[data-paper-family] [data-slot='tooltip-content'] {
   border: 1.4px solid color-mix(in oklch, var(--ink) 60%, transparent) !important;
   border-radius: var(--wobble-b) !important;
   background: var(--paper-alt) !important;
@@ -656,63 +665,63 @@ For commercial licensing, please contact support@quantumnous.com
 
 /* ── Reduced motion ───────────────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
-  [data-theme-preset='paper-sketch'] [data-slot='button']:hover:not(:disabled) {
+  [data-paper-family] [data-slot='button']:hover:not(:disabled) {
     transform: none;
   }
 }
 
 /* ── Console shell root ───────────────────────────────────────────────── */
-[data-theme-preset='paper-sketch'] .gg-console-shell {
+[data-paper-family] .gg-console-shell {
   background-color: transparent;
   color: var(--ink);
 }
 
 /* Page titles in console feel handwritten bold */
-[data-theme-preset='paper-sketch'] [data-slot='sidebar-inset'] h1,
-[data-theme-preset='paper-sketch'] [data-slot='sidebar-inset'] h2,
-[data-theme-preset='paper-sketch'] [data-slot='sidebar-inset'] h3 {
+[data-paper-family] [data-slot='sidebar-inset'] h1,
+[data-paper-family] [data-slot='sidebar-inset'] h2,
+[data-paper-family] [data-slot='sidebar-inset'] h3 {
   font-weight: 700;
   letter-spacing: 0;
   color: var(--ink);
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sidebar-inset'] p,
-[data-theme-preset='paper-sketch'] [data-slot='sidebar-inset'] .text-muted-foreground {
+[data-paper-family] [data-slot='sidebar-inset'] p,
+[data-paper-family] [data-slot='sidebar-inset'] .text-muted-foreground {
   color: var(--ink-soft);
 }
 
 /* Soften pure black/white utility overrides that fight the sketch tokens */
-[data-theme-preset='paper-sketch'] .text-foreground {
+[data-paper-family] .text-foreground {
   color: var(--ink);
 }
 
-[data-theme-preset='paper-sketch'] .border-border {
+[data-paper-family] .border-border {
   border-color: color-mix(in oklch, var(--ink) 35%, transparent);
 }
 
 /* Config drawer / command palette already use data-slot; ensure dense lists */
-[data-theme-preset='paper-sketch'] [data-slot='command-item'] {
+[data-paper-family] [data-slot='command-item'] {
   border-radius: var(--wobble-b);
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='command-item'][data-selected='true'],
-[data-theme-preset='paper-sketch'] [data-slot='command-item'][aria-selected='true'] {
+[data-paper-family] [data-slot='command-item'][data-selected='true'],
+[data-paper-family] [data-slot='command-item'][aria-selected='true'] {
   background: color-mix(in oklch, var(--sketch-blue) 12%, var(--paper-alt));
   color: var(--ink);
 }
 
 /* Pagination */
-[data-theme-preset='paper-sketch'] [data-slot='pagination-link'],
-[data-theme-preset='paper-sketch'] [data-slot='pagination-item'] a {
+[data-paper-family] [data-slot='pagination-link'],
+[data-paper-family] [data-slot='pagination-item'] a {
   border-radius: var(--wobble-b) !important;
   border: 1.4px solid color-mix(in oklch, var(--ink) 40%, transparent);
   background: var(--paper-alt);
   font-weight: 700;
 }
 
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   [data-slot='pagination-link'][aria-current='page'],
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   [data-slot='pagination-link'][data-active='true'] {
   background: var(--ink) !important;
   color: var(--paper-alt) !important;
@@ -720,7 +729,7 @@ For commercial licensing, please contact support@quantumnous.com
 }
 
 /* Avatar ring */
-[data-theme-preset='paper-sketch'] [data-slot='avatar'] {
+[data-paper-family] [data-slot='avatar'] {
   border: 1.4px solid color-mix(in oklch, var(--ink) 45%, transparent);
   border-radius: var(--wobble-b);
 }
@@ -730,7 +739,7 @@ For commercial licensing, please contact support@quantumnous.com
  * ═══════════════════════════════════════════════════════════════════════════ */
 
 /* ── Data table frame ─────────────────────────────────────────────────── */
-[data-theme-preset='paper-sketch'] [data-slot='data-table-frame'] {
+[data-paper-family] [data-slot='data-table-frame'] {
   border-width: 1.6px !important;
   border-style: solid !important;
   border-color: color-mix(in oklch, var(--ink) 65%, transparent) !important;
@@ -743,7 +752,7 @@ For commercial licensing, please contact support@quantumnous.com
   min-width: 0;
 }
 
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   [data-slot='data-table-frame']
   [data-slot='table-container'] {
   max-width: 100%;
@@ -751,7 +760,7 @@ For commercial licensing, please contact support@quantumnous.com
   overflow-x: auto;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='data-table-filter'] {
+[data-paper-family] [data-slot='data-table-filter'] {
   border-width: 1.6px !important;
   border-style: solid !important;
   border-color: color-mix(in oklch, var(--ink) 50%, transparent) !important;
@@ -760,7 +769,7 @@ For commercial licensing, please contact support@quantumnous.com
   box-shadow: 1px 2px 0 color-mix(in oklch, var(--ink) 6%, transparent);
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='data-table-card'] {
+[data-paper-family] [data-slot='data-table-card'] {
   border-width: 1.4px !important;
   border-style: solid !important;
   border-color: color-mix(in oklch, var(--ink) 40%, transparent) !important;
@@ -768,7 +777,7 @@ For commercial licensing, please contact support@quantumnous.com
   background: var(--paper-alt) !important;
 }
 
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   [data-slot='data-table-card'][data-state='selected'] {
   border-color: color-mix(in oklch, var(--ink) 70%, transparent) !important;
   background: color-mix(
@@ -779,17 +788,17 @@ For commercial licensing, please contact support@quantumnous.com
   box-shadow: 1px 2px 0 color-mix(in oklch, var(--ink) 8%, transparent);
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='data-table-bulk-bar'] {
+[data-paper-family] [data-slot='data-table-bulk-bar'] {
   border-radius: var(--wobble-a) !important;
   transform: none !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='data-table-bulk-bar']:hover {
+[data-paper-family] [data-slot='data-table-bulk-bar']:hover {
   transform: none !important;
   scale: 1 !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='data-table-bulk-inner'] {
+[data-paper-family] [data-slot='data-table-bulk-inner'] {
   border-width: 1.6px !important;
   border-style: solid !important;
   border-color: color-mix(in oklch, var(--ink) 72%, transparent) !important;
@@ -801,7 +810,7 @@ For commercial licensing, please contact support@quantumnous.com
 }
 
 /* ── Public catalog (pricing / rankings) ──────────────────────────────── */
-[data-theme-preset='paper-sketch'] [data-slot='public-page-title'] {
+[data-paper-family] [data-slot='public-page-title'] {
   font-size: 27px !important;
   font-weight: 700 !important;
   letter-spacing: 0 !important;
@@ -809,15 +818,15 @@ For commercial licensing, please contact support@quantumnous.com
   line-height: 1.3;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='public-page-subtitle'] {
+[data-paper-family] [data-slot='public-page-subtitle'] {
   font-size: 15px !important;
   color: var(--ink-soft) !important;
   /* Line length is owned by PublicPageHeader / page shell — do not re-clamp here. */
   line-height: 1.7;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-panel'],
-[data-theme-preset='paper-sketch'] [data-slot='sketch-model-card'] {
+[data-paper-family] [data-slot='sketch-panel'],
+[data-paper-family] [data-slot='sketch-model-card'] {
   border-width: 1.6px !important;
   border-style: solid !important;
   border-color: color-mix(in oklch, var(--ink) 72%, transparent) !important;
@@ -826,33 +835,33 @@ For commercial licensing, please contact support@quantumnous.com
   box-shadow: 2px 3px 0 color-mix(in oklch, var(--ink) 8%, transparent) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-model-card']:nth-child(even) {
+[data-paper-family] [data-slot='sketch-model-card']:nth-child(even) {
   border-radius: var(--wobble-b) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-model-card']:hover {
+[data-paper-family] [data-slot='sketch-model-card']:hover {
   background: color-mix(in oklch, var(--sketch-blue) 5%, var(--paper-alt)) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-model-icon'] {
+[data-paper-family] [data-slot='sketch-model-icon'] {
   border: 1.4px solid color-mix(in oklch, var(--ink) 45%, transparent);
   border-radius: var(--wobble-b) !important;
   background: color-mix(in oklch, var(--ink) 4%, var(--paper-alt)) !important;
 }
 
 /* ── Shell: brand / top nav / search ──────────────────────────────────── */
-[data-theme-preset='paper-sketch'] [data-slot='sketch-brand'] {
+[data-paper-family] [data-slot='sketch-brand'] {
   font-weight: 700 !important;
   color: var(--ink) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-brand-mark'] {
+[data-paper-family] [data-slot='sketch-brand-mark'] {
   border: 1.4px solid color-mix(in oklch, var(--ink) 55%, transparent) !important;
   border-radius: var(--wobble-b) !important;
   overflow: hidden;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-nav-link'] {
+[data-paper-family] [data-slot='sketch-nav-link'] {
   border: 1.4px solid transparent;
   border-radius: var(--wobble-b);
   padding: 0.3rem 0.65rem;
@@ -860,20 +869,20 @@ For commercial licensing, please contact support@quantumnous.com
   text-decoration: none;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-nav-link']:hover {
+[data-paper-family] [data-slot='sketch-nav-link']:hover {
   color: var(--ink) !important;
   background: color-mix(in oklch, var(--sketch-blue) 8%, var(--paper-alt));
   border-color: color-mix(in oklch, var(--ink) 25%, transparent);
 }
 
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   [data-slot='sketch-nav-link'][data-active='true'] {
   color: var(--ink) !important;
   border-color: color-mix(in oklch, var(--ink) 55%, transparent);
   background: color-mix(in oklch, var(--sketch-blue) 10%, var(--paper-alt));
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-search'] {
+[data-paper-family] [data-slot='sketch-search'] {
   border-width: 1.6px !important;
   border-style: solid !important;
   border-color: color-mix(in oklch, var(--ink) 55%, transparent) !important;
@@ -884,20 +893,20 @@ For commercial licensing, please contact support@quantumnous.com
   box-shadow: none !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-search']:hover {
+[data-paper-family] [data-slot='sketch-search']:hover {
   background: color-mix(in oklch, var(--sketch-blue) 6%, var(--paper-alt)) !important;
   color: var(--ink) !important;
   transform: none;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-kbd'] {
+[data-paper-family] [data-slot='sketch-kbd'] {
   border: 1.2px solid color-mix(in oklch, var(--ink) 40%, transparent) !important;
   border-radius: 6px !important;
   background: color-mix(in oklch, var(--ink) 5%, var(--paper-alt)) !important;
   color: var(--ink-faint) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-theme-swatch'] {
+[data-paper-family] [data-slot='sketch-theme-swatch'] {
   border-radius: var(--wobble-b) !important;
   box-shadow: none !important;
   ring-width: 0;
@@ -905,15 +914,15 @@ For commercial licensing, please contact support@quantumnous.com
   outline-offset: 0;
 }
 
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   .group[data-checked]
   [data-slot='sketch-theme-swatch'],
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   .group[data-state='checked']
   [data-slot='sketch-theme-swatch'],
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   [data-slot='sketch-theme-swatch'].group-data-checked,
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   .group-data-checked
   > [data-slot='sketch-theme-swatch'] {
   outline: 1.6px solid var(--ink);
@@ -921,10 +930,10 @@ For commercial licensing, please contact support@quantumnous.com
 }
 
 /* Base UI / group data-checked parent */
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   [data-slot='item'][data-checked]
   [data-slot='sketch-theme-swatch'],
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   [data-checked]
   > [data-slot='sketch-theme-swatch'] {
   outline-color: var(--ink);
@@ -932,18 +941,18 @@ For commercial licensing, please contact support@quantumnous.com
 }
 
 /* ── Dashboard overview panels ────────────────────────────────────────── */
-[data-theme-preset='paper-sketch'] [data-slot='sketch-tile'] {
+[data-paper-family] [data-slot='sketch-tile'] {
   border: 1.4px solid color-mix(in oklch, var(--ink) 35%, transparent) !important;
   border-radius: var(--wobble-b) !important;
   background: color-mix(in oklch, var(--ink) 3%, var(--paper-alt)) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-panel-head'] {
+[data-paper-family] [data-slot='sketch-panel-head'] {
   border-bottom: 1.4px dashed var(--line) !important;
   background: color-mix(in oklch, var(--ink) 3%, var(--paper-alt));
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-credit-rail'] {
+[data-paper-family] [data-slot='sketch-credit-rail'] {
   background: color-mix(
     in oklch,
     var(--sketch-amber) 10%,
@@ -958,24 +967,24 @@ For commercial licensing, please contact support@quantumnous.com
  * ═══════════════════════════════════════════════════════════════════════════ */
 
 /* Model details notebook */
-[data-theme-preset='paper-sketch'] [data-slot='sketch-details-header'] h1 {
+[data-paper-family] [data-slot='sketch-details-header'] h1 {
   font-weight: 700;
   letter-spacing: 0;
   color: var(--ink);
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-section-title'] {
+[data-paper-family] [data-slot='sketch-section-title'] {
   font-size: 16px !important;
   font-weight: 700 !important;
   color: var(--ink) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-section'] {
+[data-paper-family] [data-slot='sketch-section'] {
   margin-top: 1.25rem;
 }
 
 /* Playground paper composer */
-[data-theme-preset='paper-sketch'] .gg-playground-input {
+[data-paper-family] .gg-playground-input {
   border: 1.6px solid color-mix(in oklch, var(--ink) 70%, transparent) !important;
   border-radius: var(--wobble-a) !important;
   background: var(--paper-alt) !important;
@@ -984,30 +993,30 @@ For commercial licensing, please contact support@quantumnous.com
   --tw-shadow: 0 0 #0000 !important;
 }
 
-[data-theme-preset='paper-sketch'] .gg-playground-input:focus-within {
+[data-paper-family] .gg-playground-input:focus-within {
   border-color: var(--ink) !important;
   box-shadow: 3px 5px 0 color-mix(in oklch, var(--sketch-blue) 25%, transparent) !important;
 }
 
-[data-theme-preset='paper-sketch'] .gg-playground-input-footer {
+[data-paper-family] .gg-playground-input-footer {
   border-top: 1.4px dashed var(--line) !important;
   background: color-mix(in oklch, var(--ink) 3%, var(--paper-alt)) !important;
   backdrop-filter: none !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='playground-empty'] h2 {
+[data-paper-family] [data-slot='playground-empty'] h2 {
   font-weight: 700;
   color: var(--ink);
 }
 
 /* Setup wizard paper */
-[data-theme-preset='paper-sketch'] [data-slot='setup-shell'] {
+[data-paper-family] [data-slot='setup-shell'] {
   background-color: var(--paper) !important;
   background-image: radial-gradient(var(--line) 0.8px, transparent 0.8px) !important;
   background-size: 26px 26px !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='setup-step'] {
+[data-paper-family] [data-slot='setup-step'] {
   border-width: 1.6px !important;
   border-style: solid !important;
   border-radius: var(--wobble-b) !important;
@@ -1016,43 +1025,43 @@ For commercial licensing, please contact support@quantumnous.com
   --tw-ring-shadow: 0 0 #0000 !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='setup-step'][data-active='true'] {
+[data-paper-family] [data-slot='setup-step'][data-active='true'] {
   border-color: var(--ink) !important;
   background: color-mix(in oklch, var(--sketch-blue) 10%, var(--paper-alt)) !important;
   box-shadow: 2px 3px 0 color-mix(in oklch, var(--ink) 12%, transparent) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='setup-step'][data-completed='true'] {
+[data-paper-family] [data-slot='setup-step'][data-completed='true'] {
   border-color: color-mix(in oklch, var(--sketch-teal) 55%, var(--ink)) !important;
   background: color-mix(in oklch, var(--sketch-teal) 8%, var(--paper-alt)) !important;
 }
 
 /* Profile identity strip */
-[data-theme-preset='paper-sketch'] [data-slot='sketch-stat-rail'] {
+[data-paper-family] [data-slot='sketch-stat-rail'] {
   border-top: 1.4px dashed var(--line) !important;
   background: color-mix(in oklch, var(--ink) 3%, var(--paper-alt));
 }
 
 /* Settings form */
-[data-theme-preset='paper-sketch'] [data-slot='settings-form-grid'] {
+[data-paper-family] [data-slot='settings-form-grid'] {
   color: var(--ink);
 }
 
 /* Create-flow guide (channel / API key drawers) */
-[data-theme-preset='paper-sketch'] [data-slot='create-flow-guide'] {
+[data-paper-family] [data-slot='create-flow-guide'] {
   border-bottom: 1.4px dashed var(--line);
   padding-bottom: 0.75rem;
   margin-bottom: 0.25rem;
   background: color-mix(in oklch, var(--paper) 40%, var(--paper-alt));
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='create-flow-title'] {
+[data-paper-family] [data-slot='create-flow-title'] {
   color: var(--ink-faint);
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='create-flow-step'] {
+[data-paper-family] [data-slot='create-flow-step'] {
   flex: 1 1 9rem;
   border: 1.4px solid color-mix(in oklch, var(--ink) 40%, transparent);
   border-radius: var(--wobble-b);
@@ -1060,20 +1069,20 @@ For commercial licensing, please contact support@quantumnous.com
   padding: 0.45rem 0.6rem;
 }
 
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   [data-slot='create-flow-step'][data-state='current'] {
   border-color: var(--ink);
   background: color-mix(in oklch, var(--sketch-blue) 10%, var(--paper-alt));
   box-shadow: 1px 2px 0 color-mix(in oklch, var(--ink) 10%, transparent);
 }
 
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   [data-slot='create-flow-step'][data-state='done'] {
   border-color: color-mix(in oklch, var(--sketch-teal) 50%, var(--ink));
   opacity: 0.92;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='create-flow-index'] {
+[data-paper-family] [data-slot='create-flow-index'] {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1088,7 +1097,7 @@ For commercial licensing, please contact support@quantumnous.com
   background: var(--paper-alt);
 }
 
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   [data-slot='create-flow-step'][data-state='current']
   [data-slot='create-flow-index'] {
   background: var(--ink);
@@ -1096,7 +1105,7 @@ For commercial licensing, please contact support@quantumnous.com
   border-color: var(--ink);
 }
 
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   [data-slot='create-flow-step'][data-state='done']
   [data-slot='create-flow-index'] {
   background: color-mix(in oklch, var(--sketch-teal) 18%, var(--paper-alt));
@@ -1105,7 +1114,7 @@ For commercial licensing, please contact support@quantumnous.com
   font-size: 12px;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='create-flow-label'] {
+[data-paper-family] [data-slot='create-flow-label'] {
   display: block;
   font-size: 12.5px;
   font-weight: 700;
@@ -1113,7 +1122,7 @@ For commercial licensing, please contact support@quantumnous.com
   line-height: 1.3;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='create-flow-hint'] {
+[data-paper-family] [data-slot='create-flow-hint'] {
   font-size: 11px;
   color: var(--ink-soft);
   line-height: 1.4;
@@ -1121,18 +1130,18 @@ For commercial licensing, please contact support@quantumnous.com
 }
 
 /* Side drawers: drop glass chrome */
-[data-theme-preset='paper-sketch'] .gg-side-drawer {
+[data-paper-family] .gg-side-drawer {
   background: var(--paper-alt) !important;
 }
 
-[data-theme-preset='paper-sketch'] .gg-side-drawer-header,
-[data-theme-preset='paper-sketch'] .gg-side-drawer-footer {
+[data-paper-family] .gg-side-drawer-header,
+[data-paper-family] .gg-side-drawer-footer {
   background: color-mix(in oklch, var(--paper-alt) 96%, transparent) !important;
   border-color: color-mix(in oklch, var(--ink) 40%, transparent) !important;
   backdrop-filter: none !important;
 }
 
-[data-theme-preset='paper-sketch'] .gg-side-drawer-section {
+[data-paper-family] .gg-side-drawer-section {
   border-color: color-mix(in oklch, var(--line) 90%, transparent) !important;
   border-bottom-style: dashed !important;
 }
@@ -1142,63 +1151,63 @@ For commercial licensing, please contact support@quantumnous.com
  * ═══════════════════════════════════════════════════════════════════════════ */
 
 /* ── G: Dialog overlay (paper veil, not glass blur) ───────────────────── */
-[data-theme-preset='paper-sketch'] [data-slot='dialog-overlay'],
-[data-theme-preset='paper-sketch'] [data-slot='alert-dialog-overlay'],
-[data-theme-preset='paper-sketch'] [data-slot='sheet-overlay'],
-[data-theme-preset='paper-sketch'] [data-slot='drawer-overlay'] {
+[data-paper-family] [data-slot='dialog-overlay'],
+[data-paper-family] [data-slot='alert-dialog-overlay'],
+[data-paper-family] [data-slot='sheet-overlay'],
+[data-paper-family] [data-slot='drawer-overlay'] {
   background: color-mix(in oklch, var(--ink) 28%, transparent) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='dialog-content'],
-[data-theme-preset='paper-sketch'] [data-slot='alert-dialog-content'] {
+[data-paper-family] [data-slot='dialog-content'],
+[data-paper-family] [data-slot='alert-dialog-content'] {
   border-radius: var(--wobble-a) !important;
   box-shadow: 4px 6px 0 color-mix(in oklch, var(--ink) 14%, transparent) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='dialog-header'],
-[data-theme-preset='paper-sketch'] [data-slot='alert-dialog-header'],
-[data-theme-preset='paper-sketch'] [data-slot='sheet-header'] {
+[data-paper-family] [data-slot='dialog-header'],
+[data-paper-family] [data-slot='alert-dialog-header'],
+[data-paper-family] [data-slot='sheet-header'] {
   border-bottom: 1.4px dashed var(--line);
   padding-bottom: 0.75rem;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='dialog-footer'],
-[data-theme-preset='paper-sketch'] [data-slot='alert-dialog-footer'],
-[data-theme-preset='paper-sketch'] [data-slot='sheet-footer'] {
+[data-paper-family] [data-slot='dialog-footer'],
+[data-paper-family] [data-slot='alert-dialog-footer'],
+[data-paper-family] [data-slot='sheet-footer'] {
   border-top: 1.4px dashed var(--line);
   background: color-mix(in oklch, var(--ink) 3%, var(--paper-alt)) !important;
   backdrop-filter: none !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='dialog-title'],
-[data-theme-preset='paper-sketch'] [data-slot='alert-dialog-title'],
-[data-theme-preset='paper-sketch'] [data-slot='sheet-title'] {
+[data-paper-family] [data-slot='dialog-title'],
+[data-paper-family] [data-slot='alert-dialog-title'],
+[data-paper-family] [data-slot='sheet-title'] {
   color: var(--ink) !important;
   font-weight: 700 !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='dialog-description'],
-[data-theme-preset='paper-sketch'] [data-slot='alert-dialog-description'],
-[data-theme-preset='paper-sketch'] [data-slot='sheet-description'] {
+[data-paper-family] [data-slot='dialog-description'],
+[data-paper-family] [data-slot='alert-dialog-description'],
+[data-paper-family] [data-slot='sheet-description'] {
   color: var(--ink-soft) !important;
 }
 
 /* Command palette */
-[data-theme-preset='paper-sketch'] [data-slot='command'] {
+[data-paper-family] [data-slot='command'] {
   border-radius: var(--wobble-a) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='command-input-wrapper'] {
+[data-paper-family] [data-slot='command-input-wrapper'] {
   border-bottom: 1.4px dashed var(--line);
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='command-input'] {
+[data-paper-family] [data-slot='command-input'] {
   color: var(--ink) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='command-group-heading'] {
+[data-paper-family] [data-slot='command-group-heading'] {
   color: var(--ink-faint) !important;
   font-weight: 700 !important;
   letter-spacing: 0.04em;
@@ -1206,52 +1215,52 @@ For commercial licensing, please contact support@quantumnous.com
   font-size: 11px !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='command-separator'] {
+[data-paper-family] [data-slot='command-separator'] {
   background: var(--line) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='command-empty'] {
+[data-paper-family] [data-slot='command-empty'] {
   color: var(--ink-soft) !important;
 }
 
 /* Dropdown / context menus */
-[data-theme-preset='paper-sketch'] [data-slot='dropdown-menu-item'],
-[data-theme-preset='paper-sketch'] [data-slot='context-menu-item'],
-[data-theme-preset='paper-sketch'] [data-slot='select-item'] {
+[data-paper-family] [data-slot='dropdown-menu-item'],
+[data-paper-family] [data-slot='context-menu-item'],
+[data-paper-family] [data-slot='select-item'] {
   border-radius: var(--wobble-b) !important;
   color: var(--ink);
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='dropdown-menu-item'][data-highlighted],
-[data-theme-preset='paper-sketch'] [data-slot='dropdown-menu-item'][data-selected],
-[data-theme-preset='paper-sketch'] [data-slot='context-menu-item'][data-highlighted],
-[data-theme-preset='paper-sketch'] [data-slot='select-item'][data-highlighted],
-[data-theme-preset='paper-sketch'] [data-slot='select-item'][data-selected] {
+[data-paper-family] [data-slot='dropdown-menu-item'][data-highlighted],
+[data-paper-family] [data-slot='dropdown-menu-item'][data-selected],
+[data-paper-family] [data-slot='context-menu-item'][data-highlighted],
+[data-paper-family] [data-slot='select-item'][data-highlighted],
+[data-paper-family] [data-slot='select-item'][data-selected] {
   background: color-mix(in oklch, var(--sketch-blue) 12%, var(--paper-alt)) !important;
   color: var(--ink) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='dropdown-menu-separator'],
-[data-theme-preset='paper-sketch'] [data-slot='context-menu-separator'] {
+[data-paper-family] [data-slot='dropdown-menu-separator'],
+[data-paper-family] [data-slot='context-menu-separator'] {
   background: var(--line) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='dropdown-menu-label'],
-[data-theme-preset='paper-sketch'] [data-slot='context-menu-label'] {
+[data-paper-family] [data-slot='dropdown-menu-label'],
+[data-paper-family] [data-slot='context-menu-label'] {
   color: var(--ink-faint) !important;
   font-weight: 700 !important;
 }
 
 /* Sidebar rail polish */
-[data-theme-preset='paper-sketch'] [data-slot='sidebar-rail'] {
+[data-paper-family] [data-slot='sidebar-rail'] {
   background: transparent !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sidebar-separator'] {
+[data-paper-family] [data-slot='sidebar-separator'] {
   background: var(--line) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sidebar-input'] {
+[data-paper-family] [data-slot='sidebar-input'] {
   border: 1.4px solid color-mix(in oklch, var(--ink) 45%, transparent) !important;
   border-radius: var(--wobble-b) !important;
   background: var(--paper-alt) !important;
@@ -1259,11 +1268,11 @@ For commercial licensing, please contact support@quantumnous.com
 }
 
 /* ── H: Ratio / pricing visual editors ────────────────────────────────── */
-[data-theme-preset='paper-sketch'] [data-slot='sketch-ratio-editor'] {
+[data-paper-family] [data-slot='sketch-ratio-editor'] {
   color: var(--ink);
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-ratio-section'] {
+[data-paper-family] [data-slot='sketch-ratio-section'] {
   border: 1.6px solid color-mix(in oklch, var(--ink) 55%, transparent) !important;
   border-radius: var(--wobble-a) !important;
   background: var(--paper-alt) !important;
@@ -1271,19 +1280,19 @@ For commercial licensing, please contact support@quantumnous.com
   overflow: hidden;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-ratio-section'] > [data-slot='card-header'],
-[data-theme-preset='paper-sketch'] [data-slot='sketch-ratio-head'] {
+[data-paper-family] [data-slot='sketch-ratio-section'] > [data-slot='card-header'],
+[data-paper-family] [data-slot='sketch-ratio-head'] {
   border-bottom: 1.4px dashed var(--line) !important;
   background: color-mix(in oklch, var(--ink) 3%, var(--paper-alt)) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-ratio-row'] {
+[data-paper-family] [data-slot='sketch-ratio-row'] {
   border: 1.4px solid color-mix(in oklch, var(--ink) 35%, transparent) !important;
   border-radius: var(--wobble-b) !important;
   background: color-mix(in oklch, var(--ink) 2%, var(--paper-alt)) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-ratio-chip'] {
+[data-paper-family] [data-slot='sketch-ratio-chip'] {
   border: 1.2px solid color-mix(in oklch, var(--ink) 40%, transparent);
   border-radius: var(--wobble-b);
   background: color-mix(in oklch, var(--sketch-blue) 8%, var(--paper-alt));
@@ -1294,14 +1303,14 @@ For commercial licensing, please contact support@quantumnous.com
 }
 
 /* ── I: Secure verification / models guard / system-info ──────────────── */
-[data-theme-preset='paper-sketch'] [data-slot='sketch-verify-icon'] {
+[data-paper-family] [data-slot='sketch-verify-icon'] {
   border: 1.6px solid color-mix(in oklch, var(--ink) 50%, transparent);
   border-radius: var(--wobble-a);
   background: color-mix(in oklch, var(--sketch-blue) 10%, var(--paper-alt));
   color: var(--ink);
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-guard'] {
+[data-paper-family] [data-slot='sketch-guard'] {
   border: 1.6px solid color-mix(in oklch, var(--ink) 55%, transparent);
   border-radius: var(--wobble-a);
   background: var(--paper-alt);
@@ -1309,20 +1318,20 @@ For commercial licensing, please contact support@quantumnous.com
   padding: 1.75rem 1.5rem;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-guard-icon'] {
+[data-paper-family] [data-slot='sketch-guard-icon'] {
   border: 1.6px solid color-mix(in oklch, var(--ink) 45%, transparent);
   border-radius: var(--wobble-a);
   background: color-mix(in oklch, var(--sketch-amber) 12%, var(--paper-alt));
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-guard-step'] {
+[data-paper-family] [data-slot='sketch-guard-step'] {
   border: 1.4px solid color-mix(in oklch, var(--ink) 30%, transparent);
   border-radius: var(--wobble-b);
   background: color-mix(in oklch, var(--ink) 2%, var(--paper-alt));
   padding: 0.45rem 0.65rem;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-sys-panel'] {
+[data-paper-family] [data-slot='sketch-sys-panel'] {
   border: 1.6px solid color-mix(in oklch, var(--ink) 55%, transparent) !important;
   border-radius: var(--wobble-a) !important;
   background: var(--paper-alt) !important;
@@ -1330,7 +1339,7 @@ For commercial licensing, please contact support@quantumnous.com
 }
 
 /* ── J: Chat / wallet / errors / about ────────────────────────────────── */
-[data-theme-preset='paper-sketch'] [data-slot='sketch-error-page'] {
+[data-paper-family] [data-slot='sketch-error-page'] {
   min-height: 100svh;
   display: grid;
   place-items: center;
@@ -1341,7 +1350,7 @@ For commercial licensing, please contact support@quantumnous.com
   color: var(--ink);
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-error-card'] {
+[data-paper-family] [data-slot='sketch-error-card'] {
   width: min(100%, 32rem);
   border: 1.6px solid color-mix(in oklch, var(--ink) 70%, transparent);
   border-radius: var(--wobble-a);
@@ -1351,7 +1360,7 @@ For commercial licensing, please contact support@quantumnous.com
   text-align: center;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-error-code'] {
+[data-paper-family] [data-slot='sketch-error-code'] {
   font-size: clamp(3.5rem, 12vw, 6rem);
   line-height: 1;
   font-weight: 700;
@@ -1360,7 +1369,7 @@ For commercial licensing, please contact support@quantumnous.com
   margin-bottom: 0.5rem;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-chat-empty'] {
+[data-paper-family] [data-slot='sketch-chat-empty'] {
   border: 1.6px dashed color-mix(in oklch, var(--ink) 45%, transparent);
   border-radius: var(--wobble-a);
   background: color-mix(in oklch, var(--ink) 2%, var(--paper-alt));
@@ -1368,15 +1377,15 @@ For commercial licensing, please contact support@quantumnous.com
   text-align: center;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-wallet-stat'] {
+[data-paper-family] [data-slot='sketch-wallet-stat'] {
   border-right: 1.4px dashed var(--line);
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-wallet-stat']:last-child {
+[data-paper-family] [data-slot='sketch-wallet-stat']:last-child {
   border-right: none;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-about-empty'] {
+[data-paper-family] [data-slot='sketch-about-empty'] {
   border: 1.6px solid color-mix(in oklch, var(--ink) 55%, transparent);
   border-radius: var(--wobble-a);
   background: var(--paper-alt);
@@ -1387,50 +1396,50 @@ For commercial licensing, please contact support@quantumnous.com
 }
 
 /* ── K: Empty states + chart notebook frame ───────────────────────────── */
-[data-theme-preset='paper-sketch'] [data-slot='empty'] {
+[data-paper-family] [data-slot='empty'] {
   border: 1.6px dashed color-mix(in oklch, var(--ink) 45%, transparent) !important;
   border-radius: var(--wobble-a) !important;
   background: color-mix(in oklch, var(--ink) 2%, var(--paper-alt)) !important;
   color: var(--ink);
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='empty-icon'][data-variant='icon'] {
+[data-paper-family] [data-slot='empty-icon'][data-variant='icon'] {
   border: 1.4px solid color-mix(in oklch, var(--ink) 40%, transparent) !important;
   border-radius: var(--wobble-b) !important;
   background: color-mix(in oklch, var(--sketch-blue) 8%, var(--paper-alt)) !important;
   color: var(--ink) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='empty-title'] {
+[data-paper-family] [data-slot='empty-title'] {
   color: var(--ink) !important;
   font-weight: 700 !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-pricing-empty'] {
+[data-paper-family] [data-slot='sketch-pricing-empty'] {
   border: 1.6px dashed color-mix(in oklch, var(--ink) 45%, transparent) !important;
   border-radius: var(--wobble-a) !important;
   background: color-mix(in oklch, var(--ink) 2%, var(--paper-alt)) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='chart'] {
+[data-paper-family] [data-slot='chart'] {
   border: 1.4px solid color-mix(in oklch, var(--ink) 35%, transparent);
   border-radius: var(--wobble-b);
   background: color-mix(in oklch, var(--ink) 2%, var(--paper-alt));
   padding: 0.5rem;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='chart'] .recharts-cartesian-grid line,
-[data-theme-preset='paper-sketch'] [data-slot='chart'] .recharts-polar-grid line {
+[data-paper-family] [data-slot='chart'] .recharts-cartesian-grid line,
+[data-paper-family] [data-slot='chart'] .recharts-polar-grid line {
   stroke: color-mix(in oklch, var(--ink) 18%, transparent) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='chart'] .recharts-text,
-[data-theme-preset='paper-sketch'] [data-slot='chart'] .recharts-legend-item-text {
+[data-paper-family] [data-slot='chart'] .recharts-text,
+[data-paper-family] [data-slot='chart'] .recharts-legend-item-text {
   fill: var(--ink-soft) !important;
   font-family: var(--font-body, var(--font-hand)) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='chart'] .recharts-tooltip-wrapper .recharts-default-tooltip {
+[data-paper-family] [data-slot='chart'] .recharts-tooltip-wrapper .recharts-default-tooltip {
   border: 1.4px solid color-mix(in oklch, var(--ink) 55%, transparent) !important;
   border-radius: 10px !important;
   background: var(--paper-alt) !important;
@@ -1438,19 +1447,19 @@ For commercial licensing, please contact support@quantumnous.com
 }
 
 /* Create-flow step clickable affordance */
-[data-theme-preset='paper-sketch'] [data-slot='create-flow-step'][data-clickable='true'] {
+[data-paper-family] [data-slot='create-flow-step'][data-clickable='true'] {
   cursor: pointer;
   transition:
     border-color 0.15s var(--ease-sketch),
     background-color 0.15s var(--ease-sketch);
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='create-flow-step'][data-clickable='true']:hover {
+[data-paper-family] [data-slot='create-flow-step'][data-clickable='true']:hover {
   border-color: color-mix(in oklch, var(--ink) 70%, transparent);
   background: color-mix(in oklch, var(--sketch-blue) 6%, var(--paper-alt));
 }
 
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   [data-slot='create-flow-step'][data-state='todo'] {
   opacity: 0.72;
 }
@@ -1460,11 +1469,11 @@ For commercial licensing, please contact support@quantumnous.com
  * ═══════════════════════════════════════════════════════════════════════════ */
 
 /* ── L: Usage logs ────────────────────────────────────────────────────── */
-[data-theme-preset='paper-sketch'] [data-slot='sketch-log-stats'] {
+[data-paper-family] [data-slot='sketch-log-stats'] {
   gap: 0.5rem;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-log-stat'] {
+[data-paper-family] [data-slot='sketch-log-stat'] {
   border: 1.4px solid color-mix(in oklch, var(--ink) 45%, transparent) !important;
   border-radius: var(--wobble-b) !important;
   background: color-mix(in oklch, var(--ink) 3%, var(--paper-alt)) !important;
@@ -1474,30 +1483,30 @@ For commercial licensing, please contact support@quantumnous.com
   padding: 0.25rem 0.55rem !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-log-stat'][data-tone='usage'] {
+[data-paper-family] [data-slot='sketch-log-stat'][data-tone='usage'] {
   background: color-mix(in oklch, var(--sketch-blue) 10%, var(--paper-alt)) !important;
   border-color: color-mix(in oklch, var(--sketch-blue) 40%, var(--ink)) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-log-stat'][data-tone='rpm'] {
+[data-paper-family] [data-slot='sketch-log-stat'][data-tone='rpm'] {
   background: color-mix(in oklch, var(--sketch-amber) 10%, var(--paper-alt)) !important;
   border-color: color-mix(in oklch, var(--sketch-amber) 40%, var(--ink)) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-log-stat'][data-tone='tpm'] {
+[data-paper-family] [data-slot='sketch-log-stat'][data-tone='tpm'] {
   background: color-mix(in oklch, var(--sketch-teal) 10%, var(--paper-alt)) !important;
   border-color: color-mix(in oklch, var(--sketch-teal) 40%, var(--ink)) !important;
 }
 
 /* Usage logs mobile cards (data-table-card inside log pages) */
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   [data-slot='section-page']
   [data-slot='data-table-card'] {
   border-bottom: 1.4px dashed var(--line) !important;
   background: color-mix(in oklch, var(--ink) 2%, var(--paper-alt)) !important;
 }
 
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   [data-slot='section-page']
   [data-slot='data-table-frame'] {
   border: 1.6px solid color-mix(in oklch, var(--ink) 55%, transparent) !important;
@@ -1508,80 +1517,80 @@ For commercial licensing, please contact support@quantumnous.com
 }
 
 /* Log detail dialogs inherit dialog-content; tighten body code blocks */
-[data-theme-preset='paper-sketch'] [data-slot='sketch-log-detail'] pre,
-[data-theme-preset='paper-sketch'] [data-slot='sketch-log-detail'] code {
+[data-paper-family] [data-slot='sketch-log-detail'] pre,
+[data-paper-family] [data-slot='sketch-log-detail'] code {
   border-radius: 10px;
   background: color-mix(in oklch, var(--ink) 4%, var(--paper-alt));
 }
 
 /* ── M: Admin tables (users / redemption / subscriptions) ─────────────── */
-[data-theme-preset='paper-sketch'] [data-slot='sketch-mutate-drawer'] {
+[data-paper-family] [data-slot='sketch-mutate-drawer'] {
   /* already covered by sheet + gg-side-drawer; ensure solid paper */
   background: var(--paper-alt) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-admin-page'] {
+[data-paper-family] [data-slot='sketch-admin-page'] {
   color: var(--ink);
 }
 
 /* ── N: Wallet cashier ────────────────────────────────────────────────── */
-[data-theme-preset='paper-sketch'] [data-slot='sketch-wallet-card'],
-[data-theme-preset='paper-sketch'] [data-slot='titled-card'] {
+[data-paper-family] [data-slot='sketch-wallet-card'],
+[data-paper-family] [data-slot='titled-card'] {
   border: 1.6px solid color-mix(in oklch, var(--ink) 60%, transparent) !important;
   border-radius: var(--wobble-a) !important;
   background: var(--paper-alt) !important;
   box-shadow: 2px 3px 0 color-mix(in oklch, var(--ink) 10%, transparent) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-wallet-card'] [data-slot='card-header'],
-[data-theme-preset='paper-sketch'] [data-slot='titled-card'] > :first-child {
+[data-paper-family] [data-slot='sketch-wallet-card'] [data-slot='card-header'],
+[data-paper-family] [data-slot='titled-card'] > :first-child {
   border-bottom: 1.4px dashed var(--line);
   background: color-mix(in oklch, var(--ink) 3%, var(--paper-alt));
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-pay-preset'] {
+[data-paper-family] [data-slot='sketch-pay-preset'] {
   border: 1.4px solid color-mix(in oklch, var(--ink) 40%, transparent) !important;
   border-radius: var(--wobble-b) !important;
   background: color-mix(in oklch, var(--ink) 2%, var(--paper-alt)) !important;
   box-shadow: none !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-pay-preset'][data-selected='true'],
-[data-theme-preset='paper-sketch'] [data-slot='sketch-pay-preset'][aria-pressed='true'] {
+[data-paper-family] [data-slot='sketch-pay-preset'][data-selected='true'],
+[data-paper-family] [data-slot='sketch-pay-preset'][aria-pressed='true'] {
   border-color: var(--ink) !important;
   background: color-mix(in oklch, var(--sketch-blue) 12%, var(--paper-alt)) !important;
   box-shadow: 2px 3px 0 color-mix(in oklch, var(--ink) 10%, transparent) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-pay-method'] {
+[data-paper-family] [data-slot='sketch-pay-method'] {
   border: 1.4px solid color-mix(in oklch, var(--ink) 45%, transparent) !important;
   border-radius: var(--wobble-b) !important;
   background: var(--paper-alt) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-pay-method']:hover:not(:disabled) {
+[data-paper-family] [data-slot='sketch-pay-method']:hover:not(:disabled) {
   background: color-mix(in oklch, var(--sketch-blue) 8%, var(--paper-alt)) !important;
   border-color: color-mix(in oklch, var(--ink) 70%, transparent) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-plan-tile'] {
+[data-paper-family] [data-slot='sketch-plan-tile'] {
   border: 1.6px solid color-mix(in oklch, var(--ink) 50%, transparent) !important;
   border-radius: var(--wobble-a) !important;
   background: var(--paper-alt) !important;
   box-shadow: 2px 3px 0 color-mix(in oklch, var(--ink) 8%, transparent) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-plan-tile'][data-active='true'] {
+[data-paper-family] [data-slot='sketch-plan-tile'][data-active='true'] {
   border-color: var(--ink) !important;
   background: color-mix(in oklch, var(--sketch-teal) 8%, var(--paper-alt)) !important;
 }
 
 /* ── O: Playground messages ───────────────────────────────────────────── */
-[data-theme-preset='paper-sketch'] [data-slot='sketch-playground-chat'] {
+[data-paper-family] [data-slot='sketch-playground-chat'] {
   color: var(--ink);
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-msg-user'] {
+[data-paper-family] [data-slot='sketch-msg-user'] {
   border: 1.6px solid color-mix(in oklch, var(--ink) 55%, transparent) !important;
   border-radius: var(--wobble-a) !important;
   background: color-mix(in oklch, var(--sketch-blue) 10%, var(--paper-alt)) !important;
@@ -1589,13 +1598,13 @@ For commercial licensing, please contact support@quantumnous.com
   color: var(--ink) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-msg-assistant'] {
+[data-paper-family] [data-slot='sketch-msg-assistant'] {
   border-left: 2.5px solid color-mix(in oklch, var(--ink) 35%, transparent);
   padding-left: 0.85rem;
   color: var(--ink) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-msg-meta'] {
+[data-paper-family] [data-slot='sketch-msg-meta'] {
   color: var(--ink-faint) !important;
   font-size: 11.5px;
   border-top: 1px dashed var(--line);
@@ -1603,15 +1612,15 @@ For commercial licensing, please contact support@quantumnous.com
   padding-top: 0.25rem;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-msg-error'] {
+[data-paper-family] [data-slot='sketch-msg-error'] {
   border: 1.4px solid color-mix(in oklch, var(--sketch-red) 50%, var(--ink)) !important;
   border-radius: var(--wobble-b) !important;
   background: color-mix(in oklch, var(--sketch-red) 8%, var(--paper-alt)) !important;
 }
 
 /* Reasoning / sources panels in playground */
-[data-theme-preset='paper-sketch'] [data-slot='sketch-playground-chat'] [data-slot='collapsible'],
-[data-theme-preset='paper-sketch'] [data-slot='sketch-playground-chat'] details {
+[data-paper-family] [data-slot='sketch-playground-chat'] [data-slot='collapsible'],
+[data-paper-family] [data-slot='sketch-playground-chat'] details {
   border: 1.2px dashed color-mix(in oklch, var(--ink) 35%, transparent);
   border-radius: var(--wobble-b);
   background: color-mix(in oklch, var(--ink) 2%, var(--paper-alt));
@@ -1619,8 +1628,8 @@ For commercial licensing, please contact support@quantumnous.com
 }
 
 /* ── P: System settings sections ──────────────────────────────────────── */
-[data-theme-preset='paper-sketch'] [data-slot='settings-card'],
-[data-theme-preset='paper-sketch'] [data-slot='sketch-settings-card'] {
+[data-paper-family] [data-slot='settings-card'],
+[data-paper-family] [data-slot='sketch-settings-card'] {
   border: 1.6px solid color-mix(in oklch, var(--ink) 55%, transparent) !important;
   border-radius: var(--wobble-a) !important;
   background: var(--paper-alt) !important;
@@ -1628,41 +1637,41 @@ For commercial licensing, please contact support@quantumnous.com
   overflow: hidden;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='settings-card'] > [data-slot='card-header'],
-[data-theme-preset='paper-sketch'] [data-slot='sketch-settings-card'] > [data-slot='card-header'] {
+[data-paper-family] [data-slot='settings-card'] > [data-slot='card-header'],
+[data-paper-family] [data-slot='sketch-settings-card'] > [data-slot='card-header'] {
   border-bottom: 1.4px dashed var(--line) !important;
   background: color-mix(in oklch, var(--ink) 3%, var(--paper-alt)) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='settings-section-title'] {
+[data-paper-family] [data-slot='settings-section-title'] {
   font-weight: 700 !important;
   color: var(--ink) !important;
   letter-spacing: 0;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='settings-control-group'] {
+[data-paper-family] [data-slot='settings-control-group'] {
   border: 1.4px solid color-mix(in oklch, var(--ink) 40%, transparent) !important;
   border-radius: var(--wobble-b) !important;
   background: color-mix(in oklch, var(--ink) 3%, var(--paper-alt)) !important;
   box-shadow: none !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='settings-accordion'],
-[data-theme-preset='paper-sketch'] [data-slot='accordion'] {
+[data-paper-family] [data-slot='settings-accordion'],
+[data-paper-family] [data-slot='accordion'] {
   border-color: color-mix(in oklch, var(--ink) 40%, transparent);
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='accordion-item'] {
+[data-paper-family] [data-slot='accordion-item'] {
   border-color: color-mix(in oklch, var(--ink) 30%, transparent) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='accordion-trigger'] {
+[data-paper-family] [data-slot='accordion-trigger'] {
   color: var(--ink) !important;
   font-weight: 600;
 }
 
 /* Settings dirty / save bar */
-[data-theme-preset='paper-sketch'] [data-slot='sketch-settings-dirty'] {
+[data-paper-family] [data-slot='sketch-settings-dirty'] {
   border: 1.4px solid color-mix(in oklch, var(--sketch-amber) 45%, var(--ink));
   border-radius: var(--wobble-b);
   background: color-mix(in oklch, var(--sketch-amber) 10%, var(--paper-alt));
@@ -1673,20 +1682,20 @@ For commercial licensing, please contact support@quantumnous.com
  * ═══════════════════════════════════════════════════════════════════════════ */
 
 /* ── Q: Channel & API key list cards ──────────────────────────────────── */
-[data-theme-preset='paper-sketch'] [data-slot='sketch-channel-card'],
-[data-theme-preset='paper-sketch'] [data-slot='sketch-key-card'] {
+[data-paper-family] [data-slot='sketch-channel-card'],
+[data-paper-family] [data-slot='sketch-key-card'] {
   color: var(--ink);
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-channel-card'] [data-slot='sketch-card-meta'],
-[data-theme-preset='paper-sketch'] [data-slot='sketch-key-card'] [data-slot='sketch-card-meta'] {
+[data-paper-family] [data-slot='sketch-channel-card'] [data-slot='sketch-card-meta'],
+[data-paper-family] [data-slot='sketch-key-card'] [data-slot='sketch-card-meta'] {
   border-top: 1.4px dashed var(--line);
   margin-top: 0.5rem;
   padding-top: 0.55rem;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-status-chip'],
-[data-theme-preset='paper-sketch'] [data-slot='status-badge'] {
+[data-paper-family] [data-slot='sketch-status-chip'],
+[data-paper-family] [data-slot='status-badge'] {
   border: 1.2px solid color-mix(in oklch, var(--ink) 40%, transparent) !important;
   border-radius: var(--wobble-b) !important;
   background: color-mix(in oklch, var(--ink) 4%, var(--paper-alt)) !important;
@@ -1694,29 +1703,29 @@ For commercial licensing, please contact support@quantumnous.com
   font-weight: 600;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='status-badge'][data-variant='success'] {
+[data-paper-family] [data-slot='status-badge'][data-variant='success'] {
   background: color-mix(in oklch, var(--sketch-teal) 12%, var(--paper-alt)) !important;
   border-color: color-mix(in oklch, var(--sketch-teal) 45%, var(--ink)) !important;
   color: var(--ink) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='status-badge'][data-variant='warning'] {
+[data-paper-family] [data-slot='status-badge'][data-variant='warning'] {
   background: color-mix(in oklch, var(--sketch-amber) 12%, var(--paper-alt)) !important;
   border-color: color-mix(in oklch, var(--sketch-amber) 45%, var(--ink)) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='status-badge'][data-variant='destructive'] {
+[data-paper-family] [data-slot='status-badge'][data-variant='destructive'] {
   background: color-mix(in oklch, var(--sketch-red) 10%, var(--paper-alt)) !important;
   border-color: color-mix(in oklch, var(--sketch-red) 45%, var(--ink)) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='status-badge'][data-variant='info'] {
+[data-paper-family] [data-slot='status-badge'][data-variant='info'] {
   background: color-mix(in oklch, var(--sketch-blue) 12%, var(--paper-alt)) !important;
   border-color: color-mix(in oklch, var(--sketch-blue) 40%, var(--ink)) !important;
 }
 
 /* Selected card grid tiles */
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   [data-slot='data-table-card'][data-state='selected'] {
   background: color-mix(in oklch, var(--sketch-blue) 8%, var(--paper-alt)) !important;
   box-shadow: inset 3px 0 0 var(--ink);
@@ -1725,107 +1734,107 @@ For commercial licensing, please contact support@quantumnous.com
 /* Primary action buttons on list pages stay sketch via global button rules */
 
 /* ── R: Profile card group ────────────────────────────────────────────── */
-[data-theme-preset='paper-sketch'] [data-slot='sketch-profile-card'],
-[data-theme-preset='paper-sketch'] [data-slot='sketch-panel'] {
+[data-paper-family] [data-slot='sketch-profile-card'],
+[data-paper-family] [data-slot='sketch-panel'] {
   border: 1.6px solid color-mix(in oklch, var(--ink) 55%, transparent) !important;
   border-radius: var(--wobble-a) !important;
   background: var(--paper-alt) !important;
   box-shadow: 2px 3px 0 color-mix(in oklch, var(--ink) 10%, transparent) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-profile-card'] [data-slot='card-header'],
-[data-theme-preset='paper-sketch'] [data-slot='sketch-profile-card'] > [data-slot='card-header'] {
+[data-paper-family] [data-slot='sketch-profile-card'] [data-slot='card-header'],
+[data-paper-family] [data-slot='sketch-profile-card'] > [data-slot='card-header'] {
   border-bottom: 1.4px dashed var(--line) !important;
   background: color-mix(in oklch, var(--ink) 3%, var(--paper-alt)) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-profile-row'] {
+[data-paper-family] [data-slot='sketch-profile-row'] {
   border-bottom: 1.4px dashed var(--line);
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-profile-row']:last-child {
+[data-paper-family] [data-slot='sketch-profile-row']:last-child {
   border-bottom: none;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-stat-rail'] {
+[data-paper-family] [data-slot='sketch-stat-rail'] {
   border-top: 1.4px dashed var(--line) !important;
   background: color-mix(in oklch, var(--ink) 3%, var(--paper-alt));
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-checkin-day'] {
+[data-paper-family] [data-slot='sketch-checkin-day'] {
   border: 1.2px solid color-mix(in oklch, var(--ink) 30%, transparent);
   border-radius: var(--wobble-b);
   background: color-mix(in oklch, var(--ink) 2%, var(--paper-alt));
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-checkin-day'][data-checked='true'] {
+[data-paper-family] [data-slot='sketch-checkin-day'][data-checked='true'] {
   border-color: color-mix(in oklch, var(--sketch-teal) 50%, var(--ink));
   background: color-mix(in oklch, var(--sketch-teal) 12%, var(--paper-alt));
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-checkin-day'][data-today='true'] {
+[data-paper-family] [data-slot='sketch-checkin-day'][data-today='true'] {
   border-color: var(--ink);
   box-shadow: 1px 2px 0 color-mix(in oklch, var(--ink) 10%, transparent);
 }
 
 /* ── T: Confirm / Notification / MultiSelect / Profile menu ───────────── */
-[data-theme-preset='paper-sketch'] [data-slot='sketch-confirm'] {
+[data-paper-family] [data-slot='sketch-confirm'] {
   border: 1.6px solid color-mix(in oklch, var(--ink) 70%, transparent) !important;
   border-radius: var(--wobble-a) !important;
   background: var(--paper-alt) !important;
   box-shadow: 4px 6px 0 color-mix(in oklch, var(--ink) 14%, transparent) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-confirm'] [data-slot='alert-dialog-header'],
-[data-theme-preset='paper-sketch'] [data-slot='sketch-confirm'] [data-slot='alert-dialog-footer'] {
+[data-paper-family] [data-slot='sketch-confirm'] [data-slot='alert-dialog-header'],
+[data-paper-family] [data-slot='sketch-confirm'] [data-slot='alert-dialog-footer'] {
   border-color: var(--line);
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-notify-trigger'] {
+[data-paper-family] [data-slot='sketch-notify-trigger'] {
   border: 1.4px solid transparent;
   border-radius: var(--wobble-b);
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-notify-trigger']:hover {
+[data-paper-family] [data-slot='sketch-notify-trigger']:hover {
   border-color: color-mix(in oklch, var(--ink) 35%, transparent);
   background: color-mix(in oklch, var(--sketch-blue) 8%, var(--paper-alt));
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-notify-panel'] {
+[data-paper-family] [data-slot='sketch-notify-panel'] {
   border: 1.6px solid color-mix(in oklch, var(--ink) 60%, transparent) !important;
   border-radius: var(--wobble-a) !important;
   background: var(--paper-alt) !important;
   box-shadow: 3px 4px 0 color-mix(in oklch, var(--ink) 12%, transparent) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-notify-item'] {
+[data-paper-family] [data-slot='sketch-notify-item'] {
   border: 1.2px solid color-mix(in oklch, var(--ink) 28%, transparent);
   border-radius: var(--wobble-b);
   background: color-mix(in oklch, var(--ink) 2%, var(--paper-alt));
   padding: 0.55rem 0.65rem;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-notify-item'][data-unread='true'] {
+[data-paper-family] [data-slot='sketch-notify-item'][data-unread='true'] {
   border-color: color-mix(in oklch, var(--sketch-blue) 45%, var(--ink));
   background: color-mix(in oklch, var(--sketch-blue) 8%, var(--paper-alt));
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-profile-menu'] {
+[data-paper-family] [data-slot='sketch-profile-menu'] {
   border: 1.6px solid color-mix(in oklch, var(--ink) 60%, transparent) !important;
   border-radius: var(--wobble-a) !important;
   background: var(--paper-alt) !important;
   box-shadow: 3px 4px 0 color-mix(in oklch, var(--ink) 12%, transparent) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-profile-menu-head'] {
+[data-paper-family] [data-slot='sketch-profile-menu-head'] {
   border-bottom: 1.4px dashed var(--line);
   margin-bottom: 0.25rem;
   padding-bottom: 0.5rem;
 }
 
 /* Multi-select chips */
-[data-theme-preset='paper-sketch'] [data-slot='combobox-chip'],
-[data-theme-preset='paper-sketch'] [data-slot='sketch-chip'] {
+[data-paper-family] [data-slot='combobox-chip'],
+[data-paper-family] [data-slot='sketch-chip'] {
   border: 1.2px solid color-mix(in oklch, var(--ink) 45%, transparent) !important;
   border-radius: var(--wobble-b) !important;
   background: color-mix(in oklch, var(--sketch-blue) 8%, var(--paper-alt)) !important;
@@ -1833,8 +1842,8 @@ For commercial licensing, please contact support@quantumnous.com
   box-shadow: none !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='combobox-chips'],
-[data-theme-preset='paper-sketch'] [data-slot='sketch-multi-select'] {
+[data-paper-family] [data-slot='combobox-chips'],
+[data-paper-family] [data-slot='sketch-multi-select'] {
   border: 1.6px solid color-mix(in oklch, var(--ink) 50%, transparent) !important;
   border-radius: var(--wobble-b) !important;
   background: var(--paper-alt) !important;
@@ -1842,7 +1851,7 @@ For commercial licensing, please contact support@quantumnous.com
 }
 
 /* Risk acknowledgement body */
-[data-theme-preset='paper-sketch'] [data-slot='sketch-risk-check'] {
+[data-paper-family] [data-slot='sketch-risk-check'] {
   border: 1.4px solid color-mix(in oklch, var(--sketch-amber) 40%, var(--ink));
   border-radius: var(--wobble-b);
   background: color-mix(in oklch, var(--sketch-amber) 8%, var(--paper-alt));
@@ -1850,12 +1859,12 @@ For commercial licensing, please contact support@quantumnous.com
 }
 
 /* DateTime picker popover inherits popover-content; tighten calendar cells */
-[data-theme-preset='paper-sketch'] [data-slot='calendar'] {
+[data-paper-family] [data-slot='calendar'] {
   --cell-size: 2rem;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='calendar'] button[data-selected-single='true'],
-[data-theme-preset='paper-sketch'] [data-slot='calendar'] [data-selected='true'] {
+[data-paper-family] [data-slot='calendar'] button[data-selected-single='true'],
+[data-paper-family] [data-slot='calendar'] [data-selected='true'] {
   background: var(--ink) !important;
   color: var(--paper-alt) !important;
   border-radius: var(--wobble-b) !important;
@@ -1868,8 +1877,8 @@ For commercial licensing, please contact support@quantumnous.com
  * ═══════════════════════════════════════════════════════════════════════════ */
 
 /* ── U: Dashboard chart notebook frames ───────────────────────────────── */
-[data-theme-preset='paper-sketch'] [data-slot='sketch-chart-frame'],
-[data-theme-preset='paper-sketch'] [data-slot='sketch-perf-bar'] {
+[data-paper-family] [data-slot='sketch-chart-frame'],
+[data-paper-family] [data-slot='sketch-perf-bar'] {
   border: 1.6px solid color-mix(in oklch, var(--ink) 55%, transparent) !important;
   border-radius: var(--wobble-a) !important;
   background: var(--paper-alt) !important;
@@ -1877,61 +1886,61 @@ For commercial licensing, please contact support@quantumnous.com
   overflow: hidden;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-chart-head'] {
+[data-paper-family] [data-slot='sketch-chart-head'] {
   border-bottom: 1.4px dashed var(--line) !important;
   background: color-mix(in oklch, var(--ink) 3%, var(--paper-alt)) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-chart-body'] {
+[data-paper-family] [data-slot='sketch-chart-body'] {
   background: color-mix(in oklch, var(--ink) 1.5%, var(--paper-alt));
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-seg'] {
+[data-paper-family] [data-slot='sketch-seg'] {
   border: 1.4px solid color-mix(in oklch, var(--ink) 40%, transparent) !important;
   border-radius: var(--wobble-b) !important;
   background: color-mix(in oklch, var(--ink) 4%, var(--paper-alt)) !important;
   box-shadow: none !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-seg-item'] {
+[data-paper-family] [data-slot='sketch-seg-item'] {
   border-radius: var(--wobble-b) !important;
   box-shadow: none !important;
   font-weight: 700 !important;
   color: var(--ink-soft) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-seg-item'][data-active='true'],
-[data-theme-preset='paper-sketch'] [data-slot='sketch-seg-item'].bg-background {
+[data-paper-family] [data-slot='sketch-seg-item'][data-active='true'],
+[data-paper-family] [data-slot='sketch-seg-item'].bg-background {
   background: var(--paper-alt) !important;
   color: var(--ink) !important;
   border: 1.2px solid color-mix(in oklch, var(--ink) 45%, transparent);
   box-shadow: 1px 2px 0 color-mix(in oklch, var(--ink) 8%, transparent) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-stat-card'] {
+[data-paper-family] [data-slot='sketch-stat-card'] {
   color: var(--ink);
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-stat-card'] .text-2xl {
+[data-paper-family] [data-slot='sketch-stat-card'] .text-2xl {
   color: var(--ink) !important;
   font-weight: 700 !important;
 }
 
 /* VChart inside sketch frames: notebook grid stroke */
-[data-theme-preset='paper-sketch'] [data-slot='sketch-chart-body'] .vchart,
-[data-theme-preset='paper-sketch'] [data-slot='sketch-chart-frame'] canvas {
+[data-paper-family] [data-slot='sketch-chart-body'] .vchart,
+[data-paper-family] [data-slot='sketch-chart-frame'] canvas {
   font-family: var(--font-body, var(--font-hand)) !important;
 }
 
 /* ── V: Pricing / rankings polish ─────────────────────────────────────── */
-[data-theme-preset='paper-sketch'] [data-slot='sketch-pricing-sidebar'] {
+[data-paper-family] [data-slot='sketch-pricing-sidebar'] {
   border: 1.6px solid color-mix(in oklch, var(--ink) 55%, transparent) !important;
   border-radius: var(--wobble-a) !important;
   background: var(--paper-alt) !important;
   box-shadow: 2px 3px 0 color-mix(in oklch, var(--ink) 8%, transparent) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-filter-chip'] {
+[data-paper-family] [data-slot='sketch-filter-chip'] {
   border: 1.2px solid color-mix(in oklch, var(--ink) 40%, transparent) !important;
   border-radius: var(--wobble-b) !important;
   background: color-mix(in oklch, var(--ink) 2%, var(--paper-alt)) !important;
@@ -1939,13 +1948,13 @@ For commercial licensing, please contact support@quantumnous.com
   box-shadow: none !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-filter-chip']:hover {
+[data-paper-family] [data-slot='sketch-filter-chip']:hover {
   border-color: color-mix(in oklch, var(--ink) 65%, transparent) !important;
   background: color-mix(in oklch, var(--sketch-blue) 8%, var(--paper-alt)) !important;
   color: var(--ink) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-filter-chip'][data-active='true'] {
+[data-paper-family] [data-slot='sketch-filter-chip'][data-active='true'] {
   border-color: var(--ink) !important;
   background: color-mix(in oklch, var(--sketch-blue) 12%, var(--paper-alt)) !important;
   color: var(--ink) !important;
@@ -1955,7 +1964,7 @@ For commercial licensing, please contact support@quantumnous.com
 /* Period tabs are line-style: no filled pill. Global tabs-trigger active
  * (ink bg + paper text) would paint a solid block; period-tab overrides
  * then set ink text → ink-on-ink (invisible label, see rankings “本周”). */
-[data-theme-preset='paper-sketch'] [data-slot='sketch-period-tabs'] {
+[data-paper-family] [data-slot='sketch-period-tabs'] {
   border: none !important;
   border-bottom: 1.4px solid color-mix(in oklch, var(--ink) 35%, transparent) !important;
   border-radius: 0 !important;
@@ -1964,16 +1973,16 @@ For commercial licensing, please contact support@quantumnous.com
   box-shadow: none !important;
 }
 
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   [data-slot='sketch-period-tabs']
   [data-slot='tabs-trigger'][data-active],
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   [data-slot='sketch-period-tabs']
   [data-slot='tabs-trigger'][data-active='true'],
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   [data-slot='sketch-period-tabs']
   [data-slot='tabs-trigger'][data-state='active'],
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   [data-slot='sketch-period-tabs']
   [data-slot='tabs-trigger'][aria-selected='true'] {
   background: transparent !important;
@@ -1984,15 +1993,15 @@ For commercial licensing, please contact support@quantumnous.com
 }
 
 /* ── W: Playground controls / params ──────────────────────────────────── */
-[data-theme-preset='paper-sketch'] [data-slot='sketch-playground-controls'] {
+[data-paper-family] [data-slot='sketch-playground-controls'] {
   color: var(--ink);
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='playground-composer'] {
+[data-paper-family] [data-slot='playground-composer'] {
   color: var(--ink);
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-send'] {
+[data-paper-family] [data-slot='sketch-send'] {
   border: 1.4px solid color-mix(in oklch, var(--ink) 70%, transparent) !important;
   border-radius: var(--wobble-b) !important;
   background: var(--ink) !important;
@@ -2001,13 +2010,13 @@ For commercial licensing, please contact support@quantumnous.com
   font-weight: 700 !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-send']:hover:not(:disabled) {
+[data-paper-family] [data-slot='sketch-send']:hover:not(:disabled) {
   background: color-mix(in oklch, var(--sketch-blue) 70%, var(--ink)) !important;
   transform: translate(-1px, -1px);
   box-shadow: 3px 4px 0 color-mix(in oklch, var(--ink) 15%, transparent) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-send']:disabled {
+[data-paper-family] [data-slot='sketch-send']:disabled {
   background: color-mix(in oklch, var(--ink) 12%, var(--paper-alt)) !important;
   color: var(--ink-faint) !important;
   border-color: color-mix(in oklch, var(--ink) 30%, transparent) !important;
@@ -2015,28 +2024,28 @@ For commercial licensing, please contact support@quantumnous.com
   transform: none !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-param-panel'] {
+[data-paper-family] [data-slot='sketch-param-panel'] {
   color: var(--ink);
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-param-row'] {
+[data-paper-family] [data-slot='sketch-param-row'] {
   border: 1.4px solid color-mix(in oklch, var(--ink) 40%, transparent) !important;
   border-radius: var(--wobble-b) !important;
   background: color-mix(in oklch, var(--ink) 2%, var(--paper-alt)) !important;
   box-shadow: none !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-param-row'][data-enabled='true'] {
+[data-paper-family] [data-slot='sketch-param-row'][data-enabled='true'] {
   border-color: color-mix(in oklch, var(--sketch-blue) 40%, var(--ink)) !important;
   background: color-mix(in oklch, var(--sketch-blue) 6%, var(--paper-alt)) !important;
 }
 
 /* ── X: Models admin page ─────────────────────────────────────────────── */
-[data-theme-preset='paper-sketch'] [data-slot='sketch-models-page'] {
+[data-paper-family] [data-slot='sketch-models-page'] {
   color: var(--ink);
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-models-tabs'] {
+[data-paper-family] [data-slot='sketch-models-tabs'] {
   border: 1.4px solid color-mix(in oklch, var(--ink) 40%, transparent) !important;
   border-radius: var(--wobble-b) !important;
   background: color-mix(in oklch, var(--ink) 3%, var(--paper-alt)) !important;
@@ -2045,30 +2054,30 @@ For commercial licensing, please contact support@quantumnous.com
 }
 
 /* ── Y: Legal documents ───────────────────────────────────────────────── */
-[data-theme-preset='paper-sketch'] [data-slot='sketch-legal'] {
+[data-paper-family] [data-slot='sketch-legal'] {
   color: var(--ink);
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-legal-title'] {
+[data-paper-family] [data-slot='sketch-legal-title'] {
   font-weight: 700 !important;
   letter-spacing: 0 !important;
   color: var(--ink) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-legal-card'] {
+[data-paper-family] [data-slot='sketch-legal-card'] {
   border: 1.6px solid color-mix(in oklch, var(--ink) 55%, transparent) !important;
   border-radius: var(--wobble-a) !important;
   background: var(--paper-alt) !important;
   box-shadow: 2px 3px 0 color-mix(in oklch, var(--ink) 8%, transparent) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-legal-icon'] {
+[data-paper-family] [data-slot='sketch-legal-icon'] {
   border: 1.4px solid color-mix(in oklch, var(--ink) 40%, transparent);
   border-radius: var(--wobble-b);
   background: color-mix(in oklch, var(--sketch-amber) 10%, var(--paper-alt));
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-legal-body'] {
+[data-paper-family] [data-slot='sketch-legal-body'] {
   border: 1.6px solid color-mix(in oklch, var(--ink) 45%, transparent);
   border-radius: var(--wobble-a);
   background: var(--paper-alt);
@@ -2076,13 +2085,13 @@ For commercial licensing, please contact support@quantumnous.com
   padding: 1.25rem 1.5rem;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-legal-body'] .prose,
-[data-theme-preset='paper-sketch'] [data-slot='sketch-legal-body'] article {
+[data-paper-family] [data-slot='sketch-legal-body'] .prose,
+[data-paper-family] [data-slot='sketch-legal-body'] article {
   color: var(--ink);
 }
 
 /* ── Z: Auth subpages (oauth / icons) ─────────────────────────────────── */
-[data-theme-preset='paper-sketch'] [data-slot='sketch-auth-icon'] {
+[data-paper-family] [data-slot='sketch-auth-icon'] {
   border: 1.6px solid color-mix(in oklch, var(--ink) 50%, transparent) !important;
   border-radius: var(--wobble-a) !important;
   background: color-mix(in oklch, var(--sketch-blue) 10%, var(--paper-alt)) !important;
@@ -2091,7 +2100,7 @@ For commercial licensing, please contact support@quantumnous.com
 }
 
 /* ── AA: Setup complete summary ───────────────────────────────────────── */
-[data-theme-preset='paper-sketch'] [data-slot='sketch-setup-complete-icon'] {
+[data-paper-family] [data-slot='sketch-setup-complete-icon'] {
   border: 1.6px solid color-mix(in oklch, var(--sketch-teal) 50%, var(--ink));
   border-radius: var(--wobble-a);
   background: color-mix(in oklch, var(--sketch-teal) 12%, var(--paper-alt));
@@ -2099,99 +2108,103 @@ For commercial licensing, please contact support@quantumnous.com
   box-shadow: 2px 3px 0 color-mix(in oklch, var(--ink) 8%, transparent);
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-setup-summary'] {
+[data-paper-family] [data-slot='sketch-setup-summary'] {
   border: 1.6px solid color-mix(in oklch, var(--ink) 55%, transparent) !important;
   border-radius: var(--wobble-a) !important;
   background: var(--paper-alt) !important;
   box-shadow: 3px 4px 0 color-mix(in oklch, var(--ink) 10%, transparent) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-setup-summary'] dt {
+[data-paper-family] [data-slot='sketch-setup-summary'] dt {
   color: var(--ink-faint) !important;
   letter-spacing: 0.04em;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-setup-summary'] dd {
+[data-paper-family] [data-slot='sketch-setup-summary'] dd {
   color: var(--ink) !important;
 }
 
 /* ── AB: Heavy settings editors (tiered / tool price) ──────────────────── */
-[data-theme-preset='paper-sketch'] [data-slot='sketch-tiered-editor'],
-[data-theme-preset='paper-sketch'] [data-slot='sketch-tool-price'] {
+[data-paper-family] [data-slot='sketch-tiered-editor'],
+[data-paper-family] [data-slot='sketch-tool-price'] {
   color: var(--ink);
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-tier-card'] {
+[data-paper-family] [data-slot='sketch-tier-card'] {
   border: 1.4px solid color-mix(in oklch, var(--ink) 45%, transparent) !important;
   border-radius: var(--wobble-b) !important;
   background: color-mix(in oklch, var(--ink) 2%, var(--paper-alt)) !important;
   box-shadow: none !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-tiered-editor'] .bg-muted\/30,
-[data-theme-preset='paper-sketch'] [data-slot='sketch-tool-price'] .bg-muted\/30 {
+[data-paper-family] [data-slot='sketch-tiered-editor'] .bg-muted\/30,
+[data-paper-family] [data-slot='sketch-tool-price'] .bg-muted\/30 {
   border: 1.4px solid color-mix(in oklch, var(--ink) 35%, transparent) !important;
   border-radius: var(--wobble-b) !important;
   background: color-mix(in oklch, var(--ink) 3%, var(--paper-alt)) !important;
 }
 
 /* Kill pseudo-border card chrome on ratio/special editors under sketch */
-[data-theme-preset='paper-sketch'] [data-slot='sketch-ratio-section'].relative.shadow-sm,
-[data-theme-preset='paper-sketch'] [data-slot='sketch-ratio-section'] {
+[data-paper-family] [data-slot='sketch-ratio-section'].relative.shadow-sm,
+[data-paper-family] [data-slot='sketch-ratio-section'] {
   box-shadow: 2px 3px 0 color-mix(in oklch, var(--ink) 8%, transparent) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-ratio-section']::before {
+[data-paper-family] [data-slot='sketch-ratio-section']::before {
   display: none !important;
 }
 
 /* ── AC: Performance overview bar ─────────────────────────────────────── */
-[data-theme-preset='paper-sketch'] [data-slot='sketch-perf-bar'] {
+[data-paper-family] [data-slot='sketch-perf-bar'] {
   color: var(--ink);
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-perf-bar'] .text-xs.font-semibold {
+[data-paper-family] [data-slot='sketch-perf-bar'] .text-xs.font-semibold {
   color: var(--ink) !important;
 }
 
 /* ── AD: Dark chalk refinements ───────────────────────────────────────── */
-.dark [data-theme-preset='paper-sketch'] {
+/* Dot grid is explainer/auth only — never the whole console shell. */
+.dark [data-paper-family] .gg-explainer,
+.dark [data-paper-family] .gg-auth-shell {
   background-image: radial-gradient(
-    color-mix(in oklch, var(--line) 70%, transparent) 0.75px,
-    transparent 0.75px
-  );
+    color-mix(in oklch, var(--line) 75%, transparent) 0.7px,
+    transparent 0.7px
+  ) !important;
+  background-size: 26px 26px !important;
+  background-attachment: fixed !important;
 }
 
-.dark [data-theme-preset='paper-sketch'] [data-slot='card'],
-.dark [data-theme-preset='paper-sketch'] [data-slot='sketch-panel'],
-.dark [data-theme-preset='paper-sketch'] [data-slot='sketch-chart-frame'],
-.dark [data-theme-preset='paper-sketch'] [data-slot='sketch-model-card'],
-.dark [data-theme-preset='paper-sketch'] [data-slot='settings-card'],
-.dark [data-theme-preset='paper-sketch'] [data-slot='data-table-frame'] {
+.dark [data-paper-family] [data-slot='card'],
+.dark [data-paper-family] [data-slot='sketch-panel'],
+.dark [data-paper-family] [data-slot='sketch-chart-frame'],
+.dark [data-paper-family] [data-slot='sketch-model-card'],
+.dark [data-paper-family] [data-slot='settings-card'],
+.dark [data-paper-family] [data-slot='data-table-frame'] {
   box-shadow: 2px 3px 0 color-mix(in oklch, var(--ink) 8%, transparent) !important;
   border-color: color-mix(in oklch, var(--ink) 32%, transparent) !important;
 }
 
-.dark [data-theme-preset='paper-sketch'] [data-slot='sketch-send'] {
+.dark [data-paper-family] [data-slot='sketch-send'] {
   background: var(--sketch-blue) !important;
-  color: var(--paper) !important;
+  color: var(--primary-foreground) !important;
   border-color: color-mix(in oklch, var(--sketch-blue) 70%, var(--ink)) !important;
 }
 
-.dark [data-theme-preset='paper-sketch'] [data-sonner-toast] {
+.dark [data-paper-family] [data-sonner-toast] {
   border-color: color-mix(in oklch, var(--ink) 35%, transparent) !important;
   background: var(--paper-alt) !important;
   color: var(--ink) !important;
 }
 
 /* ── AE: Mobile drawer paper sheet ────────────────────────────────────── */
-[data-theme-preset='paper-sketch'] [data-slot='sketch-mobile-overlay'] {
+[data-paper-family] [data-slot='sketch-mobile-overlay'] {
   background: color-mix(in oklch, var(--ink) 35%, transparent) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-mobile-drawer'] {
+[data-paper-family] [data-slot='sketch-mobile-drawer'] {
   border: 1.6px solid color-mix(in oklch, var(--ink) 65%, transparent) !important;
   border-radius: var(--wobble-a) !important;
   background: var(--paper-alt) !important;
@@ -2200,53 +2213,53 @@ For commercial licensing, please contact support@quantumnous.com
   color: var(--ink);
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-mobile-drawer-head'] {
+[data-paper-family] [data-slot='sketch-mobile-drawer-head'] {
   border-bottom: 1.4px dashed var(--line);
   padding-bottom: 0.75rem;
   margin-bottom: 0.25rem;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-mobile-nav'] {
+[data-paper-family] [data-slot='sketch-mobile-nav'] {
   border: 1.4px solid color-mix(in oklch, var(--ink) 45%, transparent) !important;
   border-radius: var(--wobble-b) !important;
   background: color-mix(in oklch, var(--ink) 2%, var(--paper-alt)) !important;
   overflow: hidden;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-mobile-nav'] a {
+[data-paper-family] [data-slot='sketch-mobile-nav'] a {
   color: var(--ink-soft) !important;
   font-weight: 600;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-mobile-nav'] a:hover {
+[data-paper-family] [data-slot='sketch-mobile-nav'] a:hover {
   color: var(--ink) !important;
 }
 
 /* ── AF: Residual SaaS class neutralization ───────────────────────────── */
-[data-theme-preset='paper-sketch'] .shadow-xl,
-[data-theme-preset='paper-sketch'] .shadow-2xl {
+[data-paper-family] .shadow-xl,
+[data-paper-family] .shadow-2xl {
   box-shadow: 3px 4px 0 color-mix(in oklch, var(--ink) 12%, transparent) !important;
 }
 
-[data-theme-preset='paper-sketch'] .rounded-2xl {
+[data-paper-family] .rounded-2xl {
   border-radius: var(--wobble-a) !important;
 }
 
-[data-theme-preset='paper-sketch'] .rounded-xl {
+[data-paper-family] .rounded-xl {
   border-radius: var(--wobble-b) !important;
 }
 
 /* Soften glass overlays that slip past backdrop-blur kill */
-[data-theme-preset='paper-sketch'] .bg-black\/50,
-[data-theme-preset='paper-sketch'] .bg-black\/40 {
+[data-paper-family] .bg-black\/50,
+[data-paper-family] .bg-black\/40 {
   background: color-mix(in oklch, var(--ink) 40%, transparent) !important;
 }
 
 /* Dashboard overview residual soft cards */
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   [data-slot='sidebar-inset']
   .rounded-2xl.border.shadow-xs,
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   [data-slot='sidebar-inset']
   .rounded-2xl.border.shadow-sm {
   border-radius: var(--wobble-a) !important;
@@ -2254,22 +2267,22 @@ For commercial licensing, please contact support@quantumnous.com
 }
 
 /* ── AG: Loading / coming-soon / sonner polish ────────────────────────── */
-[data-theme-preset='paper-sketch'] [data-slot='sketch-loading'] {
+[data-paper-family] [data-slot='sketch-loading'] {
   color: var(--ink-soft);
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-loading-icon'] {
+[data-paper-family] [data-slot='sketch-loading-icon'] {
   color: var(--sketch-blue);
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-coming-soon'] {
+[data-paper-family] [data-slot='sketch-coming-soon'] {
   background-color: var(--paper);
   background-image: radial-gradient(var(--line) 0.8px, transparent 0.8px);
   background-size: 26px 26px;
   color: var(--ink);
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-coming-soon-card'] {
+[data-paper-family] [data-slot='sketch-coming-soon-card'] {
   border: 1.6px solid color-mix(in oklch, var(--ink) 55%, transparent);
   border-radius: var(--wobble-a);
   background: var(--paper-alt);
@@ -2281,33 +2294,33 @@ For commercial licensing, please contact support@quantumnous.com
   height: auto;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-coming-soon-icon'] {
+[data-paper-family] [data-slot='sketch-coming-soon-icon'] {
   color: var(--sketch-blue);
   margin-bottom: 0.5rem;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-coming-soon'] h1 {
+[data-paper-family] [data-slot='sketch-coming-soon'] h1 {
   color: var(--ink);
   font-weight: 700;
 }
 
 /* Sonner: type tints */
-[data-theme-preset='paper-sketch'] [data-sonner-toast][data-type='success'] {
+[data-paper-family] [data-sonner-toast][data-type='success'] {
   border-color: color-mix(in oklch, var(--sketch-teal) 55%, var(--ink)) !important;
   background: color-mix(in oklch, var(--sketch-teal) 8%, var(--paper-alt)) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-sonner-toast][data-type='error'] {
+[data-paper-family] [data-sonner-toast][data-type='error'] {
   border-color: color-mix(in oklch, var(--sketch-red) 55%, var(--ink)) !important;
   background: color-mix(in oklch, var(--sketch-red) 8%, var(--paper-alt)) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-sonner-toast][data-type='warning'] {
+[data-paper-family] [data-sonner-toast][data-type='warning'] {
   border-color: color-mix(in oklch, var(--sketch-amber) 55%, var(--ink)) !important;
   background: color-mix(in oklch, var(--sketch-amber) 8%, var(--paper-alt)) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-sonner-toast][data-type='info'] {
+[data-paper-family] [data-sonner-toast][data-type='info'] {
   border-color: color-mix(in oklch, var(--sketch-blue) 55%, var(--ink)) !important;
   background: color-mix(in oklch, var(--sketch-blue) 8%, var(--paper-alt)) !important;
 }
@@ -2323,7 +2336,7 @@ For commercial licensing, please contact support@quantumnous.com
  * corner curves clip the first glyph of each line (e.g. "from" → "rom").
  * Use a mild notebook radius and always leave horizontal padding for text.
  */
-[data-theme-preset='paper-sketch'] [data-slot='sketch-code-block'] {
+[data-paper-family] [data-slot='sketch-code-block'] {
   border: 1.6px solid color-mix(in oklch, var(--ink) 50%, transparent) !important;
   /* Mild radius only — never --wobble-* here; organic corners eat mono glyphs. */
   border-radius: 10px !important;
@@ -2333,16 +2346,16 @@ For commercial licensing, please contact support@quantumnous.com
 }
 
 /* Scroll body also carries inset so text never sits under the frame edge. */
-[data-theme-preset='paper-sketch'] [data-slot='sketch-code-block'] .code-block-scroll {
+[data-paper-family] [data-slot='sketch-code-block'] .code-block-scroll {
   padding-inline: 0.25rem !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-code-block'] .cm-editor,
-[data-theme-preset='paper-sketch'] [data-slot='sketch-code-block'] .cm-scroller {
+[data-paper-family] [data-slot='sketch-code-block'] .cm-editor,
+[data-paper-family] [data-slot='sketch-code-block'] .cm-scroller {
   overflow-x: auto !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-code-block'] .cm-content {
+[data-paper-family] [data-slot='sketch-code-block'] .cm-content {
   /* Line-number gutter is often off (pricing samples). Force full horizontal inset. */
   padding-top: 1rem !important;
   padding-bottom: 1rem !important;
@@ -2350,41 +2363,41 @@ For commercial licensing, please contact support@quantumnous.com
   padding-right: 1.25rem !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-code-block'] .cm-line {
+[data-paper-family] [data-slot='sketch-code-block'] .cm-line {
   padding-left: 0.125rem !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-code-block'] .cm-gutters {
+[data-paper-family] [data-slot='sketch-code-block'] .cm-gutters {
   padding-left: 0.75rem !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-artifact'],
-[data-theme-preset='paper-sketch'] [data-slot='sketch-queue'],
-[data-theme-preset='paper-sketch'] [data-slot='sketch-plan'] {
+[data-paper-family] [data-slot='sketch-artifact'],
+[data-paper-family] [data-slot='sketch-queue'],
+[data-paper-family] [data-slot='sketch-plan'] {
   border: 1.6px solid color-mix(in oklch, var(--ink) 50%, transparent) !important;
   border-radius: var(--wobble-b) !important;
   background: color-mix(in oklch, var(--ink) 2.5%, var(--paper-alt)) !important;
   box-shadow: 2px 3px 0 color-mix(in oklch, var(--ink) 8%, transparent) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-code-toolbar'],
-[data-theme-preset='paper-sketch'] [data-slot='sketch-artifact-head'],
-[data-theme-preset='paper-sketch'] [data-slot='plan-header'] {
+[data-paper-family] [data-slot='sketch-code-toolbar'],
+[data-paper-family] [data-slot='sketch-artifact-head'],
+[data-paper-family] [data-slot='plan-header'] {
   border-bottom: 1.4px dashed var(--line) !important;
   background: color-mix(in oklch, var(--ink) 4%, var(--paper-alt)) !important;
 }
 
 /* Global pre/code panels: same safe radius so mono samples never clip glyphs */
-[data-theme-preset='paper-sketch'] pre,
-[data-theme-preset='paper-sketch'] pre code {
+[data-paper-family] pre,
+[data-paper-family] pre code {
   border-radius: 10px !important;
   padding-inline: 1.25rem !important;
   overflow-x: auto;
   box-sizing: border-box;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-reasoning'],
-[data-theme-preset='paper-sketch'] [data-slot='sketch-sources'] {
+[data-paper-family] [data-slot='sketch-reasoning'],
+[data-paper-family] [data-slot='sketch-sources'] {
   border: 1.2px dashed color-mix(in oklch, var(--ink) 40%, transparent);
   border-radius: var(--wobble-b);
   background: color-mix(in oklch, var(--ink) 2%, var(--paper-alt));
@@ -2392,7 +2405,7 @@ For commercial licensing, please contact support@quantumnous.com
   color: var(--ink);
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-model-selector-trigger'] {
+[data-paper-family] [data-slot='sketch-model-selector-trigger'] {
   border: 1.4px solid color-mix(in oklch, var(--ink) 50%, transparent) !important;
   border-radius: var(--wobble-b) !important;
   background: var(--paper-alt) !important;
@@ -2400,12 +2413,12 @@ For commercial licensing, please contact support@quantumnous.com
   color: var(--ink) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-model-selector-trigger']:hover {
+[data-paper-family] [data-slot='sketch-model-selector-trigger']:hover {
   background: color-mix(in oklch, var(--sketch-blue) 8%, var(--paper-alt)) !important;
   border-color: color-mix(in oklch, var(--ink) 70%, transparent) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-model-selector-panel'] {
+[data-paper-family] [data-slot='sketch-model-selector-panel'] {
   border: 1.6px solid color-mix(in oklch, var(--ink) 60%, transparent) !important;
   border-radius: var(--wobble-a) !important;
   background: var(--paper-alt) !important;
@@ -2413,7 +2426,7 @@ For commercial licensing, please contact support@quantumnous.com
 }
 
 /* ── AI: Bulk bar solid paper + system-info panels ────────────────────── */
-[data-theme-preset='paper-sketch'] [data-slot='data-table-bulk-inner'] {
+[data-paper-family] [data-slot='data-table-bulk-inner'] {
   background: var(--paper-alt) !important;
   border: 1.6px solid color-mix(in oklch, var(--ink) 70%, transparent) !important;
   border-radius: var(--wobble-a) !important;
@@ -2422,44 +2435,44 @@ For commercial licensing, please contact support@quantumnous.com
   -webkit-backdrop-filter: none !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-sys-panel'] {
+[data-paper-family] [data-slot='sketch-sys-panel'] {
   border: 1.6px solid color-mix(in oklch, var(--ink) 55%, transparent) !important;
   border-radius: var(--wobble-a) !important;
   background: var(--paper-alt) !important;
   box-shadow: 2px 3px 0 color-mix(in oklch, var(--ink) 8%, transparent) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-sys-panel'] [data-slot='sketch-panel-head'] {
+[data-paper-family] [data-slot='sketch-sys-panel'] [data-slot='sketch-panel-head'] {
   border-bottom: 1.4px dashed var(--line) !important;
   background: color-mix(in oklch, var(--ink) 3%, var(--paper-alt)) !important;
 }
 
 /* ── AJ: Home + config drawer swatches ────────────────────────────────── */
-[data-theme-preset='paper-sketch'] [data-slot='sketch-home'] {
+[data-paper-family] [data-slot='sketch-home'] {
   /* home-explainer.css owns canvas; ensure ink inherits when nested */
   color: var(--ink, inherit);
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-home-brand'] {
+[data-paper-family] [data-slot='sketch-home-brand'] {
   font-weight: 700;
   color: var(--ink);
   text-decoration: none;
 }
 
 /* Config drawer checked swatches: ink outline, not soft SaaS glow */
-[data-theme-preset='paper-sketch'] [data-slot='sketch-theme-swatch'] {
+[data-paper-family] [data-slot='sketch-theme-swatch'] {
   box-shadow: none !important;
   outline: 1.4px solid color-mix(in oklch, var(--ink) 35%, transparent);
   outline-offset: 0;
 }
 
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   .group[data-checked]
   [data-slot='sketch-theme-swatch'],
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   .group[data-state='checked']
   [data-slot='sketch-theme-swatch'],
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   [data-checked]
   > [data-slot='sketch-theme-swatch'] {
   outline: 1.8px solid var(--ink) !important;
@@ -2467,76 +2480,76 @@ For commercial licensing, please contact support@quantumnous.com
 }
 
 /* Config drawer sheet itself */
-[data-theme-preset='paper-sketch'] [data-slot='sheet-content'].gg-side-drawer,
-[data-theme-preset='paper-sketch'] .gg-side-drawer[data-slot='sheet-content'] {
+[data-paper-family] [data-slot='sheet-content'].gg-side-drawer,
+[data-paper-family] .gg-side-drawer[data-slot='sheet-content'] {
   background: var(--paper-alt) !important;
 }
 
 /* ── AK: Channel / key / model drawer internals ───────────────────────── */
-[data-theme-preset='paper-sketch'] [data-slot='sketch-drawer-heading'] h3,
-[data-theme-preset='paper-sketch'] [data-slot='sketch-drawer-section-title'] {
+[data-paper-family] [data-slot='sketch-drawer-heading'] h3,
+[data-paper-family] [data-slot='sketch-drawer-section-title'] {
   color: var(--ink) !important;
   font-weight: 700 !important;
   letter-spacing: 0 !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-drawer-heading-icon'] {
+[data-paper-family] [data-slot='sketch-drawer-heading-icon'] {
   border: 1.4px solid color-mix(in oklch, var(--ink) 40%, transparent);
   border-radius: var(--wobble-b);
   background: color-mix(in oklch, var(--sketch-blue) 8%, var(--paper-alt)) !important;
   color: var(--ink) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-drawer-subhead'] {
+[data-paper-family] [data-slot='sketch-drawer-subhead'] {
   color: var(--ink-faint);
   letter-spacing: 0.04em;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-drawer-inset'],
-[data-theme-preset='paper-sketch'] .gg-drawer-inset {
+[data-paper-family] [data-slot='sketch-drawer-inset'],
+[data-paper-family] .gg-drawer-inset {
   border: 1.4px solid color-mix(in oklch, var(--ink) 40%, transparent) !important;
   border-radius: var(--wobble-b) !important;
   background: color-mix(in oklch, var(--ink) 2%, var(--paper-alt)) !important;
   box-shadow: none !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-drawer-nav-list'] {
+[data-paper-family] [data-slot='sketch-drawer-nav-list'] {
   border: 1.4px solid color-mix(in oklch, var(--ink) 45%, transparent) !important;
   border-radius: var(--wobble-b) !important;
   background: var(--paper-alt) !important;
   box-shadow: none !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-drawer-section'] {
+[data-paper-family] [data-slot='sketch-drawer-section'] {
   border-color: color-mix(in oklch, var(--line) 90%, transparent) !important;
 }
 
 /* Stronger side-drawer header/footer dashed separation */
-[data-theme-preset='paper-sketch'] .gg-side-drawer-header {
+[data-paper-family] .gg-side-drawer-header {
   border-bottom: 1.4px dashed var(--line) !important;
 }
 
-[data-theme-preset='paper-sketch'] .gg-side-drawer-footer {
+[data-paper-family] .gg-side-drawer-footer {
   border-top: 1.4px dashed var(--line) !important;
 }
 
 /* ── AL: System settings page shell + residual cards ──────────────────── */
-[data-theme-preset='paper-sketch'] [data-slot='sketch-settings-page'] {
+[data-paper-family] [data-slot='sketch-settings-page'] {
   color: var(--ink);
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='settings-section'] {
+[data-paper-family] [data-slot='settings-section'] {
   color: var(--ink);
 }
 
 /* Nested cards inside settings that only use bg-card utilities */
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   [data-slot='sketch-settings-page']
   .bg-card.border,
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   [data-slot='sketch-settings-page']
   .bg-card.rounded-lg,
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   [data-slot='sketch-settings-page']
   .bg-card.rounded-xl {
   border-width: 1.6px !important;
@@ -2548,13 +2561,13 @@ For commercial licensing, please contact support@quantumnous.com
 }
 
 /* JSON / code editors inside settings */
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   [data-slot='sketch-settings-page']
   pre,
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   [data-slot='sketch-settings-page']
   .cm-editor,
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   [data-slot='sketch-settings-page']
   [class*='monaco'] {
   border-radius: 12px !important;
@@ -2563,10 +2576,10 @@ For commercial licensing, please contact support@quantumnous.com
 }
 
 /* Settings sticky save / dirty footer if present */
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   [data-slot='sketch-settings-page']
   .backdrop-blur,
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   [data-slot='sketch-settings-page']
   .supports-\[backdrop-filter\]\:bg-background\/80 {
   backdrop-filter: none !important;
@@ -2574,8 +2587,8 @@ For commercial licensing, please contact support@quantumnous.com
 }
 
 /* Pricing sheet sticky footer residual glass */
-[data-theme-preset='paper-sketch'] .supports-\[backdrop-filter\]\:bg-background\/80.backdrop-blur,
-[data-theme-preset='paper-sketch'] .bg-background\/95.backdrop-blur {
+[data-paper-family] .supports-\[backdrop-filter\]\:bg-background\/80.backdrop-blur,
+[data-paper-family] .bg-background\/95.backdrop-blur {
   backdrop-filter: none !important;
   background: var(--paper-alt) !important;
   border-color: color-mix(in oklch, var(--ink) 40%, transparent) !important;
@@ -2587,7 +2600,7 @@ For commercial licensing, please contact support@quantumnous.com
  * ═══════════════════════════════════════════════════════════════════════════ */
 
 /* ── AM: Playground input shell + remaining ai-elements ───────────────── */
-[data-theme-preset='paper-sketch'] .gg-playground-input {
+[data-paper-family] .gg-playground-input {
   /* kill any residual soft elevation / ring glow from utility classes */
   box-shadow: 3px 4px 0 color-mix(in oklch, var(--ink) 10%, transparent) !important;
   ring: none !important;
@@ -2595,14 +2608,14 @@ For commercial licensing, please contact support@quantumnous.com
   --tw-shadow: 0 0 #0000 !important;
 }
 
-[data-theme-preset='paper-sketch'] .gg-playground-input-footer {
+[data-paper-family] .gg-playground-input-footer {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-tool'],
-[data-theme-preset='paper-sketch'] [data-slot='sketch-task'],
-[data-theme-preset='paper-sketch'] [data-slot='sketch-cot'] {
+[data-paper-family] [data-slot='sketch-tool'],
+[data-paper-family] [data-slot='sketch-task'],
+[data-paper-family] [data-slot='sketch-cot'] {
   border: 1.4px solid color-mix(in oklch, var(--ink) 45%, transparent) !important;
   border-radius: var(--wobble-b) !important;
   background: color-mix(in oklch, var(--ink) 2%, var(--paper-alt)) !important;
@@ -2610,7 +2623,7 @@ For commercial licensing, please contact support@quantumnous.com
   color: var(--ink);
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-suggestion'] {
+[data-paper-family] [data-slot='sketch-suggestion'] {
   border: 1.2px solid color-mix(in oklch, var(--ink) 45%, transparent) !important;
   border-radius: var(--wobble-b) !important;
   background: color-mix(in oklch, var(--sketch-blue) 8%, var(--paper-alt)) !important;
@@ -2619,44 +2632,44 @@ For commercial licensing, please contact support@quantumnous.com
   font-weight: 600 !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-suggestion']:hover {
+[data-paper-family] [data-slot='sketch-suggestion']:hover {
   background: color-mix(in oklch, var(--sketch-blue) 14%, var(--paper-alt)) !important;
   border-color: color-mix(in oklch, var(--ink) 65%, transparent) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-suggestions'] {
+[data-paper-family] [data-slot='sketch-suggestions'] {
   color: var(--ink);
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-loader'] {
+[data-paper-family] [data-slot='sketch-loader'] {
   color: var(--sketch-blue);
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-citation'] {
+[data-paper-family] [data-slot='sketch-citation'] {
   color: var(--sketch-blue);
   font-weight: 600;
 }
 
 /* ── AN: Auth subpages + secure-verify ────────────────────────────────── */
-[data-theme-preset='paper-sketch'] [data-slot='sketch-auth-title'] {
+[data-paper-family] [data-slot='sketch-auth-title'] {
   color: var(--ink) !important;
   font-weight: 700 !important;
   letter-spacing: 0 !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-auth-body'] a {
+[data-paper-family] [data-slot='sketch-auth-body'] a {
   color: var(--ink);
   text-underline-offset: 3px;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-auth-body'] a:hover {
+[data-paper-family] [data-slot='sketch-auth-body'] a:hover {
   color: var(--sketch-blue);
 }
 
 /* Secure verify inherits dialog-content; ensure solid paper */
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   [data-slot='alert-dialog-content']:has([data-slot='sketch-verify-icon']),
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   [data-slot='dialog-content']:has([data-slot='sketch-verify-icon']) {
   border: 1.6px solid color-mix(in oklch, var(--ink) 65%, transparent) !important;
   border-radius: var(--wobble-a) !important;
@@ -2665,63 +2678,63 @@ For commercial licensing, please contact support@quantumnous.com
 }
 
 /* ── AO: Wallet / channels feature dialogs ────────────────────────────── */
-[data-theme-preset='paper-sketch'] [data-slot='sketch-dialog'],
-[data-theme-preset='paper-sketch'] [data-slot='sketch-dialog-body'] {
+[data-paper-family] [data-slot='sketch-dialog'],
+[data-paper-family] [data-slot='sketch-dialog-body'] {
   color: var(--ink);
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-dialog-body'] .bg-muted\/50,
-[data-theme-preset='paper-sketch'] [data-slot='sketch-confirm'] .bg-muted\/50 {
+[data-paper-family] [data-slot='sketch-dialog-body'] .bg-muted\/50,
+[data-paper-family] [data-slot='sketch-confirm'] .bg-muted\/50 {
   border: 1.2px solid color-mix(in oklch, var(--ink) 30%, transparent);
   border-radius: var(--wobble-b);
   background: color-mix(in oklch, var(--ink) 3%, var(--paper-alt)) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-dialog-body'] .rounded-lg.border,
-[data-theme-preset='paper-sketch'] [data-slot='sketch-confirm'] .rounded-lg.border {
+[data-paper-family] [data-slot='sketch-dialog-body'] .rounded-lg.border,
+[data-paper-family] [data-slot='sketch-confirm'] .rounded-lg.border {
   border-color: color-mix(in oklch, var(--ink) 40%, transparent) !important;
   border-radius: var(--wobble-b) !important;
   background: color-mix(in oklch, var(--ink) 2%, var(--paper-alt));
 }
 
 /* Shared Dialog wrapper already uses dialog-content slot; body polish */
-[data-theme-preset='paper-sketch'] [data-slot='dialog-content'] [data-slot='sketch-dialog-body'] {
+[data-paper-family] [data-slot='dialog-content'] [data-slot='sketch-dialog-body'] {
   color: var(--ink);
 }
 
 /* ── AP: Usage-logs + pricing detail ──────────────────────────────────── */
-[data-theme-preset='paper-sketch'] .gg-logs-filter,
-[data-theme-preset='paper-sketch'] [data-slot='data-table-filter'].gg-logs-filter {
+[data-paper-family] .gg-logs-filter,
+[data-paper-family] [data-slot='data-table-filter'].gg-logs-filter {
   color: var(--ink);
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-log-card'] {
+[data-paper-family] [data-slot='sketch-log-card'] {
   color: var(--ink);
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-log-card'] .bg-muted\/30 {
+[data-paper-family] [data-slot='sketch-log-card'] .bg-muted\/30 {
   border: 1.2px dashed color-mix(in oklch, var(--ink) 30%, transparent);
   border-radius: var(--wobble-b);
   background: color-mix(in oklch, var(--ink) 2%, var(--paper-alt)) !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-pricing-toolbar'] {
+[data-paper-family] [data-slot='sketch-pricing-toolbar'] {
   color: var(--ink);
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-pricing-search'] input,
-[data-theme-preset='paper-sketch'] [data-slot='sketch-pricing-search'] [data-slot='input'] {
+[data-paper-family] [data-slot='sketch-pricing-search'] input,
+[data-paper-family] [data-slot='sketch-pricing-search'] [data-slot='input'] {
   border: 1.4px solid color-mix(in oklch, var(--ink) 45%, transparent) !important;
   border-radius: var(--wobble-b) !important;
   background: var(--paper-alt) !important;
   box-shadow: none !important;
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-pricing-skeleton'] {
+[data-paper-family] [data-slot='sketch-pricing-skeleton'] {
   color: var(--ink);
 }
 
-[data-theme-preset='paper-sketch'] [data-slot='sketch-perf-badge'] {
+[data-paper-family] [data-slot='sketch-perf-badge'] {
   border: 1.2px solid color-mix(in oklch, var(--ink) 28%, transparent);
   border-radius: var(--wobble-b);
   background: color-mix(in oklch, var(--ink) 2%, var(--paper-alt));
@@ -2732,10 +2745,10 @@ For commercial licensing, please contact support@quantumnous.com
 }
 
 /* Pricing detail charts notebook */
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   [data-slot='sketch-panel']
   .recharts-wrapper,
-[data-theme-preset='paper-sketch']
+[data-paper-family]
   [data-slot='sketch-panel']
   [class*='vchart'] {
   font-family: var(--font-body, var(--font-hand));
@@ -2743,57 +2756,82 @@ For commercial licensing, please contact support@quantumnous.com
 
 /* ── AQ: Residual cleanup + dark chalk second pass ────────────────────── */
 
-/* Stronger dark chalk grid + surface contrast */
-.dark [data-theme-preset='paper-sketch'] {
-  background-image: radial-gradient(
-    color-mix(in oklch, var(--line) 75%, transparent) 0.7px,
-    transparent 0.7px
-  ) !important;
-  background-size: 26px 26px !important;
-}
-
-.dark [data-theme-preset='paper-sketch'] [data-slot='sidebar'] {
+.dark [data-paper-family] [data-slot='sidebar'] {
   background: color-mix(in oklch, var(--paper) 92%, black) !important;
   border-color: color-mix(in oklch, var(--ink) 22%, transparent) !important;
 }
 
-.dark [data-theme-preset='paper-sketch'] [data-slot='dialog-overlay'],
-.dark [data-theme-preset='paper-sketch'] [data-slot='alert-dialog-overlay'],
-.dark [data-theme-preset='paper-sketch'] [data-slot='sheet-overlay'],
-.dark [data-theme-preset='paper-sketch'] [data-slot='drawer-overlay'] {
+.dark [data-paper-family] [data-slot='dialog-overlay'],
+.dark [data-paper-family] [data-slot='alert-dialog-overlay'],
+.dark [data-paper-family] [data-slot='sheet-overlay'],
+.dark [data-paper-family] [data-slot='drawer-overlay'] {
   background: color-mix(in oklch, black 55%, transparent) !important;
 }
 
-.dark [data-theme-preset='paper-sketch'] .gg-playground-input {
+.dark [data-paper-family] .gg-playground-input {
   box-shadow: 3px 4px 0 color-mix(in oklch, black 35%, transparent) !important;
 }
 
-.dark [data-theme-preset='paper-sketch'] [data-slot='sketch-seg-item'][data-active='true'],
-.dark [data-theme-preset='paper-sketch'] [data-slot='sketch-seg-item'].bg-background {
+.dark [data-paper-family] [data-slot='sketch-seg-item'][data-active='true'],
+.dark [data-paper-family] [data-slot='sketch-seg-item'].bg-background {
   background: var(--paper-alt) !important;
   border-color: color-mix(in oklch, var(--ink) 35%, transparent);
   box-shadow: 1px 2px 0 color-mix(in oklch, black 30%, transparent) !important;
 }
 
 /* Chart axes readable on chalk */
-.dark [data-theme-preset='paper-sketch'] [data-slot='chart'] .recharts-cartesian-grid line,
-.dark [data-theme-preset='paper-sketch'] [data-slot='sketch-chart-body'] .recharts-cartesian-grid line {
+.dark [data-paper-family] [data-slot='chart'] .recharts-cartesian-grid line,
+.dark [data-paper-family] [data-slot='sketch-chart-body'] .recharts-cartesian-grid line {
   stroke: color-mix(in oklch, var(--ink) 22%, transparent) !important;
 }
 
-.dark [data-theme-preset='paper-sketch'] [data-slot='chart'] .recharts-text,
-.dark [data-theme-preset='paper-sketch'] [data-slot='sketch-chart-body'] text {
+.dark [data-paper-family] [data-slot='chart'] .recharts-text,
+.dark [data-paper-family] [data-slot='sketch-chart-body'] text {
   fill: var(--ink-soft) !important;
 }
 
 /* Kill remaining soft ring utilities under sketch */
-[data-theme-preset='paper-sketch'] .ring-1,
-[data-theme-preset='paper-sketch'] .ring-2 {
+[data-paper-family] .ring-1,
+[data-paper-family] .ring-2 {
   --tw-ring-shadow: 0 0 #0000 !important;
   --tw-ring-color: transparent !important;
 }
 
-[data-theme-preset='paper-sketch'] .shadow-\[0_18px_60px_-32px_rgba\(0\,0\,0\,0\.65\)\],
-[data-theme-preset='paper-sketch'] .shadow-\[0_22px_70px_-34px_rgba\(0\,0\,0\,0\.75\)\] {
+[data-paper-family] .shadow-\[0_18px_60px_-32px_rgba\(0\,0\,0\,0\.65\)\],
+[data-paper-family] .shadow-\[0_22px_70px_-34px_rgba\(0\,0\,0\,0\.75\)\] {
   box-shadow: 3px 4px 0 color-mix(in oklch, var(--ink) 10%, transparent) !important;
+}
+
+/* ── Empty / error / loading states ─────────────────────────────────── */
+[data-paper-family] [data-slot='empty-state'],
+[data-paper-family] [data-slot='error-state'] {
+  border-width: 1.6px !important;
+  border-style: solid !important;
+  border-color: color-mix(in oklch, var(--ink) 45%, transparent) !important;
+  border-radius: var(--wobble-a) !important;
+  background: var(--paper-alt) !important;
+  box-shadow: 2px 3px 0 color-mix(in oklch, var(--ink) 8%, transparent) !important;
+}
+
+[data-paper-family] [data-slot='empty-state-media'],
+[data-paper-family] [data-slot='error-state-media'] {
+  border: 1.6px solid color-mix(in oklch, var(--ink) 45%, transparent) !important;
+  border-radius: var(--wobble-b) !important;
+  background: color-mix(in oklch, var(--ink) 5%, var(--paper-alt)) !important;
+  color: var(--ink) !important;
+}
+
+[data-paper-family] [data-slot='error-state-media'] {
+  color: var(--sketch-red) !important;
+}
+
+[data-paper-family] [data-slot='sketch-loading-icon'] {
+  color: var(--sketch-blue) !important;
+}
+
+/* Duration applies on the same element that has animate-spin (wrapper or SVG). */
+[data-paper-family] [data-slot='sketch-loading-icon'].animate-spin,
+[data-paper-family] [data-slot='sketch-loading'] > .animate-spin,
+[data-paper-family] [data-slot='sketch-loading'][data-inline='true'] .animate-spin {
+  animation-duration: 1.4s;
 }
