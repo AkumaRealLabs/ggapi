@@ -1,0 +1,486 @@
+/*
+Copyright (C) 2023-2026 QuantumNous
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+For commercial licensing, please contact support@quantumnous.com
+*/
+/*
+ * paper-sketch-console.css — calm admin variant for the paper-sketch preset.
+ *
+ * The original tech-visual-explainer template is a single-page diagram language:
+ * wobble borders, dotted grid, and 700-weight headings work beautifully there.
+ * When that same chrome is stretched across data-dense admin surfaces, the
+ * visual rhythm becomes too loud and can feel dizzying. This file selectively
+ * tones down the console while keeping the home explainer and auth pages intact.
+ */
+
+/* ── Canvas: solid paper, no grid, no transparency in the shell ─────────── */
+/* Body marker from AuthenticatedLayout — kill any residual full-shell grid. */
+[data-paper-family][data-console-chrome] {
+  background-image: none !important;
+}
+
+[data-paper-family] [data-slot='sidebar'],
+[data-paper-family] [data-slot='sidebar-inner'],
+[data-paper-family] [data-slot='sidebar-container'] {
+  background: var(--paper-alt) !important;
+}
+
+[data-paper-family] [data-slot='sidebar-inset'] {
+  background-color: var(--paper);
+}
+
+/* ── Surfaces: standard radius, thinner borders, no wobble in console ───── */
+/* In-tree cards/tables live under sidebar-inset. */
+[data-paper-family] [data-slot='sidebar-inset'] [data-slot='card'],
+[data-paper-family] [data-slot='sidebar-inset'] [data-slot='titled-card'] {
+  border-radius: var(--radius) !important;
+  border-width: 1px !important;
+  border-color: color-mix(in oklch, var(--ink) 30%, transparent) !important;
+  box-shadow: none !important;
+}
+
+/*
+ * Portaled overlays render under <body>, not under sidebar-inset.
+ * AuthenticatedLayout sets data-console-chrome on body so these match.
+ */
+[data-paper-family][data-console-chrome]
+  :is(
+    [data-slot='popover-content'],
+    [data-slot='dropdown-menu-content'],
+    [data-slot='context-menu-content'],
+    [data-slot='select-content'],
+    [data-slot='combobox-content'],
+    [data-slot='dialog-content'],
+    [data-slot='alert-dialog-content'],
+    [data-slot='sheet-content'],
+    [data-slot='drawer-content'],
+    [data-slot='hover-card-content'],
+    [data-slot='command'],
+    [data-slot='tooltip-content'],
+    /* Custom outer surfaces that replace the default primitive slot name. */
+    [data-slot='sketch-confirm'],
+    [data-slot='sketch-notify-panel'],
+    [data-slot='sketch-profile-menu']
+  ) {
+  border-radius: var(--radius) !important;
+  border-width: 1px !important;
+  border-color: color-mix(in oklch, var(--ink) 30%, transparent) !important;
+  box-shadow: none !important;
+}
+
+[data-paper-family][data-console-chrome] [data-sonner-toast] {
+  border-radius: var(--radius) !important;
+  border-width: 1px !important;
+  border-color: color-mix(in oklch, var(--ink) 30%, transparent) !important;
+  box-shadow: none !important;
+}
+
+/* Tailwind-only cards in feature pages */
+[data-paper-family] [data-slot='sidebar-inset'] .bg-card.border,
+[data-paper-family] [data-slot='sidebar-inset'] .bg-card.border-border,
+[data-paper-family] [data-slot='sidebar-inset'] section.bg-card,
+[data-paper-family] [data-slot='sidebar-inset'] div.bg-card.overflow-hidden,
+[data-paper-family] [data-slot='sidebar-inset'] article.bg-card {
+  border-radius: var(--radius) !important;
+  border-width: 1px !important;
+  border-color: color-mix(in oklch, var(--ink) 28%, transparent) !important;
+  box-shadow: none !important;
+}
+
+/* Dashboard panels that are not Card / data-table-frame */
+[data-paper-family] [data-slot='sidebar-inset'] [data-slot='sketch-chart-frame'],
+[data-paper-family] [data-slot='sidebar-inset'] [data-slot='sketch-perf-bar'],
+[data-paper-family] [data-slot='sidebar-inset'] [data-slot='sketch-profile-card'] {
+  border-radius: var(--radius) !important;
+  border-width: 1px !important;
+  border-color: color-mix(in oklch, var(--ink) 28%, transparent) !important;
+  box-shadow: none !important;
+}
+
+/* Nested soft tiles */
+[data-paper-family] [data-slot='sidebar-inset'] .bg-background\/60,
+[data-paper-family] [data-slot='sidebar-inset'] .bg-muted\/30,
+[data-paper-family] [data-slot='sidebar-inset'] .bg-muted\/40 {
+  border-color: color-mix(in oklch, var(--ink) 18%, transparent);
+}
+
+/* ── Buttons: calmer radius, no hover lift on admin rows ──────────────── */
+[data-paper-family] [data-slot='sidebar-inset'] [data-slot='button'] {
+  border-radius: var(--radius) !important;
+}
+
+[data-paper-family]
+  [data-slot='sidebar-inset']
+  [data-slot='button']:hover:not(:disabled):not([data-variant='link']) {
+  transform: none;
+}
+
+[data-paper-family]
+  [data-slot='sidebar-inset']
+  [data-slot='button'][data-variant='default']:hover:not(:disabled) {
+  box-shadow: none !important;
+}
+
+/* ── Form controls ────────────────────────────────────────────────────── */
+[data-paper-family] [data-slot='sidebar-inset'] [data-slot='input'],
+[data-paper-family] [data-slot='sidebar-inset'] [data-slot='textarea'],
+[data-paper-family] [data-slot='sidebar-inset'] [data-slot='select-trigger'],
+[data-paper-family] [data-slot='sidebar-inset'] [data-slot='combobox-trigger'],
+[data-paper-family] [data-slot='sidebar-inset'] [data-slot='input-group'],
+[data-paper-family] [data-slot='sidebar-inset'] [data-slot='native-select'] {
+  border-radius: var(--radius) !important;
+  border-width: 1px !important;
+  border-color: color-mix(in oklch, var(--ink) 40%, transparent) !important;
+}
+
+/* ── Badge / tabs / toggle ────────────────────────────────────────────── */
+[data-paper-family] [data-slot='sidebar-inset'] [data-slot='badge'] {
+  border-radius: var(--radius) !important;
+  border-width: 1px !important;
+  border-color: color-mix(in oklch, var(--ink) 30%, transparent) !important;
+}
+
+[data-paper-family] [data-slot='sidebar-inset'] [data-slot='tabs-list'] {
+  border-radius: var(--radius);
+  border-width: 1px;
+  border-color: color-mix(in oklch, var(--ink) 30%, transparent);
+}
+
+[data-paper-family] [data-slot='sidebar-inset'] [data-slot='tabs-trigger'] {
+  border-radius: var(--radius);
+}
+
+/* ── Tables ───────────────────────────────────────────────────────────── */
+[data-paper-family] [data-slot='sidebar-inset'] [data-slot='table-container'] {
+  border-radius: var(--radius) !important;
+  border-width: 1px !important;
+  border-color: color-mix(in oklch, var(--ink) 25%, transparent) !important;
+  box-shadow: none !important;
+}
+
+[data-paper-family] [data-slot='sidebar-inset'] [data-slot='table-header'] th {
+  border-bottom-width: 1px;
+  border-bottom-color: color-mix(
+    in oklch,
+    var(--ink) 15%,
+    transparent
+  ) !important;
+}
+
+[data-paper-family] [data-slot='sidebar-inset'] [data-slot='table-row'] {
+  border-color: color-mix(in oklch, var(--ink) 10%, transparent);
+}
+
+[data-paper-family] [data-slot='sidebar-inset'] [data-slot='table-cell'] {
+  border-color: color-mix(in oklch, var(--line) 60%, transparent);
+}
+
+/* ── Data table frame (high-level chrome) ─────────────────────────────── */
+[data-paper-family] [data-slot='sidebar-inset'] [data-slot='data-table-frame'] {
+  border-radius: var(--radius) !important;
+  border-width: 1px !important;
+  border-color: color-mix(in oklch, var(--ink) 25%, transparent) !important;
+  box-shadow: none !important;
+}
+
+[data-paper-family]
+  [data-slot='sidebar-inset']
+  [data-slot='data-table-filter'] {
+  border-radius: var(--radius) !important;
+  border-width: 1px !important;
+  border-color: color-mix(in oklch, var(--ink) 22%, transparent) !important;
+  box-shadow: none !important;
+}
+
+[data-paper-family] [data-slot='sidebar-inset'] [data-slot='data-table-card'] {
+  border-radius: var(--radius) !important;
+  border-width: 1px !important;
+  border-color: color-mix(in oklch, var(--ink) 20%, transparent) !important;
+  box-shadow: none !important;
+}
+
+[data-paper-family]
+  [data-slot='sidebar-inset']
+  [data-slot='data-table-bulk-inner'] {
+  border-radius: var(--radius) !important;
+  border-width: 1px !important;
+  border-color: color-mix(in oklch, var(--ink) 30%, transparent) !important;
+  box-shadow: none !important;
+}
+
+/* ── Sidebar ──────────────────────────────────────────────────────────── */
+[data-paper-family] [data-slot='sidebar-container'] {
+  border-right-width: 1px !important;
+  border-right-color: color-mix(
+    in oklch,
+    var(--ink) 18%,
+    transparent
+  ) !important;
+}
+
+[data-paper-family] [data-slot='sidebar-menu-button'] {
+  border-radius: var(--radius) !important;
+  font-weight: 600;
+}
+
+[data-paper-family] [data-slot='sidebar-menu-button'][data-active='true'],
+[data-paper-family] [data-slot='sidebar-menu-button'][aria-current='page'] {
+  border-width: 1px;
+  border-color: color-mix(
+    in oklch,
+    var(--sketch-blue) 50%,
+    var(--ink)
+  ) !important;
+  box-shadow: none !important;
+  font-weight: 700;
+}
+
+[data-paper-family] [data-slot='sidebar-menu-sub-button'] {
+  border-radius: var(--radius);
+}
+
+[data-paper-family] [data-slot='sidebar-group-label'] {
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  font-size: 11px !important;
+  color: var(--ink-faint) !important;
+}
+
+/* ── App header strip ─────────────────────────────────────────────────── */
+[data-paper-family] [data-slot='app-header'],
+[data-paper-family] header[data-app-header] {
+  border-bottom-width: 1px !important;
+  border-bottom-color: color-mix(
+    in oklch,
+    var(--ink) 25%,
+    transparent
+  ) !important;
+  background: var(--paper-alt) !important;
+}
+
+/* ── Section page layout ──────────────────────────────────────────────── */
+[data-paper-family] [data-slot='section-page-header'] {
+  border-bottom-width: 1px;
+  border-bottom-color: color-mix(in oklch, var(--ink) 15%, transparent);
+}
+
+[data-paper-family] [data-slot='section-page-title'] {
+  font-weight: 600 !important;
+  letter-spacing: -0.01em !important;
+}
+
+[data-paper-family] [data-slot='section-page-footer'] {
+  border-top-width: 1px !important;
+  border-top-color: color-mix(in oklch, var(--ink) 25%, transparent) !important;
+  background: var(--paper-alt) !important;
+}
+
+[data-paper-family] [data-slot='sidebar-inset'] h1,
+[data-paper-family] [data-slot='sidebar-inset'] h2,
+[data-paper-family] [data-slot='sidebar-inset'] h3 {
+  font-weight: 600;
+}
+
+/* ── Pagination ───────────────────────────────────────────────────────── */
+[data-paper-family] [data-slot='sidebar-inset'] [data-slot='pagination-link'],
+[data-paper-family]
+  [data-slot='sidebar-inset']
+  [data-slot='pagination-item']
+  a {
+  border-radius: var(--radius) !important;
+  border-width: 1px !important;
+  border-color: color-mix(in oklch, var(--ink) 25%, transparent) !important;
+  font-weight: 600;
+}
+
+/* ── Tooltip / alert (in-tree only; Sonner portals to body — styled in
+ * paper-sketch.css as the single family toast source of truth) ─────────── */
+[data-paper-family] [data-slot='sidebar-inset'] [data-slot='tooltip-content'] {
+  border-radius: var(--radius) !important;
+  border-width: 1px !important;
+  box-shadow: none !important;
+}
+
+[data-paper-family] [data-slot='sidebar-inset'] [data-slot='alert'] {
+  border-radius: var(--radius) !important;
+  border-width: 1px !important;
+  border-color: color-mix(in oklch, var(--ink) 25%, transparent) !important;
+}
+
+/* ── Avatar / separator / progress ────────────────────────────────────── */
+[data-paper-family] [data-slot='sidebar-inset'] [data-slot='avatar'] {
+  border-radius: var(--radius) !important;
+  border-width: 1px !important;
+  border-color: color-mix(in oklch, var(--ink) 25%, transparent) !important;
+}
+
+[data-paper-family] [data-slot='sidebar-inset'] [data-slot='separator'] {
+  background: color-mix(in oklch, var(--ink) 12%, transparent) !important;
+}
+
+[data-paper-family] [data-slot='sidebar-inset'] [data-slot='progress'] {
+  border-width: 1px;
+  border-color: color-mix(in oklch, var(--ink) 18%, transparent);
+}
+
+/* ── Command palette / search / config drawer ─────────────────────────── */
+[data-paper-family] [data-slot='sidebar-inset'] [data-slot='command-item'] {
+  border-radius: var(--radius);
+}
+
+[data-paper-family] [data-slot='sketch-search'] {
+  border-radius: var(--radius) !important;
+  border-width: 1px !important;
+  border-color: color-mix(in oklch, var(--ink) 40%, transparent) !important;
+  box-shadow: none !important;
+}
+
+[data-paper-family] [data-slot='sketch-search']:hover {
+  transform: none;
+}
+
+/* ── Dashboard tiles ──────────────────────────────────────────────────── */
+[data-paper-family] [data-slot='sidebar-inset'] [data-slot='sketch-tile'] {
+  border-radius: var(--radius) !important;
+  border-width: 1px !important;
+  border-color: color-mix(in oklch, var(--ink) 20%, transparent) !important;
+}
+
+[data-paper-family]
+  [data-slot='sidebar-inset']
+  [data-slot='sketch-panel-head'] {
+  border-bottom-width: 1px;
+  border-bottom-color: color-mix(in oklch, var(--ink) 12%, transparent);
+}
+
+/* ── Skeleton: keep the pencil hatch, but softer ──────────────────────── */
+[data-paper-family] [data-slot='sidebar-inset'] [data-slot='skeleton'],
+[data-paper-family] [data-slot='sidebar-inset'] .skeleton-shimmer {
+  border-radius: var(--radius);
+  opacity: 0.7;
+}
+
+/* ── Dialog content: avoid the wobble radius on small screens ─────────── */
+@media (max-width: 640px) {
+  [data-paper-family][data-console-chrome] [data-slot='dialog-content'],
+  [data-paper-family][data-console-chrome] [data-slot='drawer-content'] {
+    border-radius: var(--radius) !important;
+  }
+}
+
+/* ── Dark mode: calm the chalkboard console ──────────────────────────── */
+.dark [data-paper-family] [data-slot='sidebar-inset'],
+.dark [data-paper-family] [data-slot='section-page'] {
+  background-color: var(--paper);
+}
+
+.dark [data-paper-family] [data-slot='sidebar'],
+.dark [data-paper-family] [data-slot='sidebar-inner'],
+.dark [data-paper-family] [data-slot='sidebar-container'] {
+  background: var(--paper-alt) !important;
+}
+
+.dark [data-paper-family] [data-slot='sidebar-inset'] [data-slot='card'],
+.dark
+  [data-paper-family]
+  [data-slot='sidebar-inset']
+  [data-slot='table-container'],
+.dark
+  [data-paper-family]
+  [data-slot='sidebar-inset']
+  [data-slot='data-table-frame'],
+.dark [data-paper-family] [data-slot='sidebar-inset'] [data-slot='input'],
+.dark [data-paper-family] [data-slot='sidebar-inset'] [data-slot='badge'],
+.dark [data-paper-family] [data-slot='sidebar-inset'] [data-slot='tabs-list'] {
+  border-color: color-mix(in oklch, var(--ink) 22%, transparent) !important;
+}
+
+.dark
+  [data-paper-family]
+  [data-slot='sidebar-inset']
+  [data-slot='table-header']
+  th {
+  border-bottom-color: color-mix(
+    in oklch,
+    var(--ink) 12%,
+    transparent
+  ) !important;
+}
+
+.dark [data-paper-family] [data-slot='sidebar-inset'] [data-slot='table-row'] {
+  border-color: color-mix(in oklch, var(--ink) 8%, transparent);
+}
+
+.dark [data-paper-family] [data-slot='sidebar-inset'] [data-slot='separator'] {
+  background: color-mix(in oklch, var(--ink) 8%, transparent) !important;
+}
+
+.dark [data-paper-family] [data-slot='app-header'],
+.dark [data-paper-family] header[data-app-header] {
+  border-bottom-color: color-mix(
+    in oklch,
+    var(--ink) 18%,
+    transparent
+  ) !important;
+}
+
+.dark [data-paper-family] [data-slot='section-page-header'] {
+  border-bottom-color: color-mix(in oklch, var(--ink) 10%, transparent);
+}
+
+.dark [data-paper-family] [data-slot='section-page-footer'] {
+  border-top-color: color-mix(in oklch, var(--ink) 18%, transparent) !important;
+}
+
+/* ── Mobile: even calmer density on small screens ─────────────────────── */
+@media (max-width: 640px) {
+  [data-paper-family] [data-slot='sidebar-inset'] [data-slot='card'],
+  [data-paper-family] [data-slot='sidebar-inset'] [data-slot='table-container'],
+  [data-paper-family]
+    [data-slot='sidebar-inset']
+    [data-slot='data-table-frame'],
+  [data-paper-family] [data-slot='sidebar-inset'] [data-slot='input'],
+  [data-paper-family] [data-slot='sidebar-inset'] [data-slot='badge'] {
+    border-radius: calc(var(--radius) * 0.85) !important;
+  }
+
+  [data-paper-family]
+    [data-slot='sidebar-inset']
+    [data-slot='section-page-title'] {
+    /* Density axis still owns size via --text-lg; only weight was calmed above. */
+    font-size: var(--text-lg) !important;
+  }
+
+  [data-paper-family] [data-slot='sidebar-inset'] [data-slot='button'] {
+    border-radius: calc(var(--radius) * 0.85) !important;
+  }
+
+  [data-paper-family] [data-slot='sidebar-inset'] [data-slot='empty-state'],
+  [data-paper-family] [data-slot='sidebar-inset'] [data-slot='error-state'] {
+    border-radius: var(--radius) !important;
+    border-width: 1px !important;
+    box-shadow: none !important;
+  }
+
+  [data-paper-family]
+    [data-slot='sidebar-inset']
+    [data-slot='empty-state-media'],
+  [data-paper-family]
+    [data-slot='sidebar-inset']
+    [data-slot='error-state-media'] {
+    border-radius: var(--radius) !important;
+  }
+}

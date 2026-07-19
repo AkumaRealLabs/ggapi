@@ -30,6 +30,7 @@ import {
   CONTENT_LAYOUT_VALUES,
   type ContentLayout,
   DEFAULT_THEME_CUSTOMIZATION,
+  PAPER_FAMILY_PRESETS,
   resolveThemeFont,
   THEME_COOKIE_KEYS,
   THEME_FONT_VALUES,
@@ -141,9 +142,10 @@ export function ThemeCustomizationProvider(props: {
     // Upstream 'default' is defined on :root in theme.css — omit the attr.
     // Any named preset (including the ggapi product default paper-sketch)
     // must set data-theme-preset so theme-presets.css can apply.
+    applyAttribute('data-theme-preset', preset === 'default' ? null : preset)
     applyAttribute(
-      'data-theme-preset',
-      preset === 'default' ? null : preset
+      'data-paper-family',
+      PAPER_FAMILY_PRESETS.has(preset) ? '' : null
     )
   }, [preset])
 

@@ -21,7 +21,6 @@ import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/design-system/button'
-import { FadeIn } from '@/components/page-transition'
 import {
   Empty,
   EmptyContent,
@@ -46,28 +45,29 @@ export function ErrorState(props: ErrorStateProps) {
   const Icon = props.icon ?? AlertTriangle
 
   return (
-    <FadeIn>
-      <Empty className={cn('min-h-[300px]', props.className)}>
-        <EmptyHeader>
-          <EmptyMedia variant='icon'>
-            <Icon className='text-destructive size-6' />
-          </EmptyMedia>
-          <EmptyTitle>
-            {props.title ?? t('Oops! Something went wrong')}
-          </EmptyTitle>
-          {props.description != null && (
-            <EmptyDescription>{props.description}</EmptyDescription>
-          )}
-        </EmptyHeader>
-        <EmptyContent>
-          {props.onRetry != null && (
-            <Button variant='outline' onClick={props.onRetry}>
-              {t('Retry')}
-            </Button>
-          )}
-          {props.action}
-        </EmptyContent>
-      </Empty>
-    </FadeIn>
+    <Empty
+      data-slot='error-state'
+      className={cn('min-h-[300px]', props.className)}
+    >
+      <EmptyHeader>
+        <EmptyMedia data-slot='error-state-media' variant='icon'>
+          <Icon className='text-destructive size-6' />
+        </EmptyMedia>
+        <EmptyTitle>
+          {props.title ?? t('Oops! Something went wrong')}
+        </EmptyTitle>
+        {props.description != null && (
+          <EmptyDescription>{props.description}</EmptyDescription>
+        )}
+      </EmptyHeader>
+      <EmptyContent>
+        {props.onRetry != null && (
+          <Button variant='outline' onClick={props.onRetry}>
+            {t('Retry')}
+          </Button>
+        )}
+        {props.action}
+      </EmptyContent>
+    </Empty>
   )
 }

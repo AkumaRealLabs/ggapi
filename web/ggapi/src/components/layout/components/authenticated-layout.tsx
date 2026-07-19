@@ -16,6 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { useLayoutEffect } from 'react'
+
 import {
   SidebarInset,
   SidebarProvider,
@@ -34,13 +36,31 @@ type AuthenticatedLayoutProps = {
   children?: React.ReactNode
 }
 
+/**
+ * Marks <body> while the console shell is mounted so portaled overlays
+ * (dialog / popover / sheet / drawer / toast) can pick up calm console chrome
+ * via [data-console-chrome] — they render under body, not under sidebar-inset.
+ */
+function useConsoleChromeMarker() {
+  useLayoutEffect(() => {
+    document.body.setAttribute('data-console-chrome', '')
+    return () => {
+      document.body.removeAttribute('data-console-chrome')
+    }
+  }, [])
+}
+
 export function AuthenticatedLayout(props: AuthenticatedLayoutProps) {
   const defaultOpen = getCookie('sidebar_state') !== 'false'
+  useConsoleChromeMarker()
 
   return (
     <LayoutProvider>
       <SearchProvider>
-        <SidebarProvider defaultOpen={defaultOpen} className='gg-console-shell flex-col'>
+        <SidebarProvider
+          defaultOpen={defaultOpen}
+          className='gg-console-shell flex-col'
+        >
           <SkipToMain />
           <AppHeader />
           <div className='flex min-h-0 w-full flex-1'>

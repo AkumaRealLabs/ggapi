@@ -403,7 +403,6 @@ For commercial licensing, please contact support@quantumnous.com
   --skeleton-highlight: oklch(0.415 0 0);
 }
 
-
 /* ── Paper Sketch (tech-visual-explainer) ────────────────────────────────
  * Source tokens: template-sketch.html / design-system.md.
  * Light = paper canvas; dark = chalk blackboard. Full surface ladder is
@@ -842,7 +841,6 @@ For commercial licensing, please contact support@quantumnous.com
   letter-spacing: -0.02em;
 }
 
-
 /* ── Hand typography refinements (paper-sketch) ───────────────────────────
  * Handwriting reads a touch small; bump weight on titles and keep letter-
  * spacing neutral (no tight display tracking like serif). */
@@ -919,3 +917,66 @@ For commercial licensing, please contact support@quantumnous.com
   }
 }
 
+/* ── Paper-family shared tokens (color presets except paper-sketch) ─────── */
+/* These presets adopt the paper chrome (wobble borders, ink/paper tokens)
+ * while keeping their own color personality. paper-sketch defines its own
+ * exact paper/ink colors above and is intentionally excluded here. */
+:is(
+  [data-theme-preset='underground'],
+  [data-theme-preset='rose-garden'],
+  [data-theme-preset='lake-view'],
+  [data-theme-preset='sunset-glow'],
+  [data-theme-preset='forest-whisper'],
+  [data-theme-preset='ocean-breeze'],
+  [data-theme-preset='lavender-dream']
+) {
+  --paper: var(--background);
+  --paper-alt: var(--card);
+  --ink: var(--foreground);
+  --ink-soft: var(--muted-foreground);
+  --ink-faint: var(--faint-foreground);
+  --line: var(--border);
+  --sketch-blue: var(--primary);
+  --sketch-teal: var(--chart-2);
+  --sketch-amber: var(--chart-3);
+  --sketch-purple: var(--chart-4);
+  --sketch-red: var(--destructive);
+  /* Explainer home / sketch-engine still uses design-system names. */
+  --blue: var(--sketch-blue);
+  --teal: var(--sketch-teal);
+  --amber: var(--sketch-amber);
+  --purple: var(--sketch-purple);
+  --red: var(--sketch-red);
+  --wobble-a: 255px 15px 225px 15px / 15px 225px 15px 255px;
+  --wobble-b: 15px 225px 15px 255px / 255px 15px 225px 15px;
+  --ease-sketch: cubic-bezier(0.25, 0.1, 0.25, 1);
+  --ease: var(--ease-sketch);
+}
+
+.dark
+  :is(
+    [data-theme-preset='underground'],
+    [data-theme-preset='rose-garden'],
+    [data-theme-preset='lake-view'],
+    [data-theme-preset='sunset-glow'],
+    [data-theme-preset='forest-whisper'],
+    [data-theme-preset='ocean-breeze'],
+    [data-theme-preset='lavender-dream']
+  ) {
+  --paper: var(--background);
+  --paper-alt: var(--card);
+  --ink: var(--foreground);
+  --ink-soft: var(--muted-foreground);
+  --ink-faint: var(--faint-foreground);
+  --line: var(--border);
+  --sketch-blue: var(--primary);
+  --sketch-teal: var(--chart-2);
+  --sketch-amber: var(--chart-3);
+  --sketch-purple: var(--chart-4);
+  --sketch-red: var(--destructive);
+  --blue: var(--sketch-blue);
+  --teal: var(--sketch-teal);
+  --amber: var(--sketch-amber);
+  --purple: var(--sketch-purple);
+  --red: var(--sketch-red);
+}

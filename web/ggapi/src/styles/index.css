@@ -27,6 +27,9 @@ For commercial licensing, please contact support@quantumnous.com
 @import './theme-presets.css';
 /* ggapi full-shell paper redesign (tech-visual-explainer). Last so it wins. */
 @import './paper-sketch.css';
+/* Calm admin variant: keeps the paper/ink palette but removes the wobble
+ * grid, heavy borders, and 700-weight typography from data-dense surfaces. */
+@import './paper-sketch-console.css';
 
 /* Shiki dual themes: token colors follow dark theme (pre background stays `bg-background` on the block) */
 @layer components {
