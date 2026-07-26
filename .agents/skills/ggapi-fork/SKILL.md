@@ -3,10 +3,11 @@ name: ggapi-fork
 description: >
   End-to-end playbook for maintaining the ggapi fork of QuantumNous/new-api:
   daily feature/fix workflow, branch naming, push-vs-PR decisions, pre-commit
-  Codex review loop (/codex:review → fix → re-review), upstream sync/merge,
+  surface-native review loop (review → fix → re-review), upstream sync/merge,
   conflict resolution, diff-inventory updates, release regression, contributing
   back upstream, third product shell web/ggapi (GG-005; feature tracks
-  web/default), org-linux CI runners, private-repo update-check PAT, common
+  web/default), Codex/Grok/Claude native runtime adapters and project hooks,
+  org-linux CI runners, private-repo update-check PAT, common
   git/remote/billing/hotspot pitfalls, and controlled self-upgrade of this
   skill (Mode I) without chaotic rewrites.
   Use when the user runs /ggapi-fork, asks how to 二开, fork 开发, 开分支,
@@ -20,7 +21,7 @@ description: >
   C2-pre). When improving this skill itself, follow Mode I / self-upgrade
   policy.
 metadata:
-  skill_version: "1.7.0"
+  skill_version: "1.9.0"
 ---
 
 # ggapi Fork Maintenance Playbook
@@ -56,7 +57,13 @@ git rev-parse --short HEAD
 git rev-parse --short upstream/main 2>/dev/null || true
 ```
 
-5. If `upstream` is missing, **stop coding features** and complete remote setup
+5. Detect the active agent surface and its native review path:
+
+```bash
+node .agents/skills/ggapi-fork/scripts/agent-adapter.mjs detect --json
+```
+
+6. If `upstream` is missing, **stop coding features** and complete remote setup
    first (Mode A).
 
 ## Hard rules (never violate)
@@ -77,12 +84,20 @@ git rev-parse --short upstream/main 2>/dev/null || true
 ### Ship quality gate (Mode C — not a Hard rule)
 
 Before the **final** commit of a ship unit (user said 提交 / commit / 最终提交 —
-even without `/ggapi-fork`), run the **C2-pre Codex gate**: companion CLI
-(preferred) or user `/codex:review`, review the **combined** final tree vs
-`origin/main` (see workflows), fix findings, **re-review after every fix batch**
-until clean or escalate. Agent **must not** self-skip or claim pass after skip;
-only clear user opt-out phrases count (workflows C2-pre / §21). Docs/skill not
-auto-exempt. Does **not** auto-commit or replace Hard rules.
+even without `/ggapi-fork`), run the **C2-pre review gate** with the detected
+surface's own reviewer: Codex uses native `codex review`, Claude Code uses
+headless `claude -p "/code-review origin/main"`, Grok uses its headless review
+(`grok -p` with the adapter's review prompt); generic agents (or a missing
+surface CLI, which has no reviewer of its own) use the available Codex CLI.
+A surface whose **own** reviewer is installed but failing (rate limit, auth) is
+a blocked gate — **never** substitute another vendor's reviewer. Review the
+**combined** final tree vs `origin/main` (see workflows), fix findings,
+**re-review after every fix batch** until clean or escalate, then record the
+exact reviewed tree with `agent-adapter.mjs gate-record`. Project-native hooks
+block commit/push/merge/tag when that record is missing or stale. Agent **must
+not** self-skip or claim pass after skip; only clear user opt-out phrases count
+(workflows C2-pre / §21). Docs/skill not auto-exempt. Does **not** auto-commit
+or replace Hard rules.
 Full procedure: Mode C **C2-pre**.
 
 ## Mode router
@@ -184,7 +199,7 @@ aligned with active rows (not replace them):
 | ID | Topic |
 |----|--------|
 | GG-001 | `docs/fork/` + `AGENTS.md` 二开入口 |
-| GG-002 | this skill (`/ggapi-fork`, v1.7.0+; Modes A–I + C2-pre no self-skip; C-continue; chained C→F ship; release tag `v<upstream>.N` → GHCR wait) |
+| GG-002 | this skill (`/ggapi-fork`, v1.8.0+; Modes A–I + native Codex/Grok/Claude adapters/hooks; C2-pre no self-skip; C-continue; chained C→F ship; release tag `v<upstream>.N` → GHCR wait) |
 | GG-003 | CI org-linux Linux amd64; **tag → GHCR**; no Docker Hub `calciumion/new-api`; bare binary optional (manual) |
 | GG-004 | Server-side update check URL + GitHub PAT |
 | GG-005 | Third frontend shell `web/ggapi` (default `theme.frontend=ggapi`; feature tracks `web/default`) |
@@ -203,9 +218,9 @@ Rule of thumb (canonical: `docs/fork` SOP §3.5): **skin/product in `web/ggapi`;
 
 | Topic | Skill |
 |-------|--------|
-| Pre-commit / final-ship code review (Codex) | **`/codex:review`** (Codex plugin; review-only — this skill owns the fix→re-review loop) |
+| Pre-commit / final-ship code review (surface-native) | Run `agent-adapter.mjs detect`; Codex → native `codex review`, Claude → `claude -p "/code-review origin/main"`, Grok → `grok -p` headless review, generic → available Codex CLI. No cross-vendor substitution; a failing own reviewer blocks the gate. Review-only — this skill owns fix→re-review→gate-record. |
 | Adversarial / custom-focus Codex review | `/codex:adversarial-review` (optional; not the default gate) |
-| Bundled local/PR reviewer (non-Codex) | `review` / `/review` — optional extra; does **not** replace `/codex:review` for the pre-commit gate |
+| Bundled local/PR reviewer | `review` / `/review` — optional extra; does **not** replace the C2-pre gate |
 | Frontend i18n keys (all locales incl. **zh-TW**; use `web/ggapi` or `web/default` paths) | `i18n-translate` (shell-aware) |
 | classic → default UI port | `classic-to-default-sync` |
 | default → ggapi feature port | Same *diff-review* idea as classic→default: map paths `web/default` → `web/ggapi` (no separate skill) |

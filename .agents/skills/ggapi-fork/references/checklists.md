@@ -30,9 +30,11 @@ Copy into PR bodies or walk verbally with the user. Keep items checkable.
 - [ ] Frontend: ggapi/default → `bun run typecheck` + path-scoped oxlint on **changed files**; classic → path-scoped eslint/prettier (no typecheck); full-tree lint optional if baseline-noisy
 - [ ] Manual smoke for user-visible behavior
 - [ ] **C1b** third-shell/embed checks (incl. path-scoped lint on touched UI) done **before** C2-pre when GG-005 wiring touched; any resulting edits re-run C2-pre
-- [ ] **Pre-commit Codex gate (C2-pre):** companion/`codex review` (or user `/codex:review`) on **combined** base→final tree; mixed committed+dirty → materialize then one `--base origin/main`; findings fixed; **re-reviewed after every fix batch** until clean **or** explicit **user** skip/override recorded (agent never self-skips)
-- [ ] If Codex unavailable: user chose retry / skip — not silent pass; companion fail → try CLI; docs/skill not auto-skipped
-- [ ] Gate not **stale**: final ship tree (tip + dirty at pass) unchanged and recorded `origin/main` SHA unchanged; C2 commit / message-only amend of same tree OK; behind-main with user-declined update stays valid until that main SHA moves
+- [ ] **Pre-commit review gate (C2-pre):** `agent-adapter.mjs detect/review-command` selected the current surface's **own** reviewer (codex/claude/grok; Codex CLI as generic fallback); one **combined** base→final-tree review; any dirty final tree → materialize then review vs `origin/main`; findings fixed and re-reviewed; clean tree recorded with `gate-record --reviewer <actual reviewer>` (or explicit user skip recorded with `gate-bypass`)
+- [ ] If the review CLI is unavailable: user chose retry / explicit skip — not silent pass; a missing surface CLI falls back to the Codex CLI; docs/skill not auto-skipped
+- [ ] Native project hooks discovered/trusted for the active surface (`.codex/hooks.json` or `.claude/settings.json`); Hook failure is not treated as gate pass
+- [ ] Gate not **stale**: `gate-status` is `clean`/`bypassed`/`empty`; final tree, branch, and recorded `origin/main` SHA unchanged; same-tree C2 commit/message amend remains valid
+- [ ] Hook 校验实际 ship object：发车动作不是复合/动态拼装命令；push 显式 `origin HEAD`；merge 带 `--match-head-commit <mergePin>` 或 REST `sha=<mergePin>`
 - [ ] If materialize used: temp commit message **amended** before push
 - [ ] Ambiguous `继续`: stage detected (C-continue) — post-PR open → CI/merge coach; never invent push/PR/merge verbs; not silent Mode B
 
@@ -158,7 +160,8 @@ Risk cheat sheet:
 - [ ] Mode router still matches workflows
 - [ ] Chinese coaching defaults intact
 - [ ] No auto-commit / auto-push language introduced
-- [ ] Pre-commit Codex gate (C2-pre) still documented if ship-path changed
+- [ ] Pre-commit review gate (C2-pre) still documented if ship-path changed
+- [ ] If runtime adapters/Hooks changed: Node tests pass; Codex `hooks/list` has no errors; Grok `inspect` finds project hooks; Claude `doctor` accepts project settings
 - [ ] User shown summary; commit only if they asked
 
 ### Skill PR

@@ -24,7 +24,9 @@ tiktoken_cache
 .gomodcache/
 .cache
 plans
-.claude
+.ggapi-agent/
+.claude/*
+!.claude/settings.json
 .cursor
 
 electron/node_modules

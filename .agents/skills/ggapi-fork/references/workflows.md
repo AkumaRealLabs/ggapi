@@ -280,7 +280,7 @@ Run **before C2-pre** for any GG-005-related unit (or theme/embed/Docker/makefil
 
 Canonical policy: `docs/fork` §第三壳 / SOP §3.5; inventory **GG-005**.
 
-### C2-pre. Final-commit Codex review gate (required before C2)
+### C2-pre. Final-commit native review gate (required before C2)
 
 **When:** User asked to **commit / 提交 / 最终提交** (or “改完并提交…”, plain
 `/commit`, “提交这些改动”) for a ship unit on this repo. **Mode C applies even
@@ -288,32 +288,35 @@ if the user did not say `/ggapi-fork`** — load this skill and run C2-pre befor
 any final commit. There must be reviewable work (dirty tree and/or commits not
 on `origin/main`).
 
-**Why:** Catch real defects before they enter history. Codex review is
+**Why:** Catch real defects before they enter history. The gate review is
 **review-only** (does not patch). **This skill** owns the fix → re-review loop.
 
-#### How to invoke (agent-callable — do not rely on slash alone)
+#### How to invoke (surface-aware; do not hard-code Grok paths)
 
-The installed `/codex:review` slash command is often marked
-`disable-model-invocation: true` (user-only). **Agents must not stall waiting
-for the user to type the slash command.** Prefer the companion (same backend
-as the slash command):
+First detect the active runtime and print its review command:
 
 ```bash
-# Plugin root: installed Codex plugin path (e.g. ~/.grok/installed-plugins/codex-*)
-export CLAUDE_PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$HOME/.grok/installed-plugins/codex-807cef0a}"
-# Adjust codex-* dir if the install id differs; or discover:
-# ls "$HOME/.grok/installed-plugins" | grep -E '^codex'
-
-# Prefer foreground for the gate:
-node "${CLAUDE_PLUGIN_ROOT}/scripts/codex-companion.mjs" review --wait
+node .agents/skills/ggapi-fork/scripts/agent-adapter.mjs detect --json
+node .agents/skills/ggapi-fork/scripts/agent-adapter.mjs review-command --base origin/main
 ```
 
-If companion path is wrong, fall back to `codex review` CLI with equivalent
-scope flags per `codex review --help`. If **both** fail → troubleshooting §21
-(not a silent pass).
+| Detected surface | Native path |
+|------------------|-------------|
+| Codex CLI / App | `codex review --base origin/main` |
+| Grok Build | `grok -p '<review prompt>'` headless review (no dedicated review subcommand) |
+| Claude Code | `claude -p "/code-review origin/main"`, or `/code-review <base>` in-session when no `claude` CLI is on PATH |
+| Generic compatible agent | Has no reviewer of its own → available `codex review`; unavailable means stop per §21 |
 
-User may still run `/codex:review --wait` themselves; treat that output as the
-gate result for this round.
+Execute the command printed by `review-command` — each surface reviews with
+its **own** reviewer. The Codex CLI is **only** for generic agents that have no
+reviewer of their own; it is **not** a stand-in when a surface's own reviewer is
+rate-limited or failing (that is a blocked gate → §21). Record the gate with the
+reviewer that actually ran (`gate-record --reviewer codex|claude|grok`).
+A zero exit code is not proof the review ran — see §21. `/codex:review` remains
+an optional user UX, never something the agent waits for.
+
+If no strategy is available or it fails, go to troubleshooting §21. Do not
+mark the gate passed.
 
 #### Scope: one combined target (base → final tree)
 
@@ -339,14 +342,13 @@ Do not claim “完整相对最新 main” unless the branch contains current `o
 
 | Situation | What to run |
 |-----------|-------------|
-| Dirty only (no unique commits vs `origin/main`) | One review: working tree (default / `auto`) |
-| Clean tree, commits on branch | One review: `review --wait --base origin/main` (or `--scope branch`) |
-| **Both** dirty **and** commits not on `origin/main` | **Materialize** then **one** branch review (below) — do not stop at two disjoint reviews |
-| Empty tree and nothing to land | Skip with reason |
+| Any intentional dirty files (with or without unique commits) | **Materialize** the final tree, then run the adapter-selected review once vs `origin/main` |
+| Clean tree, commits on branch | Run the adapter-selected review once vs `origin/main` |
+| Empty tree and nothing to land | Skip with reason; native hook also recognizes the base-identical tree |
 
-**Materialize (mixed committed + dirty), only after user already authorized 提交:**
+**Materialize (any dirty final tree), only after user already authorized 提交:**
 
-Goal: one Codex pass sees the full patch that will land (`origin/main` → final tree).
+Goal: one review pass sees the full patch that will land (`origin/main` → final tree).
 
 ```bash
 # 1) Stage only intentional ship files (never secrets)
@@ -355,8 +357,13 @@ git add <paths…>
 # 2) Ephemeral commit so branch tip == intended final tree
 git commit -m "chore: temp codex gate snapshot"
 
-# 3) Single combined review
-node "${CLAUDE_PLUGIN_ROOT}/scripts/codex-companion.mjs" review --wait --base origin/main
+# 3) Print and execute the current surface's single combined review command
+node .agents/skills/ggapi-fork/scripts/agent-adapter.mjs review-command --base origin/main
+
+# 4) Only after the review reports clean, pin this exact final tree
+#    (--reviewer = the reviewer that actually ran: codex|claude|grok)
+node .agents/skills/ggapi-fork/scripts/agent-adapter.mjs gate-record \
+  --surface <detected-surface> --reviewer <reviewer> --base origin/main
 ```
 
 | Review result | Next |
@@ -378,8 +385,8 @@ amend to a proper why-focused message in **C2**, or soft-reset and recommit,
   有可审 diff？（dirty 和/或 origin/main...HEAD）
         │ 无 → 跳过并说明 → C2
         ▼
-  用 companion（或用户 slash）跑 **一次** Codex review
-  覆盖完整 ship unit（见上表；混合时先 materialize 再
+  用 adapter 选择当前环境**自己的** reviewer 跑 **一次** review
+  覆盖完整 ship unit（见上表；dirty 时先 materialize 再
   `--base origin/main`，禁止两段割裂审查当通过）
   优先 --wait
         │
@@ -404,11 +411,11 @@ amend to a proper why-focused message in **C2**, or soft-reset and recommit,
 |------|--------|
 | Trigger | Any final-commit intent on this repo → Mode C + C2-pre (not only “push/PR” wording). |
 | Prefer wait | Small/medium diffs: `--wait` so the gate completes in-session. |
-| Invocation | Agent uses **companion / `codex review` CLI**; slash is optional UX for humans. Companion auth/path fail → fall back to `codex review` CLI (same scope); both fail → §21, **not** pass. |
-| Full unit | Always one combined base→final-tree review; mixed → materialize then `--base origin/main`. |
+| Invocation | Agent runs `agent-adapter.mjs detect/review-command`; each surface uses its **own** reviewer — Codex `codex review`, Claude `claude -p "/code-review origin/main"`, Grok `grok -p` headless review; only a generic agent uses the Codex CLI. **Never** substitute another vendor's reviewer when the surface's own one is rate-limited or failing. No strategy/auth failure, or a zero exit with no review body → §21, **not** pass. |
+| Full unit | Always one combined base→final-tree review; any dirty final tree → materialize then `--base origin/main`. |
 | Fix owner | **ggapi-fork agent** applies fixes; never claim review will edit code. |
-| Re-review mandatory | After **any** fix batch that **changes ship-file content**, run Codex **again** on the full unit before C2 / push / “gate 通过”. |
-| Stale pass | **Record at pass** (coach notes): content fingerprint of the **final ship tree** — stage **all intentional ship paths including untracked**, then `git write-tree` (preferred; covers dirty + new files). Also record `origin/main` SHA. **After C2/C3**, set **merge pin** = pushed tip SHA whose tree OID matches that fingerprint. Invalidate if ship content changes (fingerprint), if recorded `origin/main` SHA moves, or if before C5 remote `headRefOid` ≠ merge pin. Do **not** stale merely because `HEAD..origin/main > 0` when the user declined update against the same recorded main SHA. Message-only amend of the same tree does not stale. |
+| Re-review mandatory | After **any** fix batch that **changes ship-file content**, run the surface reviewer **again** on the full unit before C2 / push / “gate 通过”. |
+| Stale pass | After clean review run `gate-record`. The adapter builds a temporary Git index, includes tracked + untracked non-ignored files, and records the final tree, branch, and `origin/main` SHA under ignored `.ggapi-agent/`. Native hooks recompute it before commit/push/merge/tag. Content/base/branch changes stale it; a same-tree commit or message-only amend does not. Before C5 still require remote `headRefOid` = reviewed/pushed tip. |
 | Round limit | Default **3** full cycles (review → fix → re-review). Then stop and escalate. |
 | No agent self-skip | Agent must **never** skip the gate, “带病通过”, or treat stall/timeout as pass. Only **user** clear opt-out (table below) or empty-tree case. |
 | No silent skip | Skipping requires an allowed case below **and** a one-line reason. Docs/skill changes are **not** auto-exempt. |
@@ -420,13 +427,13 @@ amend to a proper why-focused message in **C2**, or soft-reset and recommit,
 | Case | Skip? |
 |------|--------|
 | Empty tree and nothing to land | Yes — nothing to review |
-| Codex plugin / CLI / companion unavailable or auth failure | Do **not** pretend passed: stop, §21; **default = 先不提交** until user chooses retry / install / 「跳过审查并提交」 |
-| User explicitly:「跳过 Codex / 不审了直接提交 / skip review」 | Yes — record in reply; still do normal git hygiene. **Reject** agent-proposed skip if user instead says「不行得过 codex / 必须过审查」→ resume fix→re-review |
+| Native review CLI (and Codex fallback) unavailable or auth failure | Do **not** pretend passed: stop, §21; **default = 先不提交** until user chooses retry / install / 「跳过审查并提交」 |
+| User explicitly:「跳过 Codex / 不审了直接提交 / skip review」 | Yes — record in reply **and** run `agent-adapter.mjs gate-bypass --reason "<explicit instruction>"` for the exact tree; still do normal git hygiene. **Reject** agent-proposed skip if user instead says「不行得过 codex / 必须过审查」→ resume fix→re-review |
 
 Gate is a **Mode C quality step** (user-confirmed L2 playbook), not a Hard-rule rewrite: user may always opt out with clear language; agent never auto-skip docs/skill.
 
 **Not** an allowed unilateral skip: pure docs, skill-only, “small wording”,
-“已经够好了”, time pressure, or companion flake — including changes to this gate.
+“已经够好了”, time pressure, or a review-CLI flake — including changes to this gate.
 Same gate unless the user opts out. Lesson (PR #26): user may **insist** the gate
 re-run after a stalled or skipped attempt; treat that as mandatory re-entry.
 
@@ -434,7 +441,7 @@ re-run after a stalled or skipped attempt; treat that as mandatory re-entry.
 
 ```text
 当前模式: C（发车）
-Codex 审查: 通过 / 已修 N 轮后通过 / 跳过（原因）/ 阻塞（见报告）
+原生审查(codex|claude|grok): 通过 / 已修 N 轮后通过 / 跳过（原因）/ 阻塞（见报告）
 范围: working-tree | branch vs origin/main | materialized combined
 下一步: commit（C2）或按报告继续改
 ```
@@ -451,6 +458,7 @@ Follow repo commit rules:
 - Stage intentional files only
 - HEREDOC commit message, why-focused
 - Never update git config; never skip hooks
+- Commit/push/merge/tag 各自使用一条可检查命令；不要与文件修改或其他发车动作通过 `&&`、`;`、pipe 或动态 `functions.exec` 拼成一次调用
 
 If change is permanent fork delta, include inventory file in the same PR when possible.
 
@@ -461,6 +469,7 @@ git push -u origin HEAD
 ```
 
 This is **required** before a PR can exist. Pushing a topic branch ≠ landing on main.
+保持 `origin` 与 `HEAD` 显式；Hook 会校验实际 source ref 的 tree，而不是用仍含未提交文件的 working tree 代替。
 
 ### C4. Open PR
 
@@ -513,9 +522,14 @@ for internal ggapi PRs, keep the checklist above at minimum.
 ### C5. Merge + clean branches (only when user asks)
 
 ```bash
-# Merge (example: PR number N)
-gh pr merge <N> --repo AkumaRealLabs/ggapi --merge --delete-branch
+# 先单独读取并核对 pushed tip，将实际输出记为 <mergePin>
+git rev-parse HEAD
+# Merge (example: PR number N); <mergePin> 必须替换为上一步实际 SHA
+gh pr merge <N> --repo AkumaRealLabs/ggapi --merge --delete-branch --match-head-commit <mergePin>
 ```
+
+所有 merge 路径都必须携带 reviewed head pin；项目 Hook 按该 commit tree
+比对 gate marker。不得只校验当前 checkout 后去合并一个可能已移动的 PR head。
 
 **Do not treat CLI transport errors as merge failure.** `gh pr merge` can exit
 non-zero with GraphQL EOF / timeout while GitHub still merged the PR (lesson:

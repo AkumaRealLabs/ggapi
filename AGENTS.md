@@ -23,6 +23,7 @@ This is an AI API gateway/proxy built with Go. It aggregates 40+ upstream AI pro
 | [`docs/fork/diff-inventory.md`](docs/fork/diff-inventory.md) | 二开差异清单模板与填写规范 |
 | [`docs/fork/branch-and-sync-sop.md`](docs/fork/branch-and-sync-sop.md) | 分支命名、日常开发、上游同步、发版回归 SOP |
 | [`.agents/skills/ggapi-fork/`](.agents/skills/ggapi-fork/) | Agent 二开教练 skill（`/ggapi-fork`）：日常开发、push/PR、同步上游、冲突、清单、发版、排障 |
+| [`.codex/hooks.json`](.codex/hooks.json) / [`.claude/settings.json`](.claude/settings.json) | Codex、Claude Code、Grok Build 当前环境原生 Hook 入口；共享逻辑由 `ggapi-fork` skill 维护 |
 
 以下工程规则（JSON、三库兼容、计费安全、前端 i18n 等）对二开与上游贡献同样适用。
 

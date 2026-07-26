@@ -1,0 +1,26 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel)}/.agents/skills/ggapi-fork/scripts/agent-adapter.mjs\" hook --surface auto",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel)}/.agents/skills/ggapi-fork/scripts/agent-adapter.mjs\" hook --surface auto",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
+  }
+}

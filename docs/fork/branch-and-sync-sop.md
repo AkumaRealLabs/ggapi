@@ -55,10 +55,36 @@ git checkout -b feat/your-topic
 ## 3. 日常开发闭环
 
 ```
-Issue/任务 → 分支 → 实现 → 本地验证 → 最终提交前 /codex:review（有问题则修后再审）→ commit → push 分支 → PR → Review → 合入 main → 更新差异清单（如有）
+Issue/任务 → 分支 → 实现 → 本地验证 → 当前环境原生 review（Codex/Claude/Grok 各用自家 reviewer，有问题则修后再审）→ gate-record → commit → push 分支 → PR → Review → 合入 main → 更新差异清单（如有）
 ```
 
-提交前 Codex 门禁由 skill **ggapi-fork** Mode C（C2-pre）执行：审查本身只读；通过后再 commit。详见 skill `references/workflows.md` 与 `docs/fork/README.md` Agent 技能小节。
+提交前 Codex 门禁由 skill **ggapi-fork** Mode C（C2-pre）执行：审查本身只读；通过后记录最终树，再 commit。详见 skill `references/workflows.md` 与 `docs/fork/README.md` Agent 技能小节。
+
+### 3.0 Agent 运行时适配
+
+先探测当前环境，不得把 Grok 插件绝对路径写死到工作流：
+
+```bash
+node .agents/skills/ggapi-fork/scripts/agent-adapter.mjs detect --json
+node .agents/skills/ggapi-fork/scripts/agent-adapter.mjs review-command --base origin/main
+```
+
+| 环境 | 项目入口 | 行为 |
+|------|----------|------|
+| Codex CLI / App | `.codex/hooks.json` | `SessionStart` 注入运行时指引；`PreToolUse` 校验发车门禁；审查用原生 `codex review` |
+| Grok Build | `.claude/settings.json` 兼容发现 | `PreToolUse` 使用 Grok 原生 deny 协议；审查用原生 `grok -p` headless review，无 `grok` CLI 时用自身审查能力 |
+| Claude Code | `CLAUDE.md` + `.claude/settings.json` | `SessionStart` 注入指引；`PreToolUse` 校验；审查用原生 `claude -p "/code-review origin/main"`，无 `claude` CLI 时在会话内跑 `/code-review` |
+| 其他环境 | `AGENTS.md` + skill | 本身没有自家 reviewer，才用 Codex CLI；无审查能力时停在 C2-pre |
+
+**禁止跨厂商替代：** 自家 reviewer 装了但失败（限额/配额/鉴权）属 gate 阻塞，按 §21 停，不得换另一家 reviewer 顶上——那会直接抵消「各环境用自家 reviewer」的设计。`claude -p` 撞限额时退出码为 **0**，必须读输出确认审查真的执行过。
+
+审查通过后运行 `gate-record --reviewer <实际跑的 reviewer：codex|claude|grok>`；clean 记录要求 materialized review 后工作树无 tracked/untracked 残留，避免把审查未看到的内容一并标绿。适配器使用临时 Git index 计算完整最终树（排除 ignored），记录写在 Git 忽略的 `.ggapi-agent/`，不污染 diff，且可在 workspace-write sandbox 内更新。同树 commit/amend 保持有效；内容、分支或记录的 `origin/main` SHA 变化后失效。仅当用户明确要求跳过审查时，才允许用 `gate-bypass --reason <明确原因>` 记录该树。
+
+Hook 拦截 `commit`、`push`、`gh pr merge` / REST merge、变更 tag，以及 `gh release create|delete|edit` 与 `gh api` 对 `git/refs` 的写操作；在这些动作上机械执行禁止直提 `main`（`commit` 检查当前分支）、禁止 push `upstream`、禁止推向 `origin/main`（含缺省目标 refspec）、正式 tag 只钉 `origin/main` tip 等已有规则。**未覆盖**（仍靠 skill 判断与用户确认，勿当机械保障）：`git merge` / `cherry-pick` / `revert` / `am` 等改写本地历史的命令，以及 `push --force` —— 强制推送属 skill Hard rules「先问用户」范畴，Hook 不做机械拦截。发车动作必须独立成一条可静态检查的命令：push 显式使用 `origin HEAD`，merge 携带 reviewed head pin；Hook 校验实际 source/PR/tag tree，拒绝复合命令先改内容后绕过旧 marker。Codex 的后续 `write_stdin` 不会再次触发 `PreToolUse`，因此 Hook 拒绝启动可持续接收 stdin 的裸交互 shell；请使用一次性、可检查的 shell 命令。Hook 不会自动运行这些动作，也不会授予 agent 新权限。项目 Hook 首次运行仍须用户按各工具的信任机制确认。
+
+> **升级注意：** `.claude/settings.json` 由本仓跟踪（`.gitignore` 仅对它开口子）。若你本地已有未跟踪的同名文件，`git pull` 会与之冲突或覆盖你的个人配置；请先备份，并把个人偏好放到 `.claude/settings.local.json`（仍被忽略）。
+
+> **能力限度（务必理解）：** Hook 通过**静态识别**命令文本来发现发车动作，属于「尽力拦截 + 纵深防御」，**不是**不可绕过的安全边界。它采用黑名单式检测——枚举已知的命令写法——因此原理上无法穷尽所有拼写；引入时的五轮审查共修复 39 处缺陷，其中 8 处是可利用的绕过，说明这类问题会随审查深度持续出现。请据此定位它的作用：**防止误操作与遗漏，而非防御有意规避**。真正的保障仍是 Mode C 的人工/审查判断与分支保护规则。若未来需要把它当作硬边界，应改为白名单式设计（只放行少量完全限定的规范命令，未知写法按构造 fail-closed），而不是继续给黑名单打补丁。
 
 ### 3.1 实现约束（摘要）
 
@@ -279,11 +305,10 @@ git merge-base --is-ancestor "$BASE" HEAD || {
 N=1   # 按 origin 已有 tags 递增后填写
 REL_TAG="${BASE}.${N}"
 
-# 4) 打本地 annotated tag（失败必须中止：同名 tag 已存在时勿继续 push）
-git tag -a "$REL_TAG" -m "release based on upstream ${BASE}" "$MAIN_SHA" || {
-  echo "ERROR: cannot create $REL_TAG (already exists locally?). Fix N or delete wrong local tag"
-  exit 1
-}
+# 4) 打本地 annotated tag。先打印最终命令，再把输出中的 tag/base/SHA 字面量原样用于单独的 git tag 调用
+printf 'git tag -a %q -m %q %q\n' "$REL_TAG" "release based on upstream ${BASE}" "$MAIN_SHA"
+# 示例形态（不可保留占位符）：git tag -a <实际 REL_TAG> -m "release based on upstream <实际 BASE>" <实际 MAIN_SHA>
+# git tag 必须作为一条独立、无变量、无 ||/&& 的命令执行；返回非 0 就停止，不得继续 push
 
 # 5) 推 tag 前用 ls-remote 再确认 tip（缩小 TOCTOU；仍非服务端严格 CAS）
 #    勿 push ${MAIN_SHA}:refs/heads/main —— 在 main 被 force/删建时可能改写远端 main
@@ -293,11 +318,9 @@ test -n "$REMOTE_MAIN" && test "$REMOTE_MAIN" = "$MAIN_SHA" || {
   echo "ERROR: origin/main is '${REMOTE_MAIN:-missing}', expected $MAIN_SHA; restart from step 0"
   exit 1
 }
-git push origin "refs/tags/${REL_TAG}:refs/tags/${REL_TAG}" || {
-  git tag -d "$REL_TAG" 2>/dev/null || true
-  echo "ERROR: tag push failed (remote tag exists?); restart after git fetch --tags"
-  exit 1
-}
+printf 'git push origin %q:%q\n' "refs/tags/${REL_TAG}" "refs/tags/${REL_TAG}"
+# 将上一行输出作为一条独立、无变量、无 ||/&& 的 git push 命令执行；返回非 0 就停止
+# 若要清理失败后的本地 tag，再用实际 tag 字面量单独执行：git tag -d <实际 REL_TAG>
 # 6) 推后抽检：main 若已前进，tag 仍钉在 MAIN_SHA（当时 tip）；由人决定是否删 tag 重发
 POST_MAIN=$(git ls-remote origin refs/heads/main | awk '{print $1}')
 if [ "$POST_MAIN" != "$MAIN_SHA" ]; then

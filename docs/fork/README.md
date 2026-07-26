@@ -28,14 +28,37 @@ git remote -v
 
 仓库内 skill：**`ggapi-fork`**（路径 [`.agents/skills/ggapi-fork/`](../../.agents/skills/ggapi-fork/)）。
 
-在 Grok / 兼容 agent 中可用：
+在 Codex、Grok Build、Claude Code 与兼容 agent 中可用：
 
 - 斜杠命令：`/ggapi-fork`
 - 自然语言：二开、开分支、push 还是 PR、同步上游、冲突、差异清单、发版回归等
 
-Skill 会按模式（日常开发 / 推送与 PR / 上游同步 / 冲突与清单 / 发版 / 排障 / **skill 自升级**）逐步给出命令，并与本目录 SOP 对齐；**流程以本目录文档为准**，skill 负责执行级指引。当前 skill 版本见清单 [GG-002](./diff-inventory.md)（**v1.7.0+**）。本仓 git tag 规则见 [SOP §5.1](./branch-and-sync-sop.md)（**`v<上游基线>.N`**，例 `v1.0.0-rc.20.1`；基线须为 `origin/main` 祖先；正式 tag 只钉 `origin/main` tip；`N` 仅在基线版本串变化时归 1；**默认产物 = GHCR 镜像**，裸二进制仅手动 dispatch）。
+Skill 会按模式（日常开发 / 推送与 PR / 上游同步 / 冲突与清单 / 发版 / 排障 / **skill 自升级**）逐步给出命令，并与本目录 SOP 对齐；**流程以本目录文档为准**，skill 负责执行级指引。当前 skill 版本见清单 [GG-002](./diff-inventory.md)（**v1.9.0+**）。本仓 git tag 规则见 [SOP §5.1](./branch-and-sync-sop.md)（**`v<上游基线>.N`**，例 `v1.0.0-rc.20.1`；基线须为 `origin/main` 祖先；正式 tag 只钉 `origin/main` tip；`N` 仅在基线版本串变化时归 1；**默认产物 = GHCR 镜像**，裸二进制仅手动 dispatch）。
 
-**最终提交前：** skill Mode C（含用户直接说「提交/commit」）会先跑 Codex 审查（agent 优先用 companion/`codex review`，用户也可用 `/codex:review`），有实质问题则修复后再审（默认最多 3 轮）；须覆盖 **相对 `origin/main` 的完整最终树**（已提交 + 未提交并存时先 materialize 再审）。通过后再落最终 commit 说明；审查本身不改代码逻辑、也不自动 push。跳过须用户明确说；文档/skill 改动不默认豁免（见 skill `references/workflows.md` C2-pre / troubleshooting §21）。
+### 当前环境原生适配
+
+公共规则只维护一份：`AGENTS.md` + `docs/fork/*` + `.agents/skills/ggapi-fork/`。各运行时只保留薄入口：
+
+| 环境 | 原生入口 | 审查路径 |
+|------|----------|----------|
+| Codex CLI / App | `.codex/hooks.json` | 原生 `codex review` |
+| Grok Build | `.claude/settings.json`（Grok 的 Claude Hook 兼容发现） | 原生 `grok -p` headless 审查；无 `grok` CLI 时用自身审查能力，**不**换其他厂商 |
+| Claude Code | `CLAUDE.md` + `.claude/settings.json` | 原生 `claude -p "/code-review origin/main"`；无 `claude` CLI 时在会话内跑 `/code-review`，**不**换其他厂商 |
+| 其他 Agent | `AGENTS.md` + skill | 本身没有自家 reviewer，才用 Codex CLI；无审查能力则停止而非假装通过 |
+
+**自家 reviewer 装了但失败（限额/配额/鉴权）= gate 阻塞，按 §21 停下，禁止换另一家 reviewer 顶上。** 另注意 `claude -p` 撞 session 限额时以退出码 **0** 返回并只打印限额提示，必须读输出判断审查是否真的跑过。
+
+运行时探测：
+
+```bash
+node .agents/skills/ggapi-fork/scripts/agent-adapter.mjs detect --json
+```
+
+项目 Hook 首次运行需要用户在对应工具中信任；信任哈希属于个人机器状态，不写入仓库。Hook 负责机械拦截，不能替代 Mode C 的审查判断，也不会自动获得 commit/push/merge/tag 权限。
+
+**Hook 是尽力拦截，不是安全边界。** 它靠静态识别命令文本发现发车动作，采用黑名单式枚举，原理上无法覆盖所有写法（引入时五轮审查修复 39 处缺陷，含 8 处可利用绕过）。定位为**防误操作**，不用于防御有意规避；详见 [SOP §3.0 能力限度](./branch-and-sync-sop.md)。
+
+**最终提交前：** skill Mode C（含用户直接说「提交/commit」）会用当前环境**自己的** reviewer 跑原生审查（Codex→`codex review`、Claude→`claude -p "/code-review origin/main"`、Grok→`grok -p` headless；其余回退可用的 Codex CLI），有实质问题则修复后再审（默认最多 3 轮）；须覆盖 **相对 `origin/main` 的完整最终树**（存在 dirty 文件时先 materialize 再审）。通过后以非侵入临时 Git 索引记录最终树；同树 commit/amend 不失效，内容、分支或 `origin/main` 变化会自动失效。Codex/Claude/Grok Hook 会在 commit/push/merge/tag 前检查记录及实际 ship object：拒绝复合发车命令，push 校验 source ref，merge 要求 reviewed head pin，tag 只认 `origin/main` tip。跳过须用户明确说并记录原因；文档/skill 改动不默认豁免（见 skill `references/workflows.md` C2-pre / troubleshooting §21）。
 
 自升级策略（能改进自身、禁止乱改）：见 skill 内 [`references/self-upgrade.md`](../../.agents/skills/ggapi-fork/references/self-upgrade.md)。摘要：**L1** 对齐文档/小修补可主动改文件但不自动提交；**L2/L3** 须先方案后确认；永不静默削弱 hard rules、不自动 push。
 

@@ -12,7 +12,7 @@ DEV_POSTGRES_DB = new-api
 DEV_POSTGRES_USER = root
 DEV_SQLITE_PATH ?= one-api.db
 
-.PHONY: all build-web build-web-classic build-web-ggapi build-all-web start-api dev dev-api dev-api-rebuild dev-web dev-web-classic dev-web-ggapi reset-setup
+.PHONY: all build-web build-web-classic build-web-ggapi build-all-web start-api dev dev-api dev-api-rebuild dev-web dev-web-classic dev-web-ggapi reset-setup test-agent-skill
 
 all: build-all-web start-api
 
@@ -65,6 +65,12 @@ dev-web-ggapi:
 
 # Local full stack prefers the ggapi shell for fork work.
 dev: dev-api dev-web-ggapi
+
+# Regression suite for the ggapi-fork review-gate hook (GG-002). The gate blocks
+# unreviewed commit/push/merge/tag, so a silent regression here removes a
+# safety net rather than breaking a visible feature.
+test-agent-skill:
+	node --test .agents/skills/ggapi-fork/scripts/agent-adapter.test.mjs
 
 reset-setup:
 	@echo "Resetting local setup wizard state..."
