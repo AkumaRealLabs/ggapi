@@ -31,9 +31,7 @@ concurrency:
 jobs:
   build_amd64:
     name: Build & push (amd64)
-    # ggapi: organization runner group (Linux x64 only; no arm64)
-    runs-on:
-      group: org-linux
+    runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.version.outputs.tag }}
       image: ${{ steps.version.outputs.image }}
@@ -44,6 +42,14 @@ jobs:
       id-token: write
 
     steps:
+      # 托管 runner 约 14 GB 可用；三壳前端 + Go + Docker 层容易顶满。
+      # 删掉用不到的预装 SDK 可多出 ~20 GB，无需引入第三方 action。
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android /opt/hostedtoolcache/CodeQL
+          docker image prune -af || true
+          df -h /
+
       - name: Check out
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:

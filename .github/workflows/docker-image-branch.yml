@@ -18,9 +18,7 @@ concurrency:
 jobs:
   prepare:
     name: Prepare Docker tags
-    # ggapi: organization runner group (Linux x64 only)
-    runs-on:
-      group: org-linux
+    runs-on: ubuntu-latest
     outputs:
       branch: ${{ steps.version.outputs.branch }}
       sha: ${{ steps.version.outputs.sha }}
@@ -106,14 +104,20 @@ jobs:
   build_amd64:
     name: Build & push (amd64)
     needs: [prepare]
-    # ggapi: organization runner group (Linux x64 only; no arm64)
-    runs-on:
-      group: org-linux
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
       id-token: write
     steps:
+      # 托管 runner 约 14 GB 可用；三壳前端 + Go + Docker 层容易顶满。
+      # 删掉用不到的预装 SDK 可多出 ~20 GB，无需引入第三方 action。
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android /opt/hostedtoolcache/CodeQL
+          docker image prune -af || true
+          df -h /
+
       - name: Check out branch
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:

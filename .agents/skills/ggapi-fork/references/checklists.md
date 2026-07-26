@@ -58,7 +58,7 @@ Copy into PR bodies or walk verbally with the user. Keep items checkable.
 - [ ] PR describes what / why / how tested
 - [ ] No `git push upstream`
 - [ ] If UI strings added: **i18n-translate** on active shell for all locales including **zh-TW**; `i18n:sync` report clean **and** no English left in `zh-TW` (sync treats zh-TW as non-Latin; if unsure, run skill `find-untranslated` path). Classic strings → classic `i18n:*` scripts, not default/ggapi locale JSON.
-- [ ] If CI/workflows: still `runs-on.group: org-linux` unless intentional change + inventory update (GG-003)
+- [ ] If CI/workflows: still `runs-on: ubuntu-latest` unless intentional change + inventory update (GG-003)
 - [ ] If update-check: server proxy + PAT write-only (GG-004); no PAT in frontend
 - [ ] If third shell / theme wiring: GG-005 checks above
 

@@ -706,7 +706,7 @@ Risk: `low` | `medium` | `high`
 3. Version / git tag: **`v<upstream-baseline>.N`** (e.g. `v1.0.0-rc.20.1`) — see `docs/fork/branch-and-sync-sop.md` §5.1. Never reuse an exact upstream tag name. Bump `N` while the inventory baseline **version string** is unchanged; reset `N` to **1 only when that baseline version string changes**. Before tagging: `git fetch origin` and require `HEAD == origin/main`; ancestry check; `git tag -a` must succeed; `git ls-remote` tip re-check then push tag only; post-push tip warning if main moved (SOP §5.1).
 4. **Default tag product = GHCR image** via `docker-build.yml` → `ghcr.io/<owner>/<repo>:<tag>` **plus metadata GitHub Release** (for update-checker `releases/latest`); `:latest` only when tip still matches after sign. Manual rebuild does not move `:latest`. Fork form `<upstream-tag>.N` only. **Never** Docker Hub `calciumion/new-api` (GG-003).
 5. **Bare binary is optional:** `release.yml` is **workflow_dispatch + required tag** (attaches go binaries to the Release).
-6. **After tag push — wait for GHCR before claiming 发版完成** (expect ~8–15 min on org-linux; lesson: `v1.0.0-rc.21.7`):
+6. **After tag push — wait for GHCR before claiming 发版完成** (~8–15 min was the org-linux figure; hosted runners may differ; lesson: `v1.0.0-rc.21.7`):
 
 ```bash
 REL_TAG=v1.0.0-rc.21.7   # the tag you just pushed

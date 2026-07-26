@@ -1,0 +1,202 @@
+name: CI
+
+# ggapi: PR / main 质量门禁 —— 后端 go build + go test，三个前端壳 build。
+#
+# 跑在 GitHub 托管 runner 上：每次运行都是一次性 VM，fork PR 执行自己的代码
+# 是该模型下的常态，无需在 workflow 内自设拦截（那种拦截本也拦不住——
+# `pull_request` 跑的是 PR 自己那份文件）。checkout 一律不持久化凭据。
+#
+# 待补：`make test-agent-skill`（ggapi-fork review-gate 回归）需等引入该 target
+# 的 PR 合入后再加 job，否则此处必然 "No rule to make target"。
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+concurrency:
+  # push 到 main 的每次运行独占一个 group（run_id 唯一）。仅靠
+  # cancel-in-progress: false 不够——同组内的 **pending** 运行会被新排队的运行
+  # 取消，与该开关无关；而 main 上每个提交的结果都是发版 tag 的依据，不能缺。
+  group: ci-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  backend:
+    name: Backend (go build + test)
+    runs-on: ubuntu-latest
+    # 两次冷编译（下限档 + 发版档，工具链不同故无共享缓存）再加全量测试；
+    # 30 分钟在 go.sum 变动后的冷跑会偏紧，超时会被误读成 flake。
+    timeout-minutes: 60
+    steps:
+      - name: Check out
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+
+      # go:embed 需要三个前端 dist 存在；后端门禁不关心产物内容，用占位满足编译。
+      # 真实构建由 frontend job 负责。
+      - name: Stub web dist for go:embed
+        run: |
+          set -euo pipefail
+          for d in web/default/dist web/classic/dist web/ggapi/dist; do
+            mkdir -p "$d"
+            printf '<!doctype html><title>ci-stub</title>\n' > "$d/index.html"
+          done
+
+      # go.mod 声明的下限先编译一次：只钉发版版本的话，用到更高版本独有符号会
+      # 过门禁，却让任何按声明工具链构建的人挂掉。
+      # 版本自己从 `go` 行解析，不用 go-version-file：setup-go v5 会优先采信
+      # `toolchain` 指令，一旦 go.mod 加上它，两档就悄悄塌成同一版本。
+      - name: Resolve go.mod minimum
+        id: min-go
+        run: |
+          set -euo pipefail
+          version="$(sed -n 's/^go \([0-9][0-9.]*\)$/\1/p' go.mod | head -1)"
+          test -n "$version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Go (go.mod minimum)
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version: ${{ steps.min-go.outputs.version }}
+
+      # `go build` 不编译 _test.go，测试代码用了高于下限的符号照样能过；
+      # `go test -run '^$'` 编译全部测试二进制但不执行任何用例。
+      - name: Build (go.mod minimum)
+        env:
+          CGO_ENABLED: "0"
+          # 否则 go.mod 新增 toolchain 行、或依赖要求更高版本时，go 会自动切到
+          # 更新的工具链，两档变成同一版本，这层检查静默失效。
+          GOTOOLCHAIN: local
+        run: |
+          go build ./...
+          go test -run '^$' ./...
+
+      # 再用发版工具链构建并跑测试：对齐 Dockerfile builder2
+      # （CGO_ENABLED=0 + greenteagc），否则依赖 cgo 或新版本行为的改动能过门禁
+      # 却炸在 tag → GHCR 的构建上。版本直接从 Dockerfile 读，避免两处硬编码后
+      # 基础镜像一升级就悄悄失去对齐。
+      - name: Resolve release Go version from Dockerfile
+        id: release-go
+        run: |
+          set -euo pipefail
+          # 限定 builder2 那一段，且兼容 `golang:X.Y.Z-alpine@...` 与
+          # `golang:X.Y.Z@...` 两种写法；取错段或取空都会让这层检查失去意义。
+          version="$(awk '/^FROM golang:/ && /AS builder2/ { if (match($0, /golang:[0-9]+\.[0-9]+(\.[0-9]+)?/)) { print substr($0, RSTART+7, RLENGTH-7); exit } }' Dockerfile)"
+          test -n "$version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Go (release toolchain)
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version: ${{ steps.release-go.outputs.version }}
+
+      # 官方 golang 镜像自带 GOTOOLCHAIN=local；这里不设的话，go 可能又切走，
+      # 那就不再是「用发版工具链验证」了。
+      - name: Build
+        env:
+          CGO_ENABLED: "0"
+          GOEXPERIMENT: greenteagc
+          GOTOOLCHAIN: local
+        run: go build ./...
+
+      - name: Test
+        env:
+          CGO_ENABLED: "0"
+          GOEXPERIMENT: greenteagc
+          GOTOOLCHAIN: local
+        run: go test ./...
+
+  frontend:
+    # 三个壳都要构建：Dockerfile 的 builder / builder-classic / builder-ggapi
+    # 缺一不可，只测 ggapi 会让破坏 default/classic 的 PR 一路绿到发版才炸。
+    # 已知差异：这里在完整三壳 checkout 上构建，而 builder-classic /
+    # builder-ggapi 只 COPY 各自那个壳；若将来出现跨壳相对引用
+    # （如 ggapi 里 import ../../default/src/...），CI 会绿而 docker build 会炸。
+    # 目前无此类引用。
+    name: Frontend ${{ matrix.shell }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - shell: ggapi
+            typecheck: true
+            tests: true
+            # 与 Dockerfile builder-ggapi 一致
+            install: bun install --filter ./ggapi --frozen-lockfile
+          - shell: default
+            typecheck: true
+            tests: true
+            # Dockerfile 的 builder 阶段装整个 workspace，不加 --filter；
+            # 这里跟随它，否则漏声明的依赖会在两侧给出相反结论。
+            install: bun install --frozen-lockfile
+          # classic 无 typecheck script（Rsbuild + JS）、也没有测试文件，只构建。
+          - shell: classic
+            typecheck: false
+            tests: false
+            # 与 Dockerfile builder-classic 一致
+            install: bun install --filter ./classic --frozen-lockfile
+    steps:
+      - name: Check out
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          # 钉死小版本。用范围（1.x）的话，某个 bun 版本一旦改写 bun.lock 的
+          # 序列化格式，`--frozen-lockfile` 会让所有 PR 在仓库毫无改动的情况下
+          # 变红——阻塞门禁必须确定。Dockerfile 侧用 digest 钉死，同样是手动
+          # 升级；**两处需一起改**。
+          bun-version: '1.3.11'
+
+      - name: Install dependencies
+        run: |
+          cd web
+          ${{ matrix.install }}
+
+      - name: Typecheck
+        if: matrix.typecheck
+        run: |
+          cd web/${{ matrix.shell }}
+          bun run typecheck
+
+      # 无需 test script：bun 自己发现 *.test.* 文件（ggapi 38 个、default 33 个
+      # 用例；classic 无测试文件故跳过）。
+      - name: Test
+        if: matrix.tests
+        run: |
+          cd web/${{ matrix.shell }}
+          bun test
+
+      # 这里**不**跑 lint / format:check / copyright:check：三者在当前基线均
+      # 已失败（copyright:check 是大量文件缺头，不是归属被删），只能设
+      # continue-on-error，而永远不会失败的步骤给不出信号，只会让人误以为被
+      # 守住了。触及文件级 lint 由发车前审查负责（SOP §3.2）。要在 CI 守住，
+      # 需先清理基线或引入基线快照比对，那是另一件事。
+
+      # VITE_REACT_APP_VERSION 必须非空：classic 的 cacheDigest 读它，缺失会
+      # 变成 [undefined]，门禁校验的配置就与发版时的不同。DISABLE_ESLINT_PLUGIN
+      # 跟随 release.yml 对 default/ggapi 的用法。
+      - name: Build
+        env:
+          CI: ""
+          DISABLE_ESLINT_PLUGIN: "true"
+          VITE_REACT_APP_VERSION: ci-${{ github.sha }}
+        run: |
+          cd web/${{ matrix.shell }}
+          bun run build
+
+      # 只有产物落在 Dockerfile `COPY --from=builder-*` 期望的位置才算通过；
+      # 否则改动 output.distPath 会一路绿到发版才炸。
+      - name: Assert embeddable dist
+        run: test -f web/${{ matrix.shell }}/dist/index.html

@@ -39,7 +39,7 @@ git fetch upstream 2>&1
 | Skill keeps rewriting itself / user fears chaotic upgrades | §15 |
 | Skill out of date vs docs/fork | §16 |
 | `gh pr create` says no commits / wrong repo | §17 |
-| CI jobs stuck / not on org-linux | §18 |
+| CI jobs stuck / queued forever | §18 |
 | Update check 401/404 on private repo | §19 |
 | i18n sync report missingCount on zh-TW | §20 |
 | Pre-commit Codex review fails / loops / skip? | §21 |
@@ -313,27 +313,28 @@ Never open ggapi feature PRs against upstream unless the user is doing Mode G
 
 ---
 
-## §18 CI not using org-linux / jobs queued forever
+## §18 CI jobs queued forever
 
-**Expected (GG-003):** workflows use:
+**Expected (GG-003):** workflows use GitHub-hosted runners:
 
 ```yaml
-runs-on:
-  group: org-linux
+runs-on: ubuntu-latest
 ```
 
 Linux **amd64 only** (no arm64 multi-arch, no macOS/Windows release, Electron disabled).
+Every run is a throwaway VM, so fork PRs executing their own code is the normal
+model there (hosted-runner minutes are free while the repository is public).
 
 | Check | Action |
 |-------|--------|
-| Workflow still `ubuntu-latest` | Inventory/sync may have reverted; restore GG-003 |
-| Jobs queued | Org **Settings → Actions → Runner groups → org-linux**: runners Online; group includes private `ggapi` |
-| Public repo | Group “excluding public” cannot run on public repos |
-| Docker build fails | Runner needs Docker + Buildx |
+| Workflow pinned to a self-hosted `runs-on.group` | Left over from the org-linux era; GG-003 now expects `ubuntu-latest` |
+| Jobs queued for a long time | Hosted-runner queue or an Actions outage — check https://www.githubstatus.com/ before changing anything |
+| Job runs out of disk | Hosted runners give ~14 GB; the three-shell + Go + Docker build is the one at risk. Free space in-job, or move that single workflow to a self-hosted runner |
+| Docker build fails | Hosted runners ship Docker + Buildx; check the build itself, not the runner |
 
 ---
 
-## §19 Private-repo update check fails (401/404)
+## §19 Update check fails (401/404)
 
 **Expected (GG-004):** Root configures:
 
@@ -341,6 +342,8 @@ Linux **amd64 only** (no arm64 multi-arch, no macOS/Windows release, Electron di
 - `UpdateCheckGitHubToken` — PAT with **Contents: Read** (never returned by GET `/api/option/`)
 
 Browser no longer calls GitHub directly; use `GET /api/option/check_update`.
+The PAT is only needed while the repository is private; on a public repo the
+release API is reachable unauthenticated and the token may be left empty.
 
 | Status | Likely cause |
 |--------|----------------|
@@ -553,9 +556,9 @@ Always pass `--repo AkumaRealLabs/ggapi` (same wrong-default risk as §17).
 **Symptom:** Annotated tag is on `origin`, but coach reports “发版完成” while
 image is still building, or user asks whether GHCR is ready.
 
-**Expected:** Tag push triggers **Publish Docker image** (~8–15 min on
-org-linux). Product path is GHCR + Release metadata (GG-003 / SOP §5.1), not
-bare binary.
+**Expected:** Tag push triggers **Publish Docker image** (~8–15 min was the
+org-linux figure; hosted runners may differ). Product path is GHCR + Release
+metadata (GG-003 / SOP §5.1), not bare binary.
 
 ```bash
 REL_TAG=v1.0.0-rc.21.7   # example — must match the tag you pushed

@@ -29,7 +29,10 @@ plans
 
 electron/node_modules
 electron/dist
-data/
+# 只忽略仓库根部的运行时数据目录。裸 `data/` 会匹配任意层级的同名目录，
+# 曾把 web/*/src/features/usage-logs/data/ 下的源码一并吞掉（ggapi 的
+# schema.ts 因此从未入库，clone 后类型检查必挂）。
+/data/
 .gomodcache/
 .gocache-temp
 .gopath

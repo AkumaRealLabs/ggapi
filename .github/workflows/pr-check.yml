@@ -1,9 +1,12 @@
 name: PR Check
 
+# anti-slop 会打标签、评论并关闭 PR，需要写权限；只给 read 时这些调用一律 403，
+# 该门禁形同虚设。本 workflow **不** checkout PR 代码（只跑 SHA 钉版的 action），
+# 因此 pull_request_target 提权的经典风险在此不成立。
 permissions:
   contents: read
-  issues: read
-  pull-requests: read
+  issues: write
+  pull-requests: write
 
 on:
   pull_request_target:
@@ -11,9 +14,7 @@ on:
 
 jobs:
   pr-quality:
-    # ggapi: organization runner group (Linux x64 only)
-    runs-on:
-      group: org-linux
+    runs-on: ubuntu-latest
     steps:
       - uses: peakoss/anti-slop@85daca1880e9e1af197fc06ea03349daf08f4202 # v0.2.1
         with:

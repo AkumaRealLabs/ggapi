@@ -2,6 +2,17 @@
 
 格式：`## version — YYYY-MM-DD` + 级别 + 摘要。最新在上。
 
+## 1.7.1 — 2026-07-26
+
+- **级别:** L1 / patch（口径对齐实际基础设施；**未**改 Hard rules 或流程）
+- **原因:** 仓库转为公开且 CI 迁到 GitHub 托管 runner 后，skill 仍在多处强制 `org-linux`；troubleshooting §18 甚至写着「发现 workflow 是 `ubuntu-latest` 就恢复 GG-003」，会主动把该迁移改回去
+- **变更:**
+  - SKILL.md 描述与 GG-003 摘要行、checklists Pre-PR 项、workflows §F 发版耗时说明：`org-linux` → GitHub 托管（`ubuntu-latest`）
+  - troubleshooting **§18** 重写为托管 runner 下真正会遇到的问题（排队、~14 GB 磁盘对三壳 Docker 构建的限制、Docker/Buildx 已内置），删去「恢复 GG-003」的回退指引
+  - troubleshooting **§19** 标题去掉「私有仓」，并注明公开后检查更新的 PAT 可留空
+  - §24 GHCR 等待时长标注为「原 org-linux 数据，托管 runner 可能不同」
+- **未改:** Hard rules、Mode 路由、C2-pre 门禁语义
+
 ## 1.7.0 — 2026-07-17
 
 - **级别:** L2 / minor（Mode C 续跑 + C2-pre 强化；**未**改 Hard rules）

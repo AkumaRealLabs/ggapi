@@ -6,13 +6,13 @@ description: >
   Codex review loop (/codex:review → fix → re-review), upstream sync/merge,
   conflict resolution, diff-inventory updates, release regression, contributing
   back upstream, third product shell web/ggapi (GG-005; feature tracks
-  web/default), org-linux CI runners, private-repo update-check PAT, common
+  web/default), GitHub-hosted CI runners, update-check PAT, common
   git/remote/billing/hotspot pitfalls, and controlled self-upgrade of this
   skill (Mode I) without chaotic rewrites.
   Use when the user runs /ggapi-fork, asks how to 二开, fork 开发, 开分支,
   提 PR, push 还是 PR, 提交, commit, 最终提交, 提交前审查, codex review,
   同步上游, merge upstream, 冲突解决, 差异清单, diff-inventory, 发版回归,
-  origin/upstream 远程, web/ggapi, 第三壳, paper-sketch, org-linux, runner
+  origin/upstream 远程, web/ggapi, 第三壳, paper-sketch, CI runner
   group, 检查更新, GitHub PAT, 升级 skill, 改进 ggapi-fork, skill 自升级,
   自提升, 自检 skill, 或 any long-term fork maintenance question on this
   repository. Always load this skill before advising or executing fork
@@ -20,7 +20,7 @@ description: >
   C2-pre). When improving this skill itself, follow Mode I / self-upgrade
   policy.
 metadata:
-  skill_version: "1.7.0"
+  skill_version: "1.7.1"
 ---
 
 # ggapi Fork Maintenance Playbook
@@ -185,7 +185,7 @@ aligned with active rows (not replace them):
 |----|--------|
 | GG-001 | `docs/fork/` + `AGENTS.md` 二开入口 |
 | GG-002 | this skill (`/ggapi-fork`, v1.7.0+; Modes A–I + C2-pre no self-skip; C-continue; chained C→F ship; release tag `v<upstream>.N` → GHCR wait) |
-| GG-003 | CI org-linux Linux amd64; **tag → GHCR**; no Docker Hub `calciumion/new-api`; bare binary optional (manual) |
+| GG-003 | CI GitHub-hosted (`ubuntu-latest`) Linux amd64 + PR/main build-test gate `ci.yml`; **tag → GHCR**; no Docker Hub `calciumion/new-api`; bare binary optional (manual) |
 | GG-004 | Server-side update check URL + GitHub PAT |
 | GG-005 | Third frontend shell `web/ggapi` (default `theme.frontend=ggapi`; feature tracks `web/default`) |
 
