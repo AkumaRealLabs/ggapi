@@ -2,6 +2,19 @@
 
 格式：`## version — YYYY-MM-DD` + 级别 + 摘要。最新在上。
 
+## 2.0.0 — 2026-07-27
+
+- **级别:** L3 / major（PR 审查与贡献政策变更）
+- **原因:** 用户决定允许本仓 `AkumaRealLabs/ggapi` 的 AI 辅助贡献，不再使用 anti-slop 自动标签、评论和关闭 PR 门禁
+- **变更:**
+  - 移除 `.github/workflows/pr-check.yml`，PR 不再因 AI 辅助被自动关闭
+  - PR 模板明确允许 AI 生成或辅助的代码与 PR 内容，不强制要求理解、整理或提供验证结果
+  - Mode C 使用本仓 PR 模板、验证记录可选，并执行 git 身份比较、非核心用户 AI 披露与 Fork Diff Inventory 声明
+  - Mode G 读取 `upstream/main` 定义，并通过 GitHub API 查询 workflow 状态、branch protection、rulesets 与实际 required contexts，不将本仓宽松政策套用到 `QuantumNous/new-api`
+  - GG-003 与 Pre-PR 检查项同步为新政策；`skill_version` → **2.0.0**
+- **规则变更:** 仅取消 `AkumaRealLabs/ggapi` 对 PR 的 anti-slop 自动审查以及模板中的理解、整理和验证强制要求；上游规则独立
+- **未改:** origin-only、禁直推 main、品牌/计费等 Hard rules；本仓内部 C2-pre 仍由用户在新终端手动审查并回传结果
+
 ## 1.9.0 — 2026-07-27
 
 - **级别:** L2 / minor（前端维护模型收敛；**未**改 Hard rules）

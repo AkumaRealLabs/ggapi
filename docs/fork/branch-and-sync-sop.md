@@ -122,9 +122,11 @@ make dev-web         # 官方前端
 
 ### 3.4 PR 说明
 
-- 写清：做了什么、为什么、如何验证
+- 本仓 PR 写清：做了什么、为什么；验证记录可选
 - 若改动是相对上游的永久差异，PR 中注明「已更新 / 将更新 diff-inventory」
-- 向**官方**提 PR 时，使用 `.github/PULL_REQUEST_TEMPLATE.md`，摘要与验证步骤须人工撰写，遵循官方模板与审阅习惯
+- 向 `AkumaRealLabs/ggapi` 提 PR 时，使用并保留本仓 `.github/PULL_REQUEST_TEMPLATE.md` 结构；本仓允许 AI-generated / AI-assisted 内容，验证记录可选
+- 开 PR 前对比当前 git 用户与 `origin/main` 历史核心开发者；非核心用户须按 `AGENTS.md` 在 PR 中披露 AI-generated / AI-assisted 情况，不修改 git config
+- 向**官方** `QuantumNous/new-api` 提 PR 时，先 `git fetch upstream`，读取上游当时的 PR 模板、`AGENTS.md` / `CONTRIBUTING*` 与 workflow 定义，并通过 GitHub API 查询运行态检查和保护规则（见 §6）；**不得**套用本仓的宽松 AI 政策
 
 ---
 
@@ -324,7 +326,7 @@ make build-web
 
 1. 先搜索上游 Issues / PRs，避免重复。
 2. 大功能先开 Issue 对齐；Bug 关联 Issue。
-3. 使用 `.github/PULL_REQUEST_TEMPLATE.md`，人工撰写摘要与验证证明。
+3. `git fetch upstream` 后读取 `upstream/main` 当时的 `.github/PULL_REQUEST_TEMPLATE.md`、`AGENTS.md` / `CONTRIBUTING*` 和 workflow 定义；另用 GitHub API 查询 `actions/workflows` 状态、`branches/main/protection`、`rulesets` 与 `rules/branches/main`，确认实际启用的 workflow、required contexts、branch protection 和生效 ruleset，再按目标仓规则撰写 PR；本仓允许 AI 与验证可选的政策不适用于上游。
 4. 安全漏洞：**不要**公开 Issue，按 [`.github/SECURITY.md`](../../.github/SECURITY.md) 走 Advisory 或邮件。
 5. 官方合入后，在本仓删除对应补丁，清单状态改为 `upstreamed`。
 
