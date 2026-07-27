@@ -466,39 +466,55 @@ gh repo view --json nameWithOwner -q .nameWithOwner
 # must print: AkumaRealLabs/ggapi
 ```
 
+Before drafting the PR body, enforce the repository `AGENTS.md` identity rule:
+
+```bash
+git config user.name
+git config user.email
+git shortlog -sne origin/main | head -20
+```
+
+Compare the current identity with recurring core authors in repository history.
+Do not change git config. If the current user is not a historical core
+developer, the PR body must explicitly state that the change is AI-generated
+or AI-assisted.
+
+Always start from `.github/PULL_REQUEST_TEMPLATE.md`, preserve its headings and
+fill the relevant sections. For **AkumaRealLabs/ggapi**, AI-generated and
+AI-assisted content is allowed and the template's verification record is
+optional; this does not waive C1/C2-pre implementation checks. Complete exactly
+one `Fork Diff Inventory` choice: either no permanent upstream delta, or the
+updated `docs/fork/diff-inventory.md` GG ID.
+
+```bash
+PR_BODY_FILE="$(mktemp)"
+cp .github/PULL_REQUEST_TEMPLATE.md "$PR_BODY_FILE"
+# Fill the copied template; add the required AI disclosure when the identity
+# comparison above says the current user is not a historical core developer.
+```
+
 If `gh pr create` fails with *No commits between main and docs/…* or blank SHAs
 while `git log origin/main..HEAD` shows commits, **do not** open the PR against
-upstream. Use the REST API against the team repo:
+upstream. Use the REST API against the team repo with the same filled template:
 
 ```bash
 gh api repos/AkumaRealLabs/ggapi/pulls \
   -f title='…' \
   -f head="$(git branch --show-current)" \
   -f base='main' \
-  -f body="$(cat <<'EOF'
-## 摘要
-- …
-
-## 验证
-- [ ] …
-
-## 差异清单
-- [ ] 无永久分叉 / 已更新 docs/fork/diff-inventory.md（GG-xxx）
-
-## 风险
-- 计费/鉴权/relay: 是/否；二审: 是/否
-EOF
-)"
+  -f body="$(<"$PR_BODY_FILE")"
 ```
 
 Optional after set-default works:
 
 ```bash
-gh pr create --repo AkumaRealLabs/ggapi --base main --head "$(git branch --show-current)" --title "<title>" --body "…"
+gh pr create --repo AkumaRealLabs/ggapi --base main \
+  --head "$(git branch --show-current)" --title "<title>" \
+  --body-file "$PR_BODY_FILE"
 ```
 
-Use `.github/PULL_REQUEST_TEMPLATE.md` structure when contributing **upstream**;
-for internal ggapi PRs, keep the checklist above at minimum.
+Do not reuse this fork's template or relaxed AI policy when contributing
+**upstream**; Mode G loads the target repository's current rules instead.
 
 ### C5. Merge + clean branches (only when user asks)
 
@@ -745,9 +761,31 @@ Chained「…→ merge → 发版」from Mode C: see **C0** — explicit merge v
 1. Search upstream issues/PRs first.
 2. Prefer changes that reduce fork drift.
 3. Branch from a clean cherry-pick or minimal patch against upstream if needed.
-4. PR uses `.github/PULL_REQUEST_TEMPLATE.md`; human-written summary/tests.
-5. Security: **no** public issue — follow `.github/SECURITY.md`.
-6. After upstream merges: remove fork patch, set inventory status `upstreamed`, delete dead code in a ggapi PR.
+4. After `git fetch upstream`, read the target's current PR template,
+   `AGENTS.md` / `CONTRIBUTING*` (when present), and workflow definitions from
+   `upstream/main`. Follow those current requirements, including any human
+   authorship, understanding, local validation, proof-of-work, or AI rules.
+   Never inherit AkumaRealLabs/ggapi's relaxed AI policy into upstream.
+5. Query GitHub's remote runtime/policy APIs; a Git tree alone cannot show
+   whether a workflow is disabled or which protection/ruleset checks apply:
+
+```bash
+gh api repos/QuantumNous/new-api/actions/workflows --paginate \
+  --jq '.workflows[] | {id:.id,name:.name,path:.path,state:.state}'
+gh api repos/QuantumNous/new-api/branches/main/protection
+gh api repos/QuantumNous/new-api/rulesets --paginate \
+  --jq '.[] | {id:.id,name:.name,target:.target,enforcement:.enforcement,conditions:.conditions}'
+gh api repos/QuantumNous/new-api/rules/branches/main
+```
+
+   Use workflow `state` to distinguish `active` from disabled definitions.
+   Inspect classic protection `required_status_checks` plus effective branch
+   rules for required contexts/reviews. A protection 404 only means no classic
+   protection is visible; it does **not** skip the ruleset/effective-rules
+   queries. Stop on authentication/permission ambiguity instead of assuming no
+   policy.
+6. Security: **no** public issue — follow `.github/SECURITY.md`.
+7. After upstream merges: remove fork patch, set inventory status `upstreamed`, delete dead code in a ggapi PR.
 
 Never push ggapi-only branding or private config to upstream.
 

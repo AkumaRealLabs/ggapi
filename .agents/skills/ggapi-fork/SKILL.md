@@ -14,7 +14,7 @@ description: >
   including plain “提交/commit” (Mode C C2-pre). For skill changes, follow
   Mode I/self-upgrade policy.
 metadata:
-  skill_version: "1.9.0"
+  skill_version: "2.0.0"
 ---
 
 # ggapi Fork Maintenance Playbook
@@ -181,7 +181,7 @@ aligned with active rows (not replace them):
 | ID | Topic |
 |----|--------|
 | GG-001 | `docs/fork/` + `AGENTS.md` 二开入口 |
-| GG-002 | this skill (`/ggapi-fork`, v1.9.0+; Modes A–I + C2-pre user-run terminal review; C-continue; chained C→F ship; official single frontend; release tag `v<upstream>.N` → GHCR wait) |
+| GG-002 | this skill (`/ggapi-fork`, v2.0.0+; Modes A–I + C2-pre user-run terminal review; C-continue; chained C→F ship; official single frontend; release tag `v<upstream>.N` → GHCR wait) |
 | GG-003 | GitHub-hosted `ubuntu-latest` Linux amd64; **tag → GHCR**; no Docker Hub `calciumion/new-api`; bare binary optional (manual) |
 | GG-004 | Server-side update check URL + GitHub PAT |
 | GG-005 | **Dropped:** former third frontend shell and multi-theme wiring; do not restore |
@@ -215,7 +215,7 @@ Rule of thumb (canonical: `docs/fork` SOP §3.5): keep upstream `web/` as the ba
 | `docs/fork/diff-inventory.md` | Permanent diffs + baseline upstream SHA |
 | `AGENTS.md` | Engineering rules + protected branding |
 | `pkg/billingexpr/expr.md` | Billing expression system (read before quota work) |
-| `.github/PULL_REQUEST_TEMPLATE.md` | Official-style PR structure when contributing upstream |
+| `.github/PULL_REQUEST_TEMPLATE.md` | Required structure for ggapi PRs; upstream contributions must load the target's current template/rules |
 | `.github/SECURITY.md` | Vulnerability disclosure |
 
 If skill text and `docs/fork/*` disagree, **docs win** — then offer Mode **I**

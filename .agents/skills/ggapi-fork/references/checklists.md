@@ -57,10 +57,12 @@ Copy into PR bodies or walk verbally with the user. Keep items checkable.
 - [ ] `git push -u origin HEAD` (branch only)
 - [ ] `gh` targets **AkumaRealLabs/ggapi** (`gh repo view` / `gh repo set-default`)
 - [ ] PR base = `main` on team repo (not QuantumNous/new-api)
-- [ ] PR describes what / why / how tested
+- [ ] Current git name/email compared with recurring core authors in `origin/main`; git config unchanged
+- [ ] Non-core git user: PR body explicitly discloses AI-generated / AI-assisted work; core user marks this N/A (`AGENTS.md`)
+- [ ] PR body preserves and fills `.github/PULL_REQUEST_TEMPLATE.md`; describes what / why, with verification record optional; exactly one Fork Diff Inventory choice is completed
 - [ ] No `git push upstream`
 - [ ] If UI strings added: **i18n-translate** from `web/` for all locales including **zh-TW**; `i18n:sync` report clean **and** no English left in `zh-TW` (sync treats zh-TW as non-Latin; if unsure, run skill `find-untranslated` path)
-- [ ] If CI/workflows: existing jobs still use GitHub-hosted `ubuntu-latest` Linux amd64 unless an intentional, inventoried change says otherwise (GG-003)
+- [ ] If CI/workflows: existing jobs still use GitHub-hosted `ubuntu-latest` Linux amd64 unless an intentional, inventoried change says otherwise; no anti-slop auto-close gate is restored for **AkumaRealLabs/ggapi** PRs (AI-generated and AI-assisted contributions are allowed locally; upstream policy remains independent) (GG-003)
 - [ ] If update-check: server proxy + PAT write-only (GG-004); no PAT in frontend
 - [ ] If frontend/embed wiring changed: official single-frontend checks above
 
