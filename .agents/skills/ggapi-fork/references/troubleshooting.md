@@ -39,11 +39,11 @@ git fetch upstream 2>&1
 | Skill keeps rewriting itself / user fears chaotic upgrades | §15 |
 | Skill out of date vs docs/fork | §16 |
 | `gh pr create` says no commits / wrong repo | §17 |
-| CI jobs stuck / not on org-linux | §18 |
+| CI jobs stuck / not on GitHub-hosted runner | §18 |
 | Update check 401/404 on private repo | §19 |
 | i18n sync report missingCount on zh-TW | §20 |
-| Pre-commit Codex review fails / loops / skip? | §21 |
-| Agent self-skip / stale Codex pass / 「必须过审查」 | §21 |
+| User-run terminal review missing / loops / skip? | §21 |
+| Agent self-skip / stale external review / 「必须过审查」 | §21 |
 | `继续` after PR open re-codes instead of CI/merge | §21 + workflows **C-continue** |
 | Third shell / theme / embed | §22 |
 | `gh pr merge` EOF / timeout but PR might be merged | §23 |
@@ -313,23 +313,22 @@ Never open ggapi feature PRs against upstream unless the user is doing Mode G
 
 ---
 
-## §18 CI not using org-linux / jobs queued forever
+## §18 CI not using GitHub-hosted runners / jobs queued forever
 
 **Expected (GG-003):** workflows use:
 
 ```yaml
-runs-on:
-  group: org-linux
+runs-on: ubuntu-latest
 ```
 
 Linux **amd64 only** (no arm64 multi-arch, no macOS/Windows release, Electron disabled).
 
 | Check | Action |
 |-------|--------|
-| Workflow still `ubuntu-latest` | Inventory/sync may have reverted; restore GG-003 |
-| Jobs queued | Org **Settings → Actions → Runner groups → org-linux**: runners Online; group includes private `ggapi` |
-| Public repo | Group “excluding public” cannot run on public repos |
-| Docker build fails | Runner needs Docker + Buildx |
+| Workflow still uses `runs-on.group` / self-hosted labels | Stale fork customization or sync regression; restore `ubuntu-latest` and keep GG-003 current |
+| Jobs queued | Check GitHub Actions service status, repository Actions permissions, concurrency, and account spending limits rather than runner-group availability |
+| Docker build fails | GitHub-hosted runners include Docker; inspect Buildx setup, disk pressure, cache, and workflow logs |
+| Architecture drift | Keep release/image jobs on GitHub-hosted Linux x64; do not silently add arm64/macOS/Windows matrices |
 
 ---
 
@@ -374,76 +373,99 @@ aligned across locales.
 
 ---
 
-## §21 Pre-commit Codex gate (`/codex:review` / companion)
+## §21 User-run terminal-agent review gate
 
-Mode C **C2-pre** requires a Codex review before the final commit. Review is
-**review-only**; this skill applies fixes and re-runs review.
+Mode C **C2-pre** requires the user to run the review manually in a new
+terminal with their preferred terminal Agent, then return the result to the
+current conversation. The current Agent prepares the final tree and fixes
+findings, but **never** invokes a reviewer, review command, companion, slash
+command, or review sub-agent.
 
-### Agent cannot “run the slash command”
+### Waiting for the user's result
 
-`/codex:review` may have `disable-model-invocation: true` → only the **user**
-can fire that slash entry. Agents should call the companion instead:
+After preparing and fingerprinting the staged final tree, send the direct
+handoff from workflows C2-pre and stop. Until the user returns a result:
+
+- Do not commit, push a changed tree, or claim the gate passed.
+- Do not choose or launch a terminal Agent on the user's behalf.
+- Silence, “继续”, or a status question is not a passing review result.
+- If the user cannot review now, remain paused unless they explicitly skip.
+
+### Interpret the returned result
+
+| User response | Action |
+|---------------|--------|
+| “无问题”, “通过”, or an equivalent explicit clean result | Fetch `origin`, then verify the recorded tree fingerprint, clean workspace, review base, and main-tip freshness anchor before C2 |
+| Findings or a pasted report | Fix actionable items, re-test, stage and fingerprint the new final tree, then stop for another user-run review |
+| “看过了” without a result | Ask whether the reviewer found any actionable issue; do not infer pass |
+| User explicitly skips | Record the skip; normal git and Hard rules still apply |
+
+The user does not need to prove which terminal Agent was used. The gate relies
+on their explicit returned result, tied to the unchanged prepared tree and
+worktree status. The external Agent must review only and must not edit files.
+
+### Mixed committed + dirty work
+
+Stage only the intended ship paths after commit authorization. The index then
+represents the combined final tree, including existing branch commits and
+staged fixes:
 
 ```bash
-export CLAUDE_PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$HOME/.grok/installed-plugins/codex-807cef0a}"
-node "${CLAUDE_PLUGIN_ROOT}/scripts/codex-companion.mjs" review --wait
-# mixed ship unit also needs branch coverage:
-node "${CLAUDE_PLUGIN_ROOT}/scripts/codex-companion.mjs" review --wait --base origin/main
+git fetch origin
+git add <intentional-paths…>
+git rev-list --count HEAD..origin/main
+# Up to date: REVIEW_BASE=$(git rev-parse origin/main)
+# Behind and user declines update: REVIEW_BASE=$(git merge-base HEAD origin/main)
+git diff --cached <REVIEW_BASE>
+git diff --quiet                            # must exit 0
+git ls-files --others --exclude-standard   # must print nothing
+git status --porcelain=v1
+git write-tree
+git rev-parse origin/main                  # record REVIEW_MAIN_TIP separately
 ```
 
-If the install directory name differs, list `~/.grok/installed-plugins/codex-*`.
-Fallback: `codex review --help` for CLI-equivalent invocation.
-
-### Codex unavailable / CLI not ready
-
-1. Confirm plugin/CLI: `/codex:setup` or companion readiness if present.
-2. Do **not** mark the gate as passed.
-3. Tell the user options in 中文:
-
-| Option | When |
-|--------|------|
-| 修好 Codex 后重试 | Preferred |
-| 跳过审查并提交 | User must say so explicitly |
-| 先不提交 | Default if unclear |
-
-### Partial review of mixed committed + dirty work
-
-Symptom: only uncommitted files were reviewed, or only `origin/main...HEAD`, or
-two disjoint reviews were treated as “full unit.”
-Fix: **materialize** (temp commit of staged intentional files) then **one**
-`review --wait --base origin/main` so Codex sees base→final tree (workflows
-C2-pre). On findings: `git reset --soft HEAD~1`, fix, re-materialize.
+Ask the user to have the external terminal Agent inspect the entire current
+repository delta relative to the chosen `REVIEW_BASE`, including committed and
+staged content. When a behind branch is not updated, use its merge base so
+main-only commits are not shown as deletions. Do not create a temporary review
+commit. Untracked intended files must be staged; unrelated unstaged/untracked
+work must not remain at handoff; secrets must never be staged.
 
 ### Review ↔ fix loop spinning
 
-- Cap at **3** cycles (review → fix → re-review).
-- After 3: stop, paste/summarize remaining findings, ask whether to continue fixing or commit with known issues.
-- Do not weaken findings just to “get green.”
-- If Codex repeats the same false positive twice, document why it is wrong and ask the user once before skipping that item.
+- Cap at **3** review → fix → manual handoff cycles.
+- After 3, stop and summarize remaining findings; do not commit known issues.
+- Do not weaken findings merely to reach a clean result.
+- If the external reviewer repeats a disputed finding, explain the technical
+  reason and let the user decide whether to accept it or explicitly skip it.
 
 ### “Nothing to review” vs empty commit
 
 - Empty working tree **and** no commits to land → skip with reason.
-- Untracked files count as reviewable even when `git diff` is empty (plugin rule).
-- Full ship unit = single combined review of final tree vs `origin/main` (materialize when mixed).
+- Intended untracked files count as reviewable and must be staged before the
+  handoff.
+- Full ship unit = the staged final tree relative to the recorded base SHA.
 
 ### User wants skip
 
-Accept only clear phrases:「跳过 Codex」「不审了直接提交」「skip review」。
-Docs/skill-only is **not** an automatic skip. Record the skip in the coach reply.
-Still refuse secrets / broken branding / hard-rule violations.
+Accept clear phrases such as「跳过审查」「不审了直接提交」「skip review」。
+Docs/skill-only is **not** an automatic skip. Record the skip in the coach
+reply. Still refuse secrets, protected-branding removal, or Hard-rule
+violations.
 
-### Agent must not self-skip or claim a stale pass
+### Agent must not self-skip or claim a stale result
 
 | Anti-pattern | Correct |
 |--------------|---------|
-| Companion 401 / timeout → “先提交再说” without user opt-out | Stop; §21 options; or fall back to `codex review` CLI |
-| Fixed findings, no re-review → claim 通过 | Re-run full-unit review after every fix batch |
-| Prior clean review, then **content** changes in tip **or worktree** → still “Codex 已通过” | Gate is **stale**; re-run before push / claim clean |
-| Clean pass then C2 creates the reviewed final tree as a commit | Pass **still valid** (same tree) |
-| Clean pass then recorded `origin/main` SHA advances | Gate **stale**; preferably merge main + re-review |
-| Behind main, user declined update, same main SHA as at pass | Pass **still valid** (do not use count>0 alone) |
-| User:「不行得过 codex / 必须过审查」after a skip attempt | Resume fix→re-review; do **not** keep the skip |
+| No user result → current Agent runs its own reviewer | Stop and wait; only the user performs the terminal review |
+| Fixed findings, no new user-run review → claim 通过 | Prepare the new final tree and ask the user to review again |
+| Before C2, tree, porcelain, or clean-workspace checks change → still claim 通过 | Result is stale; return to C2-pre |
+| Clean result then C2 makes porcelain clean | Valid only after fetch confirms the recorded `REVIEW_MAIN_TIP`, `git rev-parse 'HEAD^{tree}'` equals the reviewed fingerprint, and index/worktree/untracked state is clean |
+| Later `继续` compares clean porcelain with the pre-C2 staged snapshot | Use the post-C2 `HEAD^{tree}` + clean-workspace rule; do not demand the old staged porcelain |
+| Accept result without a fresh `git fetch origin` | Fetch first; compare current `origin/main` with recorded `REVIEW_MAIN_TIP` |
+| Clean result then recorded `REVIEW_MAIN_TIP` advances | Result is stale; preferably merge main, re-test, and ask for another review |
+| Behind main, user declined update, same merge base and main tip | Result remains valid; do not use the behind count alone |
+| User insists on review after a skip attempt | Resume the user-run handoff; do not preserve the skip |
 
 ### 「继续」routed wrong (re-coding after PR open)
 
@@ -451,14 +473,6 @@ Symptom: ship unit already at C4 (PR OPEN, clean tip), user says `继续`, agent
 starts new feature edits.
 Fix: **C-continue** — report CI, wait for 合并 wording, or C5 hygiene. Only
 re-enter Mode B if user names a new defect/scope.
-
-### Optional tools
-
-| Tool | Role |
-|------|------|
-| Companion `review --wait` / user `/codex:review` | **Default gate** |
-| `/codex:adversarial-review` | Extra depth when user asks |
-| Bundled `/review` | Optional second opinion; not a substitute for the Codex gate |
 
 ---
 
@@ -485,7 +499,7 @@ make build-all-web      # all three shells
 Symptom: tag image or optional bare binary serves blank/wrong theme when `theme.frontend=ggapi`.
 Cause: only default/classic built; go embed has no `web/ggapi/dist`.
 Fix: ensure **Dockerfile** (`builder-ggapi`) for the default **tag → GHCR** path; if dispatching **`release.yml`** bare binaries, that workflow must also build ggapi; local bare `go build` needs `make build-all-web`.
-Lesson from PR #7 Codex review.
+Lesson from PR #7 review.
 
 ### Admin theme selector cannot choose ggapi
 
@@ -554,7 +568,7 @@ Always pass `--repo AkumaRealLabs/ggapi` (same wrong-default risk as §17).
 image is still building, or user asks whether GHCR is ready.
 
 **Expected:** Tag push triggers **Publish Docker image** (~8–15 min on
-org-linux). Product path is GHCR + Release metadata (GG-003 / SOP §5.1), not
+GitHub-hosted runners). Product path is GHCR + Release metadata (GG-003 / SOP §5.1), not
 bare binary.
 
 ```bash

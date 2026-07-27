@@ -1,26 +1,20 @@
 ---
 name: ggapi-fork
 description: >
-  End-to-end playbook for maintaining the ggapi fork of QuantumNous/new-api:
-  daily feature/fix workflow, branch naming, push-vs-PR decisions, pre-commit
-  Codex review loop (/codex:review → fix → re-review), upstream sync/merge,
-  conflict resolution, diff-inventory updates, release regression, contributing
-  back upstream, third product shell web/ggapi (GG-005; feature tracks
-  web/default), org-linux CI runners, private-repo update-check PAT, common
-  git/remote/billing/hotspot pitfalls, and controlled self-upgrade of this
-  skill (Mode I) without chaotic rewrites.
-  Use when the user runs /ggapi-fork, asks how to 二开, fork 开发, 开分支,
-  提 PR, push 还是 PR, 提交, commit, 最终提交, 提交前审查, codex review,
-  同步上游, merge upstream, 冲突解决, 差异清单, diff-inventory, 发版回归,
-  origin/upstream 远程, web/ggapi, 第三壳, paper-sketch, org-linux, runner
-  group, 检查更新, GitHub PAT, 升级 skill, 改进 ggapi-fork, skill 自升级,
-  自提升, 自检 skill, 或 any long-term fork maintenance question on this
-  repository. Always load this skill before advising or executing fork
-  workflow steps — including plain “提交/commit” on this repo (Mode C
-  C2-pre). When improving this skill itself, follow Mode I / self-upgrade
-  policy.
+  Maintain the ggapi fork of QuantumNous/new-api end to end: daily feature/fix
+  work, branches, push/PR decisions, pre-commit user-run terminal-Agent review
+  handoff, upstream sync and conflicts, diff inventory, releases, upstream
+  contributions, web/ggapi, GitHub-hosted runners, update-check PAT, and
+  controlled skill self-upgrade. Use for /ggapi-fork or questions/actions about
+  二开, fork 开发, 开分支, 提交/commit, push, PR, 合并, 提交前手动审查,
+  同步上游, merge upstream, 冲突, GG-xxx, diff-inventory, 发版, origin/upstream,
+  web/ggapi, 第三壳, GitHub-hosted, ubuntu-latest, runner, GitHub PAT,
+  排障, 升级/改进/自检 ggapi-fork skill, or any long-term fork-maintenance
+  task in this repository. Always load before fork workflow advice or actions,
+  including plain “提交/commit” (Mode C C2-pre). For skill changes, follow
+  Mode I/self-upgrade policy.
 metadata:
-  skill_version: "1.7.0"
+  skill_version: "1.8.0"
 ---
 
 # ggapi Fork Maintenance Playbook
@@ -77,12 +71,15 @@ git rev-parse --short upstream/main 2>/dev/null || true
 ### Ship quality gate (Mode C — not a Hard rule)
 
 Before the **final** commit of a ship unit (user said 提交 / commit / 最终提交 —
-even without `/ggapi-fork`), run the **C2-pre Codex gate**: companion CLI
-(preferred) or user `/codex:review`, review the **combined** final tree vs
-`origin/main` (see workflows), fix findings, **re-review after every fix batch**
-until clean or escalate. Agent **must not** self-skip or claim pass after skip;
-only clear user opt-out phrases count (workflows C2-pre / §21). Docs/skill not
-auto-exempt. Does **not** auto-commit or replace Hard rules.
+even without `/ggapi-fork`), stop at the **C2-pre manual review handoff**.
+The current Agent prepares the combined final tree vs `origin/main`, asks the
+user to open a new terminal and review it with their preferred terminal Agent,
+then waits for the user to return the result. The current Agent **must not**
+invoke Codex, a companion, another review tool, or a review sub-agent. Findings
+are fixed here and handed back to the user for another manual review; no result
+means no final commit. Only clear user opt-out phrases count (workflows C2-pre /
+§21). Docs/skill are not auto-exempt. This does **not** auto-commit or replace
+Hard rules.
 Full procedure: Mode C **C2-pre**.
 
 ## Mode router
@@ -184,8 +181,8 @@ aligned with active rows (not replace them):
 | ID | Topic |
 |----|--------|
 | GG-001 | `docs/fork/` + `AGENTS.md` 二开入口 |
-| GG-002 | this skill (`/ggapi-fork`, v1.7.0+; Modes A–I + C2-pre no self-skip; C-continue; chained C→F ship; release tag `v<upstream>.N` → GHCR wait) |
-| GG-003 | CI org-linux Linux amd64; **tag → GHCR**; no Docker Hub `calciumion/new-api`; bare binary optional (manual) |
+| GG-002 | this skill (`/ggapi-fork`, v1.8.0+; Modes A–I + C2-pre user-run terminal review; C-continue; chained C→F ship; release tag `v<upstream>.N` → GHCR wait) |
+| GG-003 | GitHub-hosted `ubuntu-latest` Linux amd64; **tag → GHCR**; no Docker Hub `calciumion/new-api`; bare binary optional (manual) |
 | GG-004 | Server-side update check URL + GitHub PAT |
 | GG-005 | Third frontend shell `web/ggapi` (default `theme.frontend=ggapi`; feature tracks `web/default`) |
 
@@ -203,9 +200,7 @@ Rule of thumb (canonical: `docs/fork` SOP §3.5): **skin/product in `web/ggapi`;
 
 | Topic | Skill |
 |-------|--------|
-| Pre-commit / final-ship code review (Codex) | **`/codex:review`** (Codex plugin; review-only — this skill owns the fix→re-review loop) |
-| Adversarial / custom-focus Codex review | `/codex:adversarial-review` (optional; not the default gate) |
-| Bundled local/PR reviewer (non-Codex) | `review` / `/review` — optional extra; does **not** replace `/codex:review` for the pre-commit gate |
+| Pre-commit / final-ship review | User opens a new terminal and uses any preferred terminal Agent; this skill only prepares the handoff, waits for the result, and owns the fix → manual re-review loop |
 | Frontend i18n keys (all locales incl. **zh-TW**; use `web/ggapi` or `web/default` paths) | `i18n-translate` (shell-aware) |
 | classic → default UI port | `classic-to-default-sync` |
 | default → ggapi feature port | Same *diff-review* idea as classic→default: map paths `web/default` → `web/ggapi` (no separate skill) |

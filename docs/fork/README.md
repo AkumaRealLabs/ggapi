@@ -33,9 +33,9 @@ git remote -v
 - 斜杠命令：`/ggapi-fork`
 - 自然语言：二开、开分支、push 还是 PR、同步上游、冲突、差异清单、发版回归等
 
-Skill 会按模式（日常开发 / 推送与 PR / 上游同步 / 冲突与清单 / 发版 / 排障 / **skill 自升级**）逐步给出命令，并与本目录 SOP 对齐；**流程以本目录文档为准**，skill 负责执行级指引。当前 skill 版本见清单 [GG-002](./diff-inventory.md)（**v1.7.0+**）。本仓 git tag 规则见 [SOP §5.1](./branch-and-sync-sop.md)（**`v<上游基线>.N`**，例 `v1.0.0-rc.20.1`；基线须为 `origin/main` 祖先；正式 tag 只钉 `origin/main` tip；`N` 仅在基线版本串变化时归 1；**默认产物 = GHCR 镜像**，裸二进制仅手动 dispatch）。
+Skill 会按模式（日常开发 / 推送与 PR / 上游同步 / 冲突与清单 / 发版 / 排障 / **skill 自升级**）逐步给出命令，并与本目录 SOP 对齐；**流程以本目录文档为准**，skill 负责执行级指引。当前 skill 版本见清单 [GG-002](./diff-inventory.md)（**v1.8.0+**）。本仓 git tag 规则见 [SOP §5.1](./branch-and-sync-sop.md)（**`v<上游基线>.N`**，例 `v1.0.0-rc.20.1`；基线须为 `origin/main` 祖先；正式 tag 只钉 `origin/main` tip；`N` 仅在基线版本串变化时归 1；**默认产物 = GHCR 镜像**，裸二进制仅手动 dispatch）。
 
-**最终提交前：** skill Mode C（含用户直接说「提交/commit」）会先跑 Codex 审查（agent 优先用 companion/`codex review`，用户也可用 `/codex:review`），有实质问题则修复后再审（默认最多 3 轮）；须覆盖 **相对 `origin/main` 的完整最终树**（已提交 + 未提交并存时先 materialize 再审）。通过后再落最终 commit 说明；审查本身不改代码逻辑、也不自动 push。跳过须用户明确说；文档/skill 改动不默认豁免（见 skill `references/workflows.md` C2-pre / troubleshooting §21）。
+**最终提交前：** skill Mode C（含用户直接说「提交/commit」）到达 C2-pre 后会停止自动操作，请用户在**新终端**使用自己选择的终端 Agent 审查相对记录基线的完整最终改动（默认为已 fetch 的 `origin/main`；分支落后且用户拒绝更新时为 merge base），并把审查结果发回当前会话。交接时不得遗留未暂存或未跟踪内容；接收结果前重新 fetch `origin`。用户回传“无问题”后才继续 commit；有 findings 时由当前 Agent 修复，再次停在 C2-pre 等待用户手动复审（默认最多 3 轮）。当前 Agent 不调用 Codex companion、`codex review` 或其他审查工具；未收到结果时不继续提交。跳过仍须用户明确说，文档/skill 改动不默认豁免（见 skill `references/workflows.md` C2-pre / troubleshooting §21）。
 
 自升级策略（能改进自身、禁止乱改）：见 skill 内 [`references/self-upgrade.md`](../../.agents/skills/ggapi-fork/references/self-upgrade.md)。摘要：**L1** 对齐文档/小修补可主动改文件但不自动提交；**L2/L3** 须先方案后确认；永不静默削弱 hard rules、不自动 push。
 

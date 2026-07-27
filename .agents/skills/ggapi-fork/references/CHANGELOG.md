@@ -2,6 +2,21 @@
 
 格式：`## version — YYYY-MM-DD` + 级别 + 摘要。最新在上。
 
+## 1.8.0 — 2026-07-27
+
+- **级别:** L2 / minor（Mode C 审查执行方替换；**未**改 Hard rules）
+- **原因:** 用户要求当前 Agent 不再运行 Codex 或任何审查工具；到提交前审查节点后，改为请用户在新终端使用自选终端 Agent，并由用户把结果发回当前会话
+- **变更:**
+  - **C2-pre** 改为用户手动终端 Agent 审查交接：当前 Agent 暂存并指纹化完整最终树、给出直接提示后停止，未收到用户结果前不 commit
+  - 用户回传 clean 才继续；回传 findings 则当前 Agent 修复、重测并再次停下等待用户手动复审；当前 Agent 不调用 companion、`codex review`、slash 或审查子 Agent
+  - C0/C-continue 记录人工审查暂停前尚未执行的授权链；用户回传结果后按原链续跑，但结果本身不补出缺失的 push/PR/merge/发版授权
+  - 保留 tree fingerprint、stale result 与 merge pin 防护；落后分支拒绝更新时按 merge base 审查，回传结果前重新 fetch 并校验独立记录的 main tip，交接时禁止遗留未暂存/未跟踪内容；C2 后改用 `HEAD^{tree}` + clean workspace 校验，不把正常的 staged → clean 误判为 stale
+  - 取消为审查创建临时 commit 的要求
+  - GG-003 当前态同步为所有现有 workflow 使用 GitHub 托管 `ubuntu-latest` Linux amd64；anti-slop 的标签/评论/关闭操作获得 `pull-requests: write`；不恢复已回退的全量 build/test CI 门禁
+  - `docs/fork`、checklists、troubleshooting §21、self-upgrade 口径与 GG-002 同步
+  - `skill_version` → **1.8.0**
+- **未改:** origin-only、禁直推 main、品牌/计费等 Hard rules；不自动 commit/push/merge；审查仍可由用户明确 opt-out
+
 ## 1.7.0 — 2026-07-17
 
 - **级别:** L2 / minor（Mode C 续跑 + C2-pre 强化；**未**改 Hard rules）
