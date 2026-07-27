@@ -314,8 +314,7 @@ func validateSubscriptionPurchaseTx(tx *gorm.DB, userId int, plan *SubscriptionP
 	}
 	now := getDBTimestamp(tx)
 	if plan.MembershipOnly {
-		var user User
-		if err := lockForUpdate(tx).Select("id").Where("id = ?", userId).First(&user).Error; err != nil {
+		if err := lockMembershipUserTx(tx, userId); err != nil {
 			return err
 		}
 
@@ -605,7 +604,7 @@ func getUserGroupByIdTx(tx *gorm.DB, userId int) (string, error) {
 		tx = DB
 	}
 	var group string
-	if err := tx.Model(&User{}).Where("id = ?", userId).Select(commonGroupCol).Find(&group).Error; err != nil {
+	if err := lockForUpdate(tx).Model(&User{}).Where("id = ?", userId).Select(commonGroupCol).Find(&group).Error; err != nil {
 		return "", err
 	}
 	return group, nil
@@ -814,8 +813,7 @@ func CreateUserSubscriptionFromPlanTx(tx *gorm.DB, userId int, plan *Subscriptio
 	startUnix := nowUnix
 	status := SubscriptionStatusActive
 	if plan.MembershipOnly {
-		var user User
-		if err := lockForUpdate(tx).Where("id = ?", userId).First(&user).Error; err != nil {
+		if err := lockMembershipUserTx(tx, userId); err != nil {
 			return nil, err
 		}
 		if _, err := expireDueMembershipSubscriptionsTx(tx, userId, nowUnix); err != nil {
@@ -923,15 +921,9 @@ func CreateUserSubscriptionFromPlanTx(tx *gorm.DB, userId int, plan *Subscriptio
 	return sub, nil
 }
 
-func refreshSubscriptionActivationCaches(userId int, upgradeGroup string) {
-	if userId <= 0 {
-		return
-	}
-	if upgradeGroup != "" {
-		currentGroup, err := GetUserGroup(userId, true)
-		if err == nil {
-			_ = UpdateUserGroupCache(userId, currentGroup)
-		}
+func refreshSubscriptionUserGroupCache(userId int, operation string) {
+	if err := RefreshUserGroupCache(userId); err != nil {
+		common.SysError(fmt.Sprintf("failed to refresh user group cache after %s for user %d: %v", operation, userId, err))
 	}
 }
 
@@ -1004,7 +996,9 @@ func CompleteSubscriptionOrder(tradeNo string, providerPayload string, expectedP
 			return err
 		}
 		// Use locked snapshot from creation (not the pre-lock cached plan).
-		upgradeGroup = strings.TrimSpace(sub.UpgradeGroup)
+		if sub.PrevUserGroup != "" {
+			upgradeGroup = strings.TrimSpace(sub.UpgradeGroup)
+		}
 		if err := upsertSubscriptionTopUpTx(tx, &order); err != nil {
 			return err
 		}
@@ -1028,7 +1022,9 @@ func CompleteSubscriptionOrder(tradeNo string, providerPayload string, expectedP
 	if err != nil {
 		return err
 	}
-	refreshSubscriptionActivationCaches(logUserId, upgradeGroup)
+	if upgradeGroup != "" && logUserId > 0 {
+		refreshSubscriptionUserGroupCache(logUserId, "subscription payment completion")
+	}
 	if logUserId > 0 {
 		msg := fmt.Sprintf("订阅购买成功，套餐: %s，支付金额: %.2f，支付方式: %s", logPlanTitle, logMoney, logPaymentMethod)
 		RecordLog(logUserId, LogTypeTopup, msg)
@@ -1121,7 +1117,9 @@ func AdminBindSubscription(userId int, planId int, sourceNote string) (string, e
 	if created != nil {
 		upgradeGroup = strings.TrimSpace(created.UpgradeGroup)
 	}
-	refreshSubscriptionActivationCaches(userId, upgradeGroup)
+	if created != nil && created.PrevUserGroup != "" {
+		refreshSubscriptionUserGroupCache(userId, "admin subscription creation")
+	}
 	if created != nil && created.Status == SubscriptionStatusScheduled {
 		return "Membership queued.", nil
 	}
@@ -1200,7 +1198,6 @@ func PurchaseSubscriptionWithBalance(userId int, planId int) (string, error) {
 				return err
 			}
 		}
-
 		// plan already locked; CreateUserSubscriptionFromPlanTx re-locks the same row.
 		sub, err := CreateUserSubscriptionFromPlanTx(tx, userId, &plan, PaymentMethodBalance)
 		if err != nil {
@@ -1228,7 +1225,9 @@ func PurchaseSubscriptionWithBalance(userId int, planId int) (string, error) {
 		logPlanTitle = plan.Title
 		logMoney = plan.PriceAmount
 		chargedQuota = requiredQuota
-		upgradeGroup = strings.TrimSpace(sub.UpgradeGroup)
+		if sub.PrevUserGroup != "" {
+			upgradeGroup = strings.TrimSpace(sub.UpgradeGroup)
+		}
 		subscriptionStatus = sub.Status
 		return nil
 	})
@@ -1241,7 +1240,9 @@ func PurchaseSubscriptionWithBalance(userId int, planId int) (string, error) {
 			common.SysLog("failed to decrease user quota cache after subscription balance purchase: " + err.Error())
 		}
 	}
-	refreshSubscriptionActivationCaches(userId, upgradeGroup)
+	if upgradeGroup != "" {
+		refreshSubscriptionUserGroupCache(userId, "subscription balance purchase")
+	}
 	msg := fmt.Sprintf("使用余额购买订阅成功，套餐: %s，支付金额: %.2f，扣除额度: %d", logPlanTitle, logMoney, chargedQuota)
 	RecordLog(userId, LogTypeTopup, msg)
 	return subscriptionStatus, nil
@@ -1376,9 +1377,21 @@ func UserHasActiveMembership(userId int) (bool, error) {
 	if userId <= 0 {
 		return false, errors.New("invalid userId")
 	}
+	return userHasActiveMembershipTx(DB, userId)
+}
+
+func lockMembershipUserTx(tx *gorm.DB, userId int) error {
+	if tx == nil || userId <= 0 {
+		return errors.New("invalid userId")
+	}
+	var user User
+	return lockForUpdate(tx).Select("id").Where("id = ?", userId).First(&user).Error
+}
+
+func userHasActiveMembershipTx(tx *gorm.DB, userId int) (bool, error) {
 	now := common.GetTimestamp()
 	var count int64
-	err := DB.Model(&UserSubscription{}).
+	err := tx.Model(&UserSubscription{}).
 		Where("user_id = ? AND status = ? AND end_time > ? AND membership_only = ?",
 			userId, SubscriptionStatusActive, now, true).
 		Count(&count).Error
@@ -1388,13 +1401,13 @@ func UserHasActiveMembership(userId int) (bool, error) {
 // userNeedsMembershipTokenGroupGuard is true when empty-group tokens would
 // inherit a membership identity group now or after a pending/queued activation
 // (paid fulfillment intentionally skips the purchase-time token check).
-func userNeedsMembershipTokenGroupGuard(userId int) (bool, error) {
-	hasActive, err := UserHasActiveMembership(userId)
+func userNeedsMembershipTokenGroupGuardTx(tx *gorm.DB, userId int) (bool, error) {
+	hasActive, err := userHasActiveMembershipTx(tx, userId)
 	if err != nil || hasActive {
 		return hasActive, err
 	}
 	var scheduled int64
-	if err := DB.Model(&UserSubscription{}).
+	if err := tx.Model(&UserSubscription{}).
 		Where("user_id = ? AND status = ? AND membership_only = ?",
 			userId, SubscriptionStatusScheduled, true).
 		Count(&scheduled).Error; err != nil {
@@ -1404,7 +1417,7 @@ func userNeedsMembershipTokenGroupGuard(userId int) (bool, error) {
 		return true, nil
 	}
 	var pending int64
-	if err := DB.Model(&SubscriptionOrder{}).
+	if err := tx.Model(&SubscriptionOrder{}).
 		Joins("JOIN subscription_plans ON subscription_plans.id = subscription_orders.plan_id").
 		Where("subscription_orders.user_id = ? AND subscription_orders.status = ?", userId, common.TopUpStatusPending).
 		Where("subscription_plans.membership_only = ?", true).
@@ -1417,10 +1430,14 @@ func userNeedsMembershipTokenGroupGuard(userId int) (bool, error) {
 // EnsureMembershipTokenGroupAllowed rejects auto/empty token groups while membership
 // is active, queued, or awaiting payment, so users cannot re-enable identity-group routing.
 func EnsureMembershipTokenGroupAllowed(userId int, group string, enabled bool) error {
+	return ensureMembershipTokenGroupAllowedTx(DB, userId, group, enabled)
+}
+
+func ensureMembershipTokenGroupAllowedTx(tx *gorm.DB, userId int, group string, enabled bool) error {
 	if !enabled || strings.TrimSpace(group) != "" {
 		return nil
 	}
-	needs, err := userNeedsMembershipTokenGroupGuard(userId)
+	needs, err := userNeedsMembershipTokenGroupGuardTx(tx, userId)
 	if err != nil {
 		return err
 	}
@@ -1684,7 +1701,7 @@ func AdminInvalidateUserSubscription(userSubscriptionId int) (string, error) {
 		return "", err
 	}
 	if refreshGroupCache {
-		refreshSubscriptionActivationCaches(userId, "refresh")
+		refreshSubscriptionUserGroupCache(userId, "admin subscription update")
 	}
 	return resultGroup, nil
 }
@@ -1735,7 +1752,7 @@ func AdminDeleteUserSubscription(userSubscriptionId int) (string, error) {
 		return "", err
 	}
 	if refreshGroupCache {
-		refreshSubscriptionActivationCaches(userId, "refresh")
+		refreshSubscriptionUserGroupCache(userId, "admin subscription deletion")
 	}
 	return resultGroup, nil
 }
@@ -1987,7 +2004,7 @@ func ExpireDueSubscriptions(limit int) (int, error) {
 			return expiredCount, err
 		}
 		if cacheGroup != "" {
-			_ = UpdateUserGroupCache(userId, cacheGroup)
+			refreshSubscriptionUserGroupCache(userId, "subscription expiration")
 		}
 	}
 	return expiredCount, nil
@@ -2072,10 +2089,10 @@ func ActivateDueMembershipSubscriptions(limit int) (int, error) {
 		}
 		processedCount++
 		if activated != nil {
-			refreshSubscriptionActivationCaches(userId, strings.TrimSpace(activated.UpgradeGroup))
+			refreshSubscriptionUserGroupCache(userId, "membership activation")
 		} else if expiredOnly {
 			// Expiry without a successor still needs group-cache refresh.
-			refreshSubscriptionActivationCaches(userId, "refresh")
+			refreshSubscriptionUserGroupCache(userId, "membership expiration")
 		}
 	}
 	return processedCount, nil

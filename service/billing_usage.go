@@ -187,12 +187,7 @@ func usageFromGeminiBillingUsage(billingUsage *dto.BillingUsage) *dto.Usage {
 	} else if usage.CompletionTokens <= 0 {
 		usage.CompletionTokens = usage.TotalTokens - usage.PromptTokens
 	}
-	// Only invent text modality when no modality breakdown exists; image-only
-	// prompts must not also be counted as text (would overstate PromptTokens details).
-	if usage.PromptTokens > 0 &&
-		usage.PromptTokensDetails.TextTokens == 0 &&
-		usage.PromptTokensDetails.AudioTokens == 0 &&
-		usage.PromptTokensDetails.ImageTokens == 0 {
+	if usage.PromptTokens > 0 && usage.PromptTokensDetails.TextTokens == 0 && usage.PromptTokensDetails.AudioTokens == 0 {
 		usage.PromptTokensDetails.TextTokens = usage.PromptTokens
 	}
 	return usage

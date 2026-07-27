@@ -69,7 +69,7 @@ Issue/任务 → 分支 → 实现 → 本地验证 → 用户在新终端用自
 - 少改热点：`service/*quota*`、`model/` 锁与事务、`relay/` 核心、鉴权 middleware
 - 计费改动先读 `pkg/billingexpr/expr.md`，并走完整预扣 → 结算 → 退款链路自检
 - 数据库改动必须 SQLite / MySQL / PostgreSQL 三端可接受
-- 前端：产品壳为 `web/ggapi`（见 §3.5）；`web/default` 尽量保持与上游一致以便同步。Bun、i18n、`typecheck` / lint 在**正在改的壳**上跑通
+- 前端：直接在官方 `web/` 上做最小功能扩展（见 §3.5）；Bun、i18n、`typecheck` / lint 均从 `web/` 运行
 
 ### 3.2 本地验证（按改动范围）
 
@@ -79,41 +79,36 @@ go test ./service/...
 go test ./model/...
 go test ./relay/...
 
-# 前端（二开产品壳）
-cd web/ggapi && bun run typecheck
+# 前端（官方单前端）
+cd web && bun run typecheck
 # 以及项目约定的 lint 脚本
-# 仅改上游壳对照时：cd web/default && bun run typecheck
 
 # 本地联调
 make dev-api         # Docker 开发 API 栈
-make dev-web-ggapi   # ggapi 第三壳（推荐）
-# make dev-web       # 上游 default 壳
-# make dev           # API + ggapi 壳
+make dev-web         # 官方前端
+# make dev           # API + 官方前端
 ```
 
-### 3.5 前端第三壳：`web/ggapi` 与功能追 `default`
+### 3.5 官方单前端与最小定制
 
 **策略（长期）：**
 
-| 壳 | 角色 |
-|----|------|
-| `web/default` | 跟踪上游 UI/功能，同步时优先合入；**不在此做本仓视觉大改** |
-| `web/classic` | 上游经典 Semi 壳，按需保留 |
-| `web/ggapi` | **本仓产品壳**（默认 `theme.frontend=ggapi`）；视觉与产品定制落在这里；**功能上追 `default`** |
+| 路径 | 角色 |
+|------|------|
+| `web/` | 上游官方前端，也是本仓唯一构建、运行和发布的前端 |
 
 **日常开发：**
 
-1. 新页面/新交互/本仓皮肤 → 改 `web/ggapi`（`make dev-web-ggapi`）。
-2. 上游只改了 `web/default` 的功能 → 在同步或独立 `chore/port-default-*` 分支里，把等价改动 **port 到 `web/ggapi`**（可参考 skill `classic-to-default-sync` 的 diff 审阅思路：对 commit 做路径映射 `web/default` → `web/ggapi`）。
-3. 禁止只改 `web/default` 却期望生产默认壳生效；生产默认是 `ggapi`。
-4. 共用依赖版本放在 `web/package.json` 的 `catalog` / workspaces；三壳各自 `package.json` 名称独立（`ggapi-web`）。
-5. 构建：`make build-web-ggapi`；全量 `make build-all-web`；Docker 含 `builder-ggapi` 阶段。
+1. GG-004/006/007 的前端能力直接落在 `web/src/features/...` 对应官方模块，优先新增独立 feature 文件或使用现有扩展点。
+2. 不复制整个前端树，不引入 fork-only 主题、视觉壳或运行时前端选择器。
+3. 修改上游热点组件时只保留实现功能所需的最小 diff；同步上游后以官方实现为底，再重放仍必要的功能补丁。
+4. 本地开发使用 `make dev-web`，构建使用 `make build-web`；Docker 与可选裸二进制均只构建 `web/`。
 
 **上游同步时前端注意：**
 
-1. `web/default`、`web/classic` 冲突按上游意图解决，再评估是否需 port 到 `web/ggapi`。
-2. `web/ggapi` 为**本仓独占树**，上游不会直接改；勿在 `sync/upstream-*` 里夹带大视觉重构。
-3. 同步 PR 合并后，若 `web/default` 有用户可见功能 diff，开 follow-up：`chore/port-default-<topic>`，清单可备注关联 GG-005。
+1. `web/` 冲突先采纳上游结构与组件 API，再逐项重放 GG-004/006/007 的必要能力。
+2. 不恢复已退役的 `web/ggapi`、classic、多主题或独立视觉改动。
+3. 用 `git diff upstream/main...HEAD -- web` 复核最终前端差异只包含登记功能。
 ### 3.3 Review 要求
 
 | 变更类型 | 要求 |
@@ -197,7 +192,7 @@ go test ./model/...
 go test ./relay/...
 
 # 若动到前端
-cd web/default && bun run typecheck
+cd web && bun run typecheck
 ```
 
 手工烟雾（环境允许时）：
@@ -234,7 +229,7 @@ v<上游基线>.N
 | `v` + 上游基线 | 清单「基准 upstream 版本」：最近一次完整同步所对齐的 **upstream 版本串**（优先 upstream release tag 名去掉仅用于说明的装饰后，与官方 tag 主体一致） | 若清单记为 `v1.0.0-rc.20` → 基线串 `1.0.0-rc.20` |
 | `.N` | 在**同一上游基线版本串**上，本仓第几次发版（从 `1` 起） | `.1` `.2` |
 
-**完整 tag 示例（格式示意，非「当前 main 必打」）：** `v1.0.0-rc.20.1`、`v1.0.0-rc.20.2`、`v1.0.0-rc.21.1`（仅当清单基线已切到 `rc.21` 且 main 已包含该 tag）
+**完整 tag 示例（格式示意，非「当前 main 必打」）：** `v1.0.0-rc.20.1`、`v1.0.0-rc.20.2`、`v1.0.0-rc.22.1`（仅当清单基线已切到 `rc.22` 且 main 已包含该 tag）
 
 | 规则 | 说明 |
 |------|------|
@@ -311,16 +306,14 @@ fi
 
 历史曾讨论过的 `x.y.z-ggapi.N` **不再作为推荐格式**；新 tag 一律用本节 `v<上游基线>.N`。
 
-构建参考（本仓 `main.go` embed **default + classic + ggapi** 三壳；`dist` 被 gitignore；**镜像 Dockerfile 已含三壳 builder**）：
+构建参考（本仓 `main.go` embed 官方 `web/dist`；`dist` 被 gitignore；镜像 Dockerfile 只构建官方前端）：
 
 ```bash
-# 默认发版：推 tag → CI 构建 GHCR 镜像（Dockerfile 内 build 三壳 + go）
+# 默认发版：推 tag → CI 构建 GHCR 镜像（Dockerfile 内 build web + go）
 # 本地验证镜像：
 # docker build -t ggapi:local .
 # 本地裸二进制（非默认 CI 路径）：
-make build-all-web
-# make build-web-ggapi  # 仅验证产品壳时
-# make build-web        # 仅验证 upstream default 壳时
+make build-web
 ```
 
 ---
@@ -342,11 +335,9 @@ make build-all-web
 | 场景 | 命令 |
 |------|------|
 | 开发 API | `make dev-api` |
-| 开发产品壳（推荐） | `make dev-web-ggapi` 或 `make dev` |
-| 开发 upstream default 壳 | `make dev-web` |
+| 开发官方前端 | `make dev-web` 或 `make dev` |
 | 重建 API 容器 | `make dev-api-rebuild` |
-| 构建全部前端（发版/embed） | `make build-all-web` |
-| 仅构建产品壳 | `make build-web-ggapi` |
+| 构建前端（发版/embed） | `make build-web` |
 | 更新远程引用 | `git fetch origin && git fetch upstream` |
 | 看上游多出的提交 | 先 `git fetch upstream`，再 `git log --oneline main..upstream/main` |
 | 看本仓多出的提交 | 先 `git fetch upstream`，再 `git log --oneline upstream/main..main` |

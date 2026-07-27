@@ -114,6 +114,7 @@ func HandleStreamResponseData(c *gin.Context, info *relaycommon.RelayInfo, claud
 				data = patchClaudeMessageDeltaUsageData(data, buildMessageDeltaPatchUsage(&claudeResponse, claudeInfo))
 			}
 		}
+		countClaudeStreamBillableTools(c, info, &claudeResponse)
 		helper.ClaudeChunkData(c, claudeResponse, data)
 	} else if info.RelayFormat == types.RelayFormatOpenAI {
 		response := StreamResponseClaude2OpenAI(&claudeResponse)
@@ -122,12 +123,31 @@ func HandleStreamResponseData(c *gin.Context, info *relaycommon.RelayInfo, claud
 			return nil
 		}
 
+		countClaudeStreamBillableTools(c, info, &claudeResponse)
+
 		err = helper.ObjectData(c, response)
 		if err != nil {
 			logger.LogError(c, "send_stream_response_failed: "+err.Error())
 		}
 	}
 	return nil
+}
+
+func countClaudeStreamBillableTools(c *gin.Context, info *relaycommon.RelayInfo, claudeResponse *dto.ClaudeResponse) {
+	if claudeResponse == nil {
+		return
+	}
+	if claudeResponse.Type == "content_block_start" &&
+		claudeResponse.ContentBlock != nil &&
+		claudeResponse.ContentBlock.Type == "tool_use" {
+		info.CountBillableToolCall(dto.BuildInCallToolUse, claudeResponse.ContentBlock.Name)
+	}
+	if claudeResponse.Type == "message_delta" &&
+		claudeResponse.Usage != nil &&
+		claudeResponse.Usage.ServerToolUse != nil &&
+		claudeResponse.Usage.ServerToolUse.WebSearchRequests > 0 {
+		c.Set("claude_web_search_requests", claudeResponse.Usage.ServerToolUse.WebSearchRequests)
+	}
 }
 
 func HandleStreamFinalResponse(c *gin.Context, info *relaycommon.RelayInfo, claudeInfo *ClaudeResponseInfo) {
@@ -148,27 +168,12 @@ func HandleStreamFinalResponse(c *gin.Context, info *relaycommon.RelayInfo, clau
 			claudeInfo.Usage.PromptTokens = fallback.PromptTokens
 		}
 		claudeInfo.Usage.TotalTokens = claudeInfo.Usage.PromptTokens + claudeInfo.Usage.CompletionTokens
-		// message_start may already have installed a non-nil BillingUsage with a
-		// stale output count. Rebuild after the top-level fallback so settlement
-		// (which prefers BillingUsage via effectiveBillingUsage) sees the adjusted
-		// completion tokens while preserving cache fields from message_start.
-		if claudeInfo.Usage != nil {
-			patch := buildMessageDeltaPatchUsage(nil, claudeInfo)
-			if patch.OutputTokens == 0 {
-				patch.OutputTokens = claudeInfo.Usage.CompletionTokens
-			}
-			claudeInfo.Usage.BillingUsage = dto.NewClaudeMessagesBillingUsage(patch)
-		}
 	}
 	if claudeInfo.Usage != nil {
 		claudeInfo.Usage.UsageSemantic = "anthropic"
 	}
 	if claudeInfo.Usage != nil && claudeInfo.Usage.BillingUsage == nil {
-		patch := buildMessageDeltaPatchUsage(nil, claudeInfo)
-		if patch.OutputTokens == 0 {
-			patch.OutputTokens = claudeInfo.Usage.CompletionTokens
-		}
-		claudeInfo.Usage.BillingUsage = dto.NewClaudeMessagesBillingUsage(patch)
+		claudeInfo.Usage.BillingUsage = dto.NewClaudeMessagesBillingUsage(buildMessageDeltaPatchUsage(nil, claudeInfo))
 	}
 
 	if info.RelayFormat == types.RelayFormatClaude {
@@ -248,6 +253,12 @@ func HandleClaudeResponseData(c *gin.Context, info *relaycommon.RelayInfo, claud
 
 	if claudeResponse.Usage != nil && claudeResponse.Usage.ServerToolUse != nil && claudeResponse.Usage.ServerToolUse.WebSearchRequests > 0 {
 		c.Set("claude_web_search_requests", claudeResponse.Usage.ServerToolUse.WebSearchRequests)
+	}
+
+	for _, block := range claudeResponse.Content {
+		if block.Type == "tool_use" {
+			info.CountBillableToolCall(dto.BuildInCallToolUse, block.Name)
+		}
 	}
 
 	service.IOCopyBytesGracefully(c, httpResp, responseData)

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sort"
 	"strings"
 	"time"
 
@@ -114,57 +113,32 @@ func assignDisplayLogIds(logs []*Log, startIdx int) {
 	}
 }
 
-// userLogSensitiveOtherKeys are channel/upstream diagnostics that must never
-// appear in user-facing log responses. Historical rows may still store some of
-// these at the top level of Other; strip them even when nested under admin_info
-// is already removed.
-var userLogSensitiveOtherKeys = []string{
-	"admin_info",
-	"audit_info",
-	"stream_status",
-	"channel",
-	"channel_id",
-	"channel_name",
-	"channel_type",
-	"use_channel",
-	"channel_affinity",
-	"is_multi_key",
-	"multi_key_index",
-	"upstream_request_id",
-}
-
 func formatUserLogs(logs []*Log, startIdx int) {
 	for i := range logs {
-		// Top-level channel / upstream identifiers are admin-only.
-		logs[i].ChannelId = 0
 		logs[i].ChannelName = ""
-		logs[i].UpstreamRequestId = ""
-		otherMap, _ := common.StrToMap(logs[i].Other)
+		var otherMap map[string]interface{}
+		otherMap, _ = common.StrToMap(logs[i].Other)
 		if otherMap != nil {
-			for _, key := range userLogSensitiveOtherKeys {
-				delete(otherMap, key)
-			}
+			// Remove admin-only debug fields.
+			delete(otherMap, "admin_info")
+			// Remove operation-audit details (operator/route info), admin-only.
+			delete(otherMap, "audit_info")
+			// delete(otherMap, "reject_reason")
+			delete(otherMap, "stream_status")
 		}
 		logs[i].Other = common.MapToJsonStr(otherMap)
 	}
 	assignDisplayLogIds(logs, startIdx)
 }
 
-// tokenLogRawWindow bounds how many raw attempt rows participate in the
-// logical-request projection for /api/log/token. The endpoint only returns
-// MaxRecentItems logical rows; scanning unbounded token history would turn a
-// recent-page lookup into a full-history GROUP BY / window.
-const tokenLogRawWindow = 5000
-
 func GetLogByTokenId(tokenId int) (logs []*Log, err error) {
-	tx := LOG_DB.Where("logs.token_id = ?", tokenId)
-	// Recent raw window first (bounded), then project; skip COUNT.
-	logs, _, err = queryUserFacingLogs(tx, LogTypeUnknown, "", 0, common.MaxRecentItems, false, tokenLogRawWindow)
-	if err != nil {
-		return nil, err
+	order := "id desc"
+	if common.UsingLogDatabase(common.DatabaseTypeClickHouse) {
+		order = clickHouseLogOrder("")
 	}
+	err = LOG_DB.Model(&Log{}).Where("token_id = ?", tokenId).Order(order).Limit(common.MaxRecentItems).Find(&logs).Error
 	formatUserLogs(logs, 0)
-	return logs, nil
+	return logs, err
 }
 
 func RecordLog(userId int, logType int, content string) {
@@ -224,7 +198,7 @@ func buildOpField(action string, params map[string]interface{}) map[string]inter
 
 // RecordLoginLog 记录用户登录成功的审计日志（type=LogTypeLogin）。
 // username 由调用方传入（登录流程已持有用户对象），避免额外的数据库查询。
-// content 为英文兜底文本（用于导出/经典前端）；action+params 供前端本地化渲染。
+// content 为英文兜底文本（用于导出）；action+params 供前端本地化渲染。
 // extra 可携带 login_method、user_agent 等附加信息（普通用户可见）。
 func RecordLoginLog(userId int, username string, content string, ip string, action string, params map[string]interface{}, extra map[string]interface{}) {
 	other := map[string]interface{}{}
@@ -248,7 +222,7 @@ func RecordLoginLog(userId int, username string, content string, ip string, acti
 
 // RecordOperationAuditLog 记录管理/高危操作审计日志（type=LogTypeManage）。
 // logUserId 为日志归属者，管理审计日志应归属实际操作者；目标资源/用户放入
-// action params。username 内部按 logUserId 查询。content 为英文兜底文本（导出/经典前端用）。
+// action params。username 内部按 logUserId 查询。content 为英文兜底文本（供导出使用）。
 // action+params 写入 Other.op，供前端本地化渲染（普通用户可见，不含敏感信息）。
 // adminInfo 存放操作者身份（写入 Other.admin_info，普通用户查询时剥离）；
 // auditInfo 存放路由/方法/结果等中间件兜底信息（写入 Other.audit_info，普通用户查询时剥离）。
@@ -587,227 +561,13 @@ func GetAllLogs(logType int, startTimestamp int64, endTimestamp int64, modelName
 
 const logSearchCountLimit = 10000
 
-// userLogicalRequestWinnerSQL selects one log id per logical request among a
-// pre-filtered logs set (passed twice as GORM subqueries).
-//
-// Rules:
-//   - Empty request_id: never merge; every row id is kept.
-//   - Non-empty request_id: prefer type=LogTypeConsume; else max(id).
-//
-// Compatible with SQLite, MySQL 5.7.8+, PostgreSQL 9.6+ (no window functions).
-const userLogicalRequestWinnerSQL = `
-SELECT id FROM (?) AS filtered_logs WHERE request_id = '' OR request_id IS NULL
-UNION ALL
-SELECT COALESCE(MAX(CASE WHEN type = ? THEN id END), MAX(id)) AS id
-FROM (?) AS filtered_logs
-WHERE request_id IS NOT NULL AND request_id != ''
-GROUP BY request_id
-`
-
-// clickHouseUserLogicalRequestProjectionSQL projects one row per logical
-// request among a pre-filtered scope.
-//
-// Empty request_id rows pass through unchanged. Non-empty groups pick a single
-// winner via row_number so pagination/count never see intermediate retries.
-// Ranking: consume first, then created_at/use_time/channel_id, then a stable
-// cityHash64 of content+other so same-second same-channel collisions still
-// collapse to exactly one row before LIMIT/OFFSET (ClickHouse id is not unique).
-//
-// Window functions are ClickHouse-only here; the relational path avoids them.
-const clickHouseUserLogicalRequestProjectionSQL = `
-SELECT
-	id, user_id, created_at, type, content, username, token_name, model_name,
-	quota, prompt_tokens, completion_tokens, use_time, is_stream, channel_id,
-	token_id, ` + "`group`" + `, ip, request_id, upstream_request_id, other
-FROM (
-	SELECT
-		*,
-		row_number() OVER (
-			PARTITION BY request_id
-			ORDER BY
-				if(type = ?, 0, 1) ASC,
-				created_at DESC,
-				use_time DESC,
-				channel_id DESC,
-				cityHash64(content, other) DESC
-		) AS rn
-	FROM (?) AS filtered_logs
-	WHERE request_id IS NOT NULL AND request_id != ''
-)
-WHERE rn = 1
-UNION ALL
-SELECT
-	id, user_id, created_at, type, content, username, token_name, model_name,
-	quota, prompt_tokens, completion_tokens, use_time, is_stream, channel_id,
-	token_id, ` + "`group`" + `, ip, request_id, upstream_request_id, other
-FROM (?) AS filtered_logs
-WHERE request_id = '' OR request_id IS NULL
-`
-
-// userLogAttemptPreferred reports whether candidate should replace current as
-// the representative attempt for the same non-empty request_id.
-//
-// Order: consume > non-consume, then created_at, use_time, id, channel_id,
-// content. use_time / content provide stable same-second tie-breakers when id
-// is not a reliable auto-increment (ClickHouse).
-func userLogAttemptPreferred(candidate, current *Log) bool {
-	if candidate == nil {
-		return false
-	}
-	if current == nil {
-		return true
-	}
-	if candidate.Type == LogTypeConsume && current.Type != LogTypeConsume {
-		return true
-	}
-	if current.Type == LogTypeConsume && candidate.Type != LogTypeConsume {
-		return false
-	}
-	if candidate.CreatedAt != current.CreatedAt {
-		return candidate.CreatedAt > current.CreatedAt
-	}
-	if candidate.UseTime != current.UseTime {
-		return candidate.UseTime > current.UseTime
-	}
-	if candidate.Id != current.Id {
-		return candidate.Id > current.Id
-	}
-	if candidate.ChannelId != current.ChannelId {
-		return candidate.ChannelId > current.ChannelId
-	}
-	return candidate.Content > current.Content
-}
-
-// pickUserLogicalRequestWinners implements the user-facing logical-request
-// projection in pure Go (same rules as the SQL winner expressions). Used by
-// tests that lock the product contract without a live ClickHouse.
-//
-// Input order does not matter; output is sorted by Id descending (then
-// CreatedAt desc, RequestId desc) to mirror list endpoints.
-func pickUserLogicalRequestWinners(logs []*Log) []*Log {
-	if len(logs) == 0 {
-		return nil
-	}
-	// best[request_id] holds the chosen row for non-empty request ids.
-	// Empty request_id rows are never merged with each other.
-	best := make(map[string]*Log)
-	var empty []*Log
-	for _, log := range logs {
-		if log == nil {
-			continue
-		}
-		if log.RequestId == "" {
-			empty = append(empty, log)
-			continue
-		}
-		if userLogAttemptPreferred(log, best[log.RequestId]) {
-			best[log.RequestId] = log
-		}
-	}
-	out := make([]*Log, 0, len(empty)+len(best))
-	out = append(out, empty...)
-	for _, log := range best {
-		out = append(out, log)
-	}
-	// List order matching user endpoints: id desc, then created_at desc.
-	sort.SliceStable(out, func(i, j int) bool {
-		if out[i].Id != out[j].Id {
-			return out[i].Id > out[j].Id
-		}
-		if out[i].CreatedAt != out[j].CreatedAt {
-			return out[i].CreatedAt > out[j].CreatedAt
-		}
-		return out[i].RequestId > out[j].RequestId
-	})
-	return out
-}
-
-// queryUserFacingLogs runs a filtered log query with logical-request projection
-// for user/token views. Admin queries must not call this helper.
-//
-// scope must carry identity and list filters (user/token/time/model/group/
-// request_id) but MUST NOT include type or upstream_request_id. Logical winners
-// are chosen from the full scope first; postFilterType and postFilterUpstreamId
-// apply only after projection so intermediate retries never surface when a
-// consume winner exists for that request_id.
-//
-// needTotal controls whether to run the projected COUNT (token list skips it).
-// rawWindow > 0 limits the raw attempt rows considered before projection
-// (token recent-page path); 0 means unbounded within scope filters.
-func queryUserFacingLogs(scope *gorm.DB, postFilterType int, postFilterUpstreamId string, startIdx int, num int, needTotal bool, rawWindow int) (logs []*Log, total int64, err error) {
-	if common.UsingLogDatabase(common.DatabaseTypeClickHouse) {
-		return queryUserFacingLogsClickHouse(scope, postFilterType, postFilterUpstreamId, startIdx, num, needTotal, rawWindow)
-	}
-
-	filtered := scope.Session(&gorm.Session{}).Model(&Log{}).Table("logs").Select("*")
-	if rawWindow > 0 {
-		// Bound raw attempts for token-style recent lookups before GROUP BY.
-		filtered = filtered.Order("logs.id desc").Limit(rawWindow)
-	}
-	projected := LOG_DB.Table("logs").Where("logs.id IN (?)",
-		LOG_DB.Raw(userLogicalRequestWinnerSQL, filtered, LogTypeConsume, filtered))
-	if postFilterType != LogTypeUnknown {
-		projected = projected.Where("logs.type = ?", postFilterType)
-	}
-	if postFilterUpstreamId != "" {
-		projected = projected.Where("logs.upstream_request_id = ?", postFilterUpstreamId)
-	}
-
-	if needTotal {
-		err = projected.Session(&gorm.Session{}).Model(&Log{}).Limit(logSearchCountLimit).Count(&total).Error
-		if err != nil {
-			common.SysError("failed to count user logs: " + err.Error())
-			return nil, 0, errors.New("查询日志失败")
-		}
-	}
-
-	err = projected.Order("logs.id desc").Limit(num).Offset(startIdx).Find(&logs).Error
-	if err != nil {
-		common.SysError("failed to search user logs: " + err.Error())
-		return nil, 0, errors.New("查询日志失败")
-	}
-	return logs, total, nil
-}
-
-// queryUserFacingLogsClickHouse is the ClickHouse branch of queryUserFacingLogs.
-// Projection (one row per logical request) happens in SQL via window functions
-// before count/page, so totals and pages stay consistent even when attempts
-// share the same second and channel.
-func queryUserFacingLogsClickHouse(scope *gorm.DB, postFilterType int, postFilterUpstreamId string, startIdx int, num int, needTotal bool, rawWindow int) (logs []*Log, total int64, err error) {
-	filtered := scope.Session(&gorm.Session{}).Model(&Log{}).Table("logs").Select("*")
-	if rawWindow > 0 {
-		filtered = filtered.Order(clickHouseLogOrder("logs.")).Limit(rawWindow)
-	}
-	projected := LOG_DB.Table("(?) AS logs",
-		LOG_DB.Raw(clickHouseUserLogicalRequestProjectionSQL, LogTypeConsume, filtered, filtered))
-	if postFilterType != LogTypeUnknown {
-		projected = projected.Where("logs.type = ?", postFilterType)
-	}
-	if postFilterUpstreamId != "" {
-		projected = projected.Where("logs.upstream_request_id = ?", postFilterUpstreamId)
-	}
-
-	if needTotal {
-		err = projected.Session(&gorm.Session{}).Limit(logSearchCountLimit).Count(&total).Error
-		if err != nil {
-			common.SysError("failed to count user logs: " + err.Error())
-			return nil, 0, errors.New("查询日志失败")
-		}
-	}
-
-	err = projected.Order(clickHouseLogOrder("logs.")).Limit(num).Offset(startIdx).Find(&logs).Error
-	if err != nil {
-		common.SysError("failed to search user logs: " + err.Error())
-		return nil, 0, errors.New("查询日志失败")
-	}
-	return logs, total, nil
-}
-
 func GetUserLogs(userId int, logType int, startTimestamp int64, endTimestamp int64, modelName string, tokenName string, startIdx int, num int, group string, requestId string, upstreamRequestId string) (logs []*Log, total int64, err error) {
-	// Scope intentionally omits type and upstream_request_id: winners are
-	// chosen across all attempts for a request_id, then those filters apply
-	// to the projected row only (so intermediate retries stay hidden).
-	tx := LOG_DB.Where("logs.user_id = ?", userId)
+	var tx *gorm.DB
+	if logType == LogTypeUnknown {
+		tx = LOG_DB.Where("logs.user_id = ?", userId)
+	} else {
+		tx = LOG_DB.Where("logs.user_id = ? and logs.type = ?", userId, logType)
+	}
 
 	if tx, err = applyExplicitLogTextFilter(tx, "logs.model_name", modelName); err != nil {
 		return nil, 0, err
@@ -818,6 +578,9 @@ func GetUserLogs(userId int, logType int, startTimestamp int64, endTimestamp int
 	if requestId != "" {
 		tx = tx.Where("logs.request_id = ?", requestId)
 	}
+	if upstreamRequestId != "" {
+		tx = tx.Where("logs.upstream_request_id = ?", upstreamRequestId)
+	}
 	if startTimestamp != 0 {
 		tx = tx.Where("logs.created_at >= ?", startTimestamp)
 	}
@@ -827,13 +590,23 @@ func GetUserLogs(userId int, logType int, startTimestamp int64, endTimestamp int
 	if group != "" {
 		tx = tx.Where("logs."+logGroupCol+" = ?", group)
 	}
-
-	logs, total, err = queryUserFacingLogs(tx, logType, upstreamRequestId, startIdx, num, true, 0)
+	err = tx.Model(&Log{}).Limit(logSearchCountLimit).Count(&total).Error
 	if err != nil {
-		return nil, 0, err
+		common.SysError("failed to count user logs: " + err.Error())
+		return nil, 0, errors.New("查询日志失败")
 	}
+	order := "logs.id desc"
+	if common.UsingLogDatabase(common.DatabaseTypeClickHouse) {
+		order = clickHouseLogOrder("logs.")
+	}
+	err = tx.Order(order).Limit(num).Offset(startIdx).Find(&logs).Error
+	if err != nil {
+		common.SysError("failed to search user logs: " + err.Error())
+		return nil, 0, errors.New("查询日志失败")
+	}
+
 	formatUserLogs(logs, startIdx)
-	return logs, total, nil
+	return logs, total, err
 }
 
 type Stat struct {
@@ -961,31 +734,4 @@ func DeleteOldLogBatch(ctx context.Context, targetTimestamp int64, limit int) (i
 		return 0, result.Error
 	}
 	return result.RowsAffected, nil
-}
-
-func DeleteOldLog(ctx context.Context, targetTimestamp int64, limit int) (int64, error) {
-	if limit <= 0 {
-		limit = 100
-	}
-
-	var total int64 = 0
-
-	for {
-		if nil != ctx.Err() {
-			return total, ctx.Err()
-		}
-
-		rowsAffected, err := DeleteOldLogBatch(ctx, targetTimestamp, limit)
-		if nil != err {
-			return total, err
-		}
-
-		total += rowsAffected
-
-		if rowsAffected < int64(limit) {
-			break
-		}
-	}
-
-	return total, nil
 }

@@ -2,6 +2,18 @@
 
 格式：`## version — YYYY-MM-DD` + 级别 + 摘要。最新在上。
 
+## 1.9.0 — 2026-07-27
+
+- **级别:** L2 / minor（前端维护模型收敛；**未**改 Hard rules）
+- **原因:** 用户决定不再维护第三前端壳，改为直接在上游 `v1.0.0-rc.22` 官方前端上保留最小 GG-004/006/007 功能差异
+- **变更:**
+  - 日常开发、验证、冲突解决与发版命令统一到官方 `web/`
+  - GG-005 标记为 `dropped`；禁止恢复 `web/ggapi`、classic、多主题接线与独立视觉重构
+  - C1b、Pre-PR、Post-sync、release 与 troubleshooting §20/§22 改为单前端检查
+  - inventory 锚点补充 GG-006/GG-007，并更新 `docs/fork` 路径与 `v1.0.0-rc.22` 基线
+  - `skill_version` → **1.9.0**
+- **未改:** origin-only、禁直推 main、品牌/计费等 Hard rules；不自动 commit/push/merge；C2-pre 仍由用户在新终端手动审查并回传结果
+
 ## 1.8.0 — 2026-07-27
 
 - **级别:** L2 / minor（Mode C 审查执行方替换；**未**改 Hard rules）

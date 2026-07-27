@@ -51,12 +51,11 @@ git status -sb
 
 ```bash
 make dev-api         # API + docker dev stack
-make dev-web-ggapi   # product shell (fork default; GG-005)
-# make dev           # API + ggapi shell (makefile convenience)
-# make dev-web       # upstream default shell only (sync/compare)
+make dev-web         # official frontend
+# make dev           # API + official frontend (makefile convenience)
 ```
 
-6. Point the user at `docs/fork/README.md` (含第三壳) and Mode B for first feature work.
+6. Point the user at `docs/fork/README.md` (official single-frontend policy) and Mode B for first feature work.
 
 ### Done when
 
@@ -100,10 +99,10 @@ Never start work on a dirty `main` with unrelated files — stash or finish firs
 1. Search for existing extension points before editing hotspots.
 2. Prefer new files under own dirs.
 3. Follow `AGENTS.md` (JSON wrappers, 3 DBs, pointer optional DTO fields, billing math helpers).
-4. **Frontend shell (GG-005 / SOP §3.5):**
-   - Product UI, skin, paper-sketch, operator-facing copy → **`web/ggapi`** (Bun, `t('English key')`, **i18n-translate**).
-   - Keep `web/default` close to upstream for sync; do **not** land permanent product skin only in default and expect prod to show it (default theme is `ggapi`).
-   - After upstream/`web/default` gains user-visible features: plan `chore/port-default-<topic>` into `web/ggapi` (path map `web/default` → `web/ggapi`; same review idea as **classic-to-default-sync**).
+4. **Official frontend (`web/`, SOP §3.5):**
+   - Add GG-004/006/007 capabilities directly to the matching official feature modules (Bun, `t('English key')`, **i18n-translate**).
+   - Prefer independent feature files and existing extension points; keep patches to upstream components minimal.
+   - Do not recreate the dropped GG-005 third shell, classic frontend, runtime theme selector, or fork-only visual redesign.
 5. If permanent delta: draft inventory row mentally (ID, path, risk, regression).
 
 ### B3. Local verification (scoped)
@@ -117,35 +116,30 @@ go test ./relay/...
 # or narrower: go test ./path/to/pkg -count=1
 ```
 
-Frontend (if UI/TS touched — run on the shell you edited; keep make at **repo root**).
-Align with `docs/fork` SOP: validation **per shell**; **do not** require a clean full-tree
+Frontend (if UI/TS touched — run from `web/`; keep make at **repo root**).
+Align with `docs/fork` SOP; **do not** require a clean full-tree
 `bun run lint` when the baseline already has pre-existing oxlint/format debt.
 
 ```bash
-# typecheck (ggapi / default only — classic has no typecheck script)
-(cd web/ggapi && bun run typecheck)     # product shell (usual)
-# (cd web/default && bun run typecheck)
+# typecheck
+(cd web && bun run typecheck)
 
-# Lint the **ship unit paths** (relative to the shell package), not necessarily the whole tree:
-# ggapi/default — oxlint accepts file/dir args:
-(cd web/ggapi && bunx oxlint -c .oxlintrc.json src/path/to/changed.tsx …)
-# classic — prettier/eslint on changed paths if tooling allows; else note baseline:
-# (cd web/classic && bunx eslint "src/…changed…" && bunx prettier --check "src/…")
+# Lint the **ship unit paths** (relative to `web/`), not necessarily the whole tree:
+(cd web && bunx oxlint -c .oxlintrc.json src/path/to/changed.tsx …)
 
 # Optional full-tree lint (may fail on known baseline noise — not a ship blocker alone):
-# (cd web/ggapi && bun run lint)
+# (cd web && bun run lint)
 
-# Build the shell you actually edited (make always from repo root):
-make build-web-ggapi   # if web/ggapi changed
-# make build-web / make build-web-classic / make build-all-web as needed
+# Build the official frontend (make always from repo root):
+make build-web
 ```
 
 **Ship lint rule:** every **new or modified** frontend file in the ship unit must be
-clean under that shell’s linter (e.g. no nested ternary on touched ggapi files).
+clean under the frontend linter (e.g. no nested ternary on touched files).
 Unrelated pre-existing tree errors are **not** a hard stop — record them if you
 ran full-tree and it failed. Fix findings on touched files before C2-pre.
 
-Manual smoke when behavior is user-visible: login/token, one chat path, admin page (`make dev` or `make dev-web-ggapi` + API).
+Manual smoke when behavior is user-visible: login/token, one chat path, admin page (`make dev` or `make dev-web` + API).
 
 ### B4. Diff-inventory draft (if permanent)
 
@@ -276,20 +270,19 @@ git checkout <prefix>/<topic>
 
 Prefer safer alternative if unsure: ask user before any hard reset.
 
-### C1b. Third-shell / embed ship checks (when `web/ggapi` or theme wiring touched)
+### C1b. Frontend / embed ship checks (when `web/`, Docker, makefile, or release wiring is touched)
 
-Run **before C2-pre** for any GG-005-related unit (or theme/embed/Docker/makefile/release changes). If checks force code edits, finish those edits **then** run C2-pre so the gate covers the complete final tree (re-run C2-pre after any post-check fix).
+Run **before C2-pre** for frontend/embed/Docker/makefile/release changes. If checks force code edits, finish those edits **then** run C2-pre so the gate covers the complete final tree (re-run C2-pre after any post-check fix).
 
-| Check | Why (from #7 lessons) |
-|-------|------------------------|
-| `theme.frontend` accepts `ggapi` in backend **and** every shipped admin surface that can change theme: `web/ggapi` + `web/default` (schema / select / normalize) **and** classic helpers that write `theme.frontend` (e.g. `web/classic/src/helpers/frontendTheme.js` — today only switches to `default`; must not leave operators stuck off the product shell) | Admin on `default` or `classic` must still be able to reach product shell `ggapi` |
-| Default theme remains intentional (`setting/.../theme.go` / constants) | Prod default is product shell |
-| `makefile` + **`Dockerfile`** (+ optional `release.yml` if dispatching binaries) build **ggapi** dist before go embed | Missing Dockerfile ggapi stage → empty/missing embed in GHCR image |
-| Protected branding: `index.html` title/meta and logo accessible name stay **New API** / QuantumNous policy | Fork skin ≠ stripping protected identity |
+| Check | Why |
+|-------|-----|
+| `web/ggapi` and `web/classic` stay absent; `theme.frontend` remains only upstream's retired-option compatibility path | GG-005 must not be silently restored |
+| `makefile` + **`Dockerfile`** (+ optional `release.yml` if dispatching binaries) build `web/dist` before Go embed | Missing official frontend dist breaks GHCR/bare binaries |
+| Protected branding: `index.html` title/meta and logo accessible name stay **New API** / QuantumNous policy | Fork features do not remove protected identity |
 | New i18n keys live under locale `translation`; all shipped locales (incl. **zh-TW**) have key parity | Orphan top-level keys + missing locales caused review findings |
-| Edited shell: **typecheck** on ggapi/default when TS touched; **lint ship-unit paths** (ggapi/default: `bunx oxlint -c .oxlintrc.json <paths>`; classic: eslint/prettier on paths — no `typecheck`) | Full-tree `bun run lint` is baseline-noisy; require clean **touched** files only |
+| `web/`: **typecheck** when TS touched; **lint ship-unit paths** with `bunx oxlint -c .oxlintrc.json <paths>` | Full-tree `bun run lint` may be baseline-noisy; require clean **touched** files only |
 
-Canonical policy: `docs/fork` §第三壳 / SOP §3.5; inventory **GG-005**.
+Canonical policy: `docs/fork` SOP §3.5; inventory **GG-005** is dropped.
 
 ### C2-pre. User-run terminal-agent review gate (required before C2)
 
@@ -626,7 +619,7 @@ go test ./service/...
 go test ./model/...
 go test ./relay/...
 # if frontend conflicted:
-cd web/default && bun run typecheck
+cd web && bun run typecheck
 ```
 
 Smoke: login/token, one chat + billing log, admin channel list, every `active`
@@ -667,13 +660,13 @@ inventory rows without code removal, `reset --hard` without backup/consent.
 | Fork-only path (`docs/fork/`, own `pkg/`, own channel) | Keep fork |
 | Both changed same logic | Read upstream commit message; minimal merge; never whole-file blind pick |
 | `AGENTS.md` | Keep ggapi 「二开维护」 section; merge upstream engineering rule edits |
-| `web/default` / `web/classic` | Prefer upstream intent for shared shells; then assess **port** into `web/ggapi` (SOP §3.5) |
-| `web/ggapi/**` | Fork-only product tree — upstream will not edit it; do **not** fold large skin refactors into the sync commit |
+| `web/**` | Prefer upstream structure/component APIs, then replay only required GG-004/006/007 capability deltas |
+| Removed frontend paths (`web/ggapi`, `web/classic`) | Keep removed; do not restore GG-005 or fork-only visual work |
 
 3. Build/test.
 4. Restore inventory rows to `active` (or update summary).
 5. Update baseline SHA/date.
-6. If `web/default` gained user-visible features: open or queue follow-up `chore/port-default-<topic>` (GG-005); do not assume prod shell already has them.
+6. Compare `web/` with upstream and confirm remaining deltas belong to active inventory rows.
 
 ### Inventory when-to-write
 
@@ -703,10 +696,10 @@ Risk: `low` | `medium` | `high`
 3. Version / git tag: **`v<upstream-baseline>.N`** (e.g. `v1.0.0-rc.20.1`) — see `docs/fork/branch-and-sync-sop.md` §5.1. Never reuse an exact upstream tag name. Bump `N` while the inventory baseline **version string** is unchanged; reset `N` to **1 only when that baseline version string changes**. Before tagging: `git fetch origin` and require `HEAD == origin/main`; ancestry check; `git tag -a` must succeed; `git ls-remote` tip re-check then push tag only; post-push tip warning if main moved (SOP §5.1).
 4. **Default tag product = GHCR image** via `docker-build.yml` → `ghcr.io/<owner>/<repo>:<tag>` **plus metadata GitHub Release** (for update-checker `releases/latest`); `:latest` only when tip still matches after sign. Manual rebuild does not move `:latest`. Fork form `<upstream-tag>.N` only. **Never** Docker Hub `calciumion/new-api` (GG-003).
 5. **Bare binary is optional:** `release.yml` is **workflow_dispatch + required tag** (attaches go binaries to the Release).
-6. **After tag push — wait for GHCR before claiming 发版完成** (expect ~8–15 min on GitHub-hosted runners; lesson: `v1.0.0-rc.21.7`):
+6. **After tag push — wait for GHCR before claiming 发版完成** (expect ~8–15 min on GitHub-hosted runners; lesson: `v1.0.0-rc.22.1`):
 
 ```bash
-REL_TAG=v1.0.0-rc.21.7   # the tag you just pushed
+REL_TAG=v1.0.0-rc.22.1   # the tag you just pushed
 # Tag pushes set headBranch to the tag name — filter so you do not pick another run
 gh run list --repo AkumaRealLabs/ggapi --workflow=docker-build.yml \
   --branch "$REL_TAG" --limit 5
@@ -724,7 +717,7 @@ gh run watch <run-id> --exit-status --repo AkumaRealLabs/ggapi
 
 ```bash
 # Default: only after success — pull GHCR (package may be private — docker login ghcr.io)
-# docker pull ghcr.io/akumareallabs/ggapi:v1.0.0-rc.21.7
+# docker pull ghcr.io/akumareallabs/ggapi:v1.0.0-rc.22.1
 ```
 
 7. Minimum regression:
@@ -736,12 +729,12 @@ gh run watch <run-id> --exit-status --repo AkumaRealLabs/ggapi
 - Watch logs for quota saturation / auth errors
 
 ```bash
-# Local bare binary (not default CI path): embeds need all three dist trees
-make build-all-web
-# Dockerfile already builds default + classic + ggapi (builder-ggapi) then go
+# Local bare binary (not default CI path): build the official frontend before Go
+make build-web
+# Dockerfile already builds web/dist before Go
 ```
 
-Confirm Dockerfile still builds **ggapi** (and other embedded shells) on image path (GG-005 / #7).
+Confirm Dockerfile still builds and embeds official `web/dist` on the image path.
 Do not run production deploy commands without explicit user request and environment confirmation.
 Chained「…→ merge → 发版」from Mode C: see **C0** — explicit merge verb required before C5; Mode F only on `origin/main` tip (never treat 发版 alone as merge auth).
 

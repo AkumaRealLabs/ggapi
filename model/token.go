@@ -289,6 +289,25 @@ func (token *Token) Insert() error {
 	return err
 }
 
+// InsertWithMembershipGuard serializes membership state validation and token
+// creation on the user row shared with membership checkout.
+func (token *Token) InsertWithMembershipGuard() error {
+	return DB.Transaction(func(tx *gorm.DB) error {
+		if err := lockMembershipUserTx(tx, token.UserId); err != nil {
+			return err
+		}
+		if err := ensureMembershipTokenGroupAllowedTx(
+			tx,
+			token.UserId,
+			token.Group,
+			token.Status == common.TokenStatusEnabled,
+		); err != nil {
+			return err
+		}
+		return tx.Create(token).Error
+	})
+}
+
 // Update Make sure your token's fields is completed, because this will update non-zero values
 func (token *Token) Update() (err error) {
 	defer func() {
@@ -301,9 +320,42 @@ func (token *Token) Update() (err error) {
 			})
 		}
 	}()
-	err = DB.Model(token).Select("name", "status", "expired_time", "remain_quota", "unlimited_quota",
-		"model_limits_enabled", "model_limits", "allow_ips", "group", "cross_group_retry").Updates(token).Error
+	err = token.updateWithDB(DB)
 	return err
+}
+
+// UpdateWithMembershipGuard serializes membership state validation and token
+// updates on the user row shared with membership checkout.
+func (token *Token) UpdateWithMembershipGuard() (err error) {
+	defer func() {
+		if shouldUpdateRedis(true, err) {
+			gopool.Go(func() {
+				if cacheErr := cacheSetToken(*token); cacheErr != nil {
+					common.SysLog("failed to update token cache: " + cacheErr.Error())
+				}
+			})
+		}
+	}()
+	err = DB.Transaction(func(tx *gorm.DB) error {
+		if lockErr := lockMembershipUserTx(tx, token.UserId); lockErr != nil {
+			return lockErr
+		}
+		if guardErr := ensureMembershipTokenGroupAllowedTx(
+			tx,
+			token.UserId,
+			token.Group,
+			token.Status == common.TokenStatusEnabled,
+		); guardErr != nil {
+			return guardErr
+		}
+		return token.updateWithDB(tx)
+	})
+	return err
+}
+
+func (token *Token) updateWithDB(db *gorm.DB) error {
+	return db.Model(token).Select("name", "status", "expired_time", "remain_quota", "unlimited_quota",
+		"model_limits_enabled", "model_limits", "allow_ips", "group", "cross_group_retry").Updates(token).Error
 }
 
 func (token *Token) SelectUpdate() (err error) {
@@ -504,6 +556,13 @@ func InvalidateUserTokensCache(userId int) error {
 		Where("user_id = ?", userId).
 		Find(&tokens).Error; err != nil {
 		return err
+	}
+	return invalidateTokensCache(tokens)
+}
+
+func invalidateTokensCache(tokens []Token) error {
+	if !common.RedisEnabled {
+		return nil
 	}
 	var firstErr error
 	for _, t := range tokens {

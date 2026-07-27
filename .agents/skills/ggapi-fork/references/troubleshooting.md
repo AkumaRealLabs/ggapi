@@ -45,7 +45,7 @@ git fetch upstream 2>&1
 | User-run terminal review missing / loops / skip? | §21 |
 | Agent self-skip / stale external review / 「必须过审查」 | §21 |
 | `继续` after PR open re-codes instead of CI/merge | §21 + workflows **C-continue** |
-| Third shell / theme / embed | §22 |
+| Official frontend / retired theme compatibility / embed | §22 |
 | `gh pr merge` EOF / timeout but PR might be merged | §23 |
 | Tag pushed but GHCR / docker-build not “done” | §24 |
 
@@ -356,10 +356,8 @@ When adding keys via `add-missing-keys` style scripts, **include every locale fi
 the project ships** (`en`, `zh`, `zh-TW`, `fr`, `ja`, `ru`, `vi` as applicable).
 
 ```bash
-# Product shell (usual):
-cd web/ggapi && bun run i18n:sync
-# Upstream default shell only when that tree was edited:
-# cd web/default && bun run i18n:sync
+# Official frontend:
+cd web && bun run i18n:sync
 # inspect src/i18n/locales/_reports/_sync-report.json
 # missingCount and untranslatedCount should be 0 for locales you claim complete
 ```
@@ -476,47 +474,44 @@ re-enter Mode B if user names a new defect/scope.
 
 ---
 
-## §22 Third shell `web/ggapi` / theme / embed (GG-005)
+## §22 Official single frontend / retired theme compatibility / embed
 
-Canonical: `docs/fork/README.md` §前端壳, SOP §3.5, inventory **GG-005**.
+Canonical: `docs/fork/README.md` §前端, SOP §3.5. Inventory **GG-005** is `dropped`.
 
-### Edited `web/default` but prod still shows old UI
+### Where frontend changes belong
 
-Default runtime theme is **`ggapi`**. Product changes belong in `web/ggapi`.
-Port features from default → ggapi (`chore/port-default-<topic>`).
+The only frontend is `web/`. GG-004/006/007 changes belong in matching official
+feature modules and should stay minimal relative to upstream. Do not recreate
+`web/ggapi`, classic, multi-theme routing, or fork-only visual redesigns.
 
 ### Local commands
 
 ```bash
-make dev-web-ggapi
-# or: make dev          # API + ggapi
-make build-web-ggapi
-make build-all-web      # all three shells
+make dev-web
+# or: make dev          # API + official frontend
+make build-web
 ```
 
-### Release / Docker binary missing ggapi assets
+### Release / Docker binary missing frontend assets
 
-Symptom: tag image or optional bare binary serves blank/wrong theme when `theme.frontend=ggapi`.
-Cause: only default/classic built; go embed has no `web/ggapi/dist`.
-Fix: ensure **Dockerfile** (`builder-ggapi`) for the default **tag → GHCR** path; if dispatching **`release.yml`** bare binaries, that workflow must also build ggapi; local bare `go build` needs `make build-all-web`.
-Lesson from PR #7 review.
+Symptom: tag image or optional bare binary serves a blank dashboard.
+Cause: Go embed has no `web/dist`.
+Fix: ensure **Dockerfile** builds `web/` before Go for the default **tag → GHCR**
+path; if dispatching **`release.yml`** bare binaries, that workflow must also
+build `web/`; local bare `go build` needs `make build-web` first.
 
-### Admin theme selector cannot choose ggapi
+### Legacy `theme.frontend` values
 
-Backend constants accept `ggapi`, but system-settings UI still enums
-`default|classic` only. Add `ggapi` to schema, normalize, Select items, and
-i18n labels in **every shipped admin surface** that can change theme:
-**`web/ggapi`**, **`web/default`**, and classic paths that PUT `theme.frontend`
-(e.g. `web/classic/src/helpers/frontendTheme.js`, which may still hardcode
-`default` only). If only ggapi is updated, an admin already on
-`theme.frontend=default` (or classic) cannot switch back to the product shell.
+Upstream retains a compatibility migration that normalizes retired
+`theme.frontend` values to `default`. Keep that migration when syncing, but do
+not add a selector or treat `ggapi`/`classic` as active runtime themes.
 
-### Branding review findings after copying default shell
+### Branding review findings after frontend work
 
 Do **not** replace protected **New API** / QuantumNous identity in
 `index.html` title/meta or logo accessible names with a bare product codename.
-Fork product naming can live in UI copy / SystemName config; protected metadata
-stays per AGENTS.md.
+Fork functionality can use normal UI copy / SystemName config; protected
+metadata stays per AGENTS.md.
 
 ### i18n: keys at JSON root, missing in fr/ja/…
 
@@ -572,7 +567,7 @@ GitHub-hosted runners). Product path is GHCR + Release metadata (GG-003 / SOP §
 bare binary.
 
 ```bash
-REL_TAG=v1.0.0-rc.21.7   # example — must match the tag you pushed
+REL_TAG=v1.0.0-rc.22.1   # example — must match the tag you pushed
 gh run list --repo AkumaRealLabs/ggapi --workflow=docker-build.yml \
   --branch "$REL_TAG" --limit 5
 # Use the run id for this tag (headBranch == REL_TAG / matching headSha), then:

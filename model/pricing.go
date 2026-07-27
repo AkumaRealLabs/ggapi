@@ -64,15 +64,15 @@ var (
 )
 
 func GetPricing() []Pricing {
-	// Hold updatePricingLock for the validity check, optional rebuild, and
-	// return so InvalidatePricingCache cannot clear pricingMap after a stale
-	// fast-path check and before the slice is handed to the caller.
-	updatePricingLock.Lock()
-	defer updatePricingLock.Unlock()
 	if time.Since(lastGetPricingTime) > time.Minute*1 || len(pricingMap) == 0 {
-		modelSupportEndpointsLock.Lock()
-		updatePricing()
-		modelSupportEndpointsLock.Unlock()
+		updatePricingLock.Lock()
+		defer updatePricingLock.Unlock()
+		// Double check after acquiring the lock
+		if time.Since(lastGetPricingTime) > time.Minute*1 || len(pricingMap) == 0 {
+			modelSupportEndpointsLock.Lock()
+			defer modelSupportEndpointsLock.Unlock()
+			updatePricing()
+		}
 	}
 	return pricingMap
 }
@@ -84,23 +84,13 @@ func InvalidatePricingCache() {
 	pricingMap = nil
 	vendorsList = nil
 	lastGetPricingTime = time.Time{}
-	// Advanced Custom route edits must also drop endpoint metadata; otherwise
-	// /v1/models keeps reporting stale SupportedEndpointTypes until a pricing
-	// rebuild happens to run for another reason.
-	modelSupportEndpointsLock.Lock()
-	modelSupportEndpointTypes = make(map[string][]constant.EndpointType)
-	modelSupportEndpointsLock.Unlock()
 }
 
 // GetVendors 返回当前定价接口使用到的供应商信息
 func GetVendors() []PricingVendor {
-	// Same lock discipline as GetPricing: refresh and return under one hold.
-	updatePricingLock.Lock()
-	defer updatePricingLock.Unlock()
 	if time.Since(lastGetPricingTime) > time.Minute*1 || len(pricingMap) == 0 {
-		modelSupportEndpointsLock.Lock()
-		updatePricing()
-		modelSupportEndpointsLock.Unlock()
+		// 保证先刷新一次
+		GetPricing()
 	}
 	return vendorsList
 }
@@ -110,24 +100,9 @@ func GetModelSupportEndpointTypes(model string) []constant.EndpointType {
 		return make([]constant.EndpointType, 0)
 	}
 	modelSupportEndpointsLock.RLock()
-	endpoints, ok := modelSupportEndpointTypes[model]
-	empty := len(modelSupportEndpointTypes) == 0
-	modelSupportEndpointsLock.RUnlock()
-	if ok {
+	defer modelSupportEndpointsLock.RUnlock()
+	if endpoints, ok := modelSupportEndpointTypes[model]; ok {
 		return endpoints
-	}
-	// InvalidatePricingCache clears this map without rebuilding it. /v1/models
-	// reads endpoint types here and never calls GetPricing, so force a rebuild
-	// when the snapshot is empty; release the RLock first to keep the global
-	// order updatePricingLock -> modelSupportEndpointsLock.
-	if empty {
-		_ = GetPricing()
-		modelSupportEndpointsLock.RLock()
-		endpoints = modelSupportEndpointTypes[model]
-		modelSupportEndpointsLock.RUnlock()
-		if endpoints != nil {
-			return endpoints
-		}
 	}
 	return make([]constant.EndpointType, 0)
 }
@@ -137,9 +112,7 @@ func getPricingEndpointTypesForAbility(ability AbilityWithChannel, advancedCusto
 		return common.GetEndpointTypesByChannelType(ability.ChannelType, ability.Model)
 	}
 	if config := advancedCustomConfigs[ability.ChannelId]; config != nil {
-		// Compact abilities are stored as `model-openai-compact` while Advanced
-		// Custom route model rules match the unsuffixed client model.
-		return config.SupportedEndpointTypesForModel(ratio_setting.WithoutCompactModelSuffix(ability.Model))
+		return config.SupportedEndpointTypesForModel(ability.Model)
 	}
 	return common.GetEndpointTypesByChannelType(ability.ChannelType, ability.Model)
 }

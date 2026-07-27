@@ -29,6 +29,10 @@ type githubReleaseResponse struct {
 // CheckUpdate fetches the configured release endpoint server-side so private
 // repos can use a PAT that never leaves the backend. Root-only.
 func CheckUpdate(c *gin.Context) {
+	checkUpdate(c, nil)
+}
+
+func checkUpdate(c *gin.Context, client *http.Client) {
 	common.OptionMapRWMutex.RLock()
 	apiURL := strings.TrimSpace(common.OptionMap["UpdateCheckRepoAPIURL"])
 	token := strings.TrimSpace(common.OptionMap["UpdateCheckGitHubToken"])
@@ -39,17 +43,17 @@ func CheckUpdate(c *gin.Context) {
 	}
 
 	parsed, err := url.Parse(apiURL)
-	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"success": false,
 			"message": "invalid UpdateCheckRepoAPIURL",
 		})
 		return
 	}
-	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+	if err := validateUpdateCheckURL(parsed, token != ""); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"success": false,
-			"message": "UpdateCheckRepoAPIURL must use http or https",
+			"message": err.Error(),
 		})
 		return
 	}
@@ -72,10 +76,10 @@ func CheckUpdate(c *gin.Context) {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
 
-	client := service.GetHttpClient()
 	if client == nil {
-		client = &http.Client{Timeout: 15 * time.Second}
+		client = service.NewPublicHTTPClient(15 * time.Second)
 	}
+	client.CheckRedirect = updateCheckRedirectPolicy(token != "")
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -153,4 +157,35 @@ func CheckUpdate(c *gin.Context) {
 			"token_configured": token != "",
 		},
 	})
+}
+
+func validateUpdateCheckURL(parsed *url.URL, authenticated bool) error {
+	if parsed == nil || !parsed.IsAbs() || parsed.Host == "" || parsed.Hostname() == "" || parsed.User != nil {
+		return fmt.Errorf("invalid UpdateCheckRepoAPIURL")
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return fmt.Errorf("UpdateCheckRepoAPIURL must use http or https")
+	}
+	if !authenticated {
+		return nil
+	}
+	if parsed.Scheme != "https" {
+		return fmt.Errorf("authenticated update checks require HTTPS")
+	}
+	if !strings.EqualFold(parsed.Hostname(), "api.github.com") || (parsed.Port() != "" && parsed.Port() != "443") {
+		return fmt.Errorf("GitHub PAT may only be sent to https://api.github.com")
+	}
+	return nil
+}
+
+func updateCheckRedirectPolicy(authenticated bool) func(*http.Request, []*http.Request) error {
+	return func(req *http.Request, via []*http.Request) error {
+		if len(via) >= 10 {
+			return fmt.Errorf("stopped after 10 redirects")
+		}
+		if err := validateUpdateCheckURL(req.URL, authenticated); err != nil {
+			return fmt.Errorf("update check redirect blocked: %w", err)
+		}
+		return nil
+	}
 }

@@ -1,64 +1,143 @@
 package controller
 
 import (
-	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/setting/system_setting"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestCheckUpdateRejectsNonHTTPURL(t *testing.T) {
-	gin.SetMode(gin.TestMode)
+type updateCheckRoundTripFunc func(*http.Request) (*http.Response, error)
 
+func (fn updateCheckRoundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return fn(req)
+}
+
+func setUpdateCheckOptions(t *testing.T, apiURL string, token string) {
+	t.Helper()
 	common.OptionMapRWMutex.Lock()
 	if common.OptionMap == nil {
 		common.OptionMap = make(map[string]string)
 	}
-	common.OptionMap["UpdateCheckRepoAPIURL"] = "file:///etc/passwd"
-	common.OptionMap["UpdateCheckGitHubToken"] = ""
+	oldURL, hadURL := common.OptionMap["UpdateCheckRepoAPIURL"]
+	oldToken, hadToken := common.OptionMap["UpdateCheckGitHubToken"]
+	common.OptionMap["UpdateCheckRepoAPIURL"] = apiURL
+	common.OptionMap["UpdateCheckGitHubToken"] = token
 	common.OptionMapRWMutex.Unlock()
+	t.Cleanup(func() {
+		common.OptionMapRWMutex.Lock()
+		defer common.OptionMapRWMutex.Unlock()
+		if hadURL {
+			common.OptionMap["UpdateCheckRepoAPIURL"] = oldURL
+		} else {
+			delete(common.OptionMap, "UpdateCheckRepoAPIURL")
+		}
+		if hadToken {
+			common.OptionMap["UpdateCheckGitHubToken"] = oldToken
+		} else {
+			delete(common.OptionMap, "UpdateCheckGitHubToken")
+		}
+	})
+}
 
+func runUpdateCheck(t *testing.T, client *http.Client) *httptest.ResponseRecorder {
+	t.Helper()
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
 	c.Request = httptest.NewRequest(http.MethodGet, "/api/option/check_update", nil)
+	checkUpdate(c, client)
+	return w
+}
 
-	CheckUpdate(c)
+func TestCheckUpdateRejectsNonHTTPURL(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	setUpdateCheckOptions(t, "file:///etc/passwd", "")
+	w := runUpdateCheck(t, &http.Client{})
 
 	require.Equal(t, http.StatusBadRequest, w.Code)
 	var body map[string]any
-	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
+	require.NoError(t, common.Unmarshal(w.Body.Bytes(), &body))
 	assert.Equal(t, false, body["success"])
 }
 
-func TestCheckUpdateUsesDefaultWhenEmpty(t *testing.T) {
-	// Only validates that empty option falls back to default constant without panicking
-	// on URL parse (network call may fail in CI; we only assert not 400 invalid URL).
+func TestCheckUpdateSendsPATOnlyToTrustedGitHubAPI(t *testing.T) {
 	gin.SetMode(gin.TestMode)
+	setUpdateCheckOptions(t, "https://api.github.com/repos/AkumaRealLabs/ggapi/releases/latest", "secret-pat")
+	client := &http.Client{Transport: updateCheckRoundTripFunc(func(req *http.Request) (*http.Response, error) {
+		assert.Equal(t, "Bearer secret-pat", req.Header.Get("Authorization"))
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     make(http.Header),
+			Body:       io.NopCloser(strings.NewReader(`{"tag_name":"v1.0.0-rc.22.1"}`)),
+			Request:    req,
+		}, nil
+	})}
 
-	common.OptionMapRWMutex.Lock()
-	if common.OptionMap == nil {
-		common.OptionMap = make(map[string]string)
+	w := runUpdateCheck(t, client)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.NotContains(t, w.Body.String(), "secret-pat")
+}
+
+func TestCheckUpdateRejectsUnsafeAuthenticatedTargets(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	tests := []string{
+		"http://api.github.com/repos/AkumaRealLabs/ggapi/releases/latest",
+		"https://example.com/releases/latest",
+		"https://api.github.com.evil.example/releases/latest",
+		"https://api.github.com:8443/releases/latest",
 	}
-	common.OptionMap["UpdateCheckRepoAPIURL"] = ""
-	common.OptionMap["UpdateCheckGitHubToken"] = ""
-	common.OptionMapRWMutex.Unlock()
+	for _, apiURL := range tests {
+		t.Run(apiURL, func(t *testing.T) {
+			setUpdateCheckOptions(t, apiURL, "secret-pat")
+			called := false
+			client := &http.Client{Transport: updateCheckRoundTripFunc(func(*http.Request) (*http.Response, error) {
+				called = true
+				return nil, nil
+			})}
 
-	assert.NotEmpty(t, system_setting.DefaultUpdateCheckRepoAPIURL)
-	assert.True(t, len(system_setting.DefaultUpdateCheckRepoAPIURL) > 8)
+			w := runUpdateCheck(t, client)
 
-	w := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest(http.MethodGet, "/api/option/check_update", nil)
+			require.Equal(t, http.StatusBadRequest, w.Code)
+			assert.False(t, called)
+		})
+	}
+}
 
-	CheckUpdate(c)
+func TestCheckUpdateBlocksPATRedirectsOutsideTrustedHTTPSHost(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	for _, redirectURL := range []string{
+		"https://example.com/capture",
+		"http://api.github.com/capture",
+	} {
+		t.Run(redirectURL, func(t *testing.T) {
+			setUpdateCheckOptions(t, "https://api.github.com/repos/AkumaRealLabs/ggapi/releases/latest", "secret-pat")
+			calls := 0
+			client := &http.Client{Transport: updateCheckRoundTripFunc(func(req *http.Request) (*http.Response, error) {
+				calls++
+				require.Equal(t, 1, calls, "redirect target must not be contacted")
+				assert.Equal(t, "Bearer secret-pat", req.Header.Get("Authorization"))
+				return &http.Response{
+					StatusCode: http.StatusFound,
+					Status:     "302 Found",
+					Header:     http.Header{"Location": []string{redirectURL}},
+					Body:       http.NoBody,
+					Request:    req,
+				}, nil
+			})}
 
-	// Should not fail URL validation; may be 502 if network blocked.
-	assert.NotEqual(t, http.StatusBadRequest, w.Code)
+			w := runUpdateCheck(t, client)
+
+			require.Equal(t, http.StatusBadGateway, w.Code)
+			assert.Equal(t, 1, calls)
+			assert.NotContains(t, w.Body.String(), "secret-pat")
+		})
+	}
 }
