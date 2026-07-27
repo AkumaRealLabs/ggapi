@@ -1,5 +1,5 @@
 # ggapi fork: Electron desktop CI is disabled.
-# This repository only builds Linux amd64 on the org-linux runner group.
+# This repository only builds Linux amd64 on GitHub-hosted runners.
 # Upstream still has Windows/macOS Electron packaging; re-enable only if needed.
 name: Build Electron App
 
@@ -13,8 +13,7 @@ on:
 jobs:
   skipped:
     name: Electron builds disabled (Linux x64 only)
-    runs-on:
-      group: org-linux
+    runs-on: ubuntu-latest
     steps:
       - name: Explain
         run: |

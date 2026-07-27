@@ -3,7 +3,7 @@ name: PR Check
 permissions:
   contents: read
   issues: read
-  pull-requests: read
+  pull-requests: write
 
 on:
   pull_request_target:
@@ -11,8 +11,7 @@ on:
 
 jobs:
   pr-quality:
-    # ggapi: GitHub-hosted runner (org-linux self-hosted group is offline and
-    # not enabled for public repositories)
+    # ggapi: GitHub-hosted runner for the public fork
     runs-on: ubuntu-latest
     steps:
       - uses: peakoss/anti-slop@85daca1880e9e1af197fc06ea03349daf08f4202 # v0.2.1

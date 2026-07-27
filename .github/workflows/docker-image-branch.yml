@@ -18,9 +18,8 @@ concurrency:
 jobs:
   prepare:
     name: Prepare Docker tags
-    # ggapi: organization runner group (Linux x64 only)
-    runs-on:
-      group: org-linux
+    # ggapi: GitHub-hosted Linux x64
+    runs-on: ubuntu-latest
     outputs:
       branch: ${{ steps.version.outputs.branch }}
       sha: ${{ steps.version.outputs.sha }}
@@ -106,9 +105,8 @@ jobs:
   build_amd64:
     name: Build & push (amd64)
     needs: [prepare]
-    # ggapi: organization runner group (Linux x64 only; no arm64)
-    runs-on:
-      group: org-linux
+    # ggapi: GitHub-hosted Linux x64 only; no arm64
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write

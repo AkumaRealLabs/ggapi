@@ -29,11 +29,13 @@ Copy into PR bodies or walk verbally with the user. Keep items checkable.
 - [ ] Scoped `go test` for touched packages
 - [ ] Frontend: ggapi/default → `bun run typecheck` + path-scoped oxlint on **changed files**; classic → path-scoped eslint/prettier (no typecheck); full-tree lint optional if baseline-noisy
 - [ ] Manual smoke for user-visible behavior
-- [ ] **C1b** third-shell/embed checks (incl. path-scoped lint on touched UI) done **before** C2-pre when GG-005 wiring touched; any resulting edits re-run C2-pre
-- [ ] **Pre-commit Codex gate (C2-pre):** companion/`codex review` (or user `/codex:review`) on **combined** base→final tree; mixed committed+dirty → materialize then one `--base origin/main`; findings fixed; **re-reviewed after every fix batch** until clean **or** explicit **user** skip/override recorded (agent never self-skips)
-- [ ] If Codex unavailable: user chose retry / skip — not silent pass; companion fail → try CLI; docs/skill not auto-skipped
-- [ ] Gate not **stale**: final ship tree (tip + dirty at pass) unchanged and recorded `origin/main` SHA unchanged; C2 commit / message-only amend of same tree OK; behind-main with user-declined update stays valid until that main SHA moves
-- [ ] If materialize used: temp commit message **amended** before push
+- [ ] **C1b** third-shell/embed checks (incl. path-scoped lint on touched UI) done **before** C2-pre when GG-005 wiring touched; any resulting edits require another user-run review
+- [ ] **User-run terminal-agent gate (C2-pre):** current Agent staged/fingerprinted the combined final tree, required no unstaged/untracked content, stopped, and asked the user to review it in a new terminal with their preferred Agent
+- [ ] User explicitly returned a clean result, or an explicit skip/override is recorded; the current Agent did not invoke any reviewer or infer pass from silence
+- [ ] Findings were fixed and handed back for another user-run review after every content-changing fix batch
+- [ ] Behind-main branch: update preferred; if declined, review diff uses recorded `git merge-base HEAD origin/main`, never latest main directly
+- [ ] Gate not **stale before C2**: immediately fetched `origin`; `git write-tree`, clean workspace, porcelain snapshot, `REVIEW_BASE`, and recorded `REVIEW_MAIN_TIP` still match
+- [ ] Gate not **stale after C2**: fetched `origin`; current `origin/main` equals recorded `REVIEW_MAIN_TIP`; `HEAD^{tree}` equals the reviewed fingerprint; index/worktree/untracked state is clean. Normal staged → clean porcelain transition and message-only amend of the same tree remain valid
 - [ ] Ambiguous `继续`: stage detected (C-continue) — post-PR open → CI/merge coach; never invent push/PR/merge verbs; not silent Mode B
 
 ### Fork governance
@@ -58,7 +60,7 @@ Copy into PR bodies or walk verbally with the user. Keep items checkable.
 - [ ] PR describes what / why / how tested
 - [ ] No `git push upstream`
 - [ ] If UI strings added: **i18n-translate** on active shell for all locales including **zh-TW**; `i18n:sync` report clean **and** no English left in `zh-TW` (sync treats zh-TW as non-Latin; if unsure, run skill `find-untranslated` path). Classic strings → classic `i18n:*` scripts, not default/ggapi locale JSON.
-- [ ] If CI/workflows: still `runs-on.group: org-linux` unless intentional change + inventory update (GG-003)
+- [ ] If CI/workflows: existing jobs still use GitHub-hosted `ubuntu-latest` Linux amd64 unless an intentional, inventoried change says otherwise (GG-003)
 - [ ] If update-check: server proxy + PAT write-only (GG-004); no PAT in frontend
 - [ ] If third shell / theme wiring: GG-005 checks above
 
@@ -158,7 +160,7 @@ Risk cheat sheet:
 - [ ] Mode router still matches workflows
 - [ ] Chinese coaching defaults intact
 - [ ] No auto-commit / auto-push language introduced
-- [ ] Pre-commit Codex gate (C2-pre) still documented if ship-path changed
+- [ ] User-run terminal-agent gate (C2-pre) still documented if ship-path changed; current Agent never runs the reviewer
 - [ ] User shown summary; commit only if they asked
 
 ### Skill PR
