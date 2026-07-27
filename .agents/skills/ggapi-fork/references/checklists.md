@@ -21,15 +21,15 @@ Copy into PR bodies or walk verbally with the user. Keep items checkable.
 - [ ] Billing changes: read `pkg/billingexpr/expr.md`; full pre-consume→settle path checked
 - [ ] DB changes: SQLite + MySQL + PostgreSQL considered
 - [ ] JSON via `common.Marshal/Unmarshal*` (not raw `encoding/json` calls)
-- [ ] Frontend product work in **`web/ggapi`** (not only `web/default`); typecheck on shell when available; **lint ship-unit paths** (not full-tree baseline)
+- [ ] Frontend work stays in official **`web/`** and is limited to the smallest active GG-004/006/007 capability delta; **lint ship-unit paths** (not full-tree baseline)
 - [ ] Frontend: i18n keys via **i18n-translate** skill; keys under `translation`; all locales incl. **zh-TW**
 
 ### Verification
 
 - [ ] Scoped `go test` for touched packages
-- [ ] Frontend: ggapi/default → `bun run typecheck` + path-scoped oxlint on **changed files**; classic → path-scoped eslint/prettier (no typecheck); full-tree lint optional if baseline-noisy
+- [ ] Frontend: from `web/`, run `bun run typecheck` + path-scoped oxlint on **changed files**; full-tree lint optional if baseline-noisy
 - [ ] Manual smoke for user-visible behavior
-- [ ] **C1b** third-shell/embed checks (incl. path-scoped lint on touched UI) done **before** C2-pre when GG-005 wiring touched; any resulting edits require another user-run review
+- [ ] **C1b** frontend/embed checks (incl. path-scoped lint on touched UI) done **before** C2-pre; any resulting edits require another user-run review
 - [ ] **User-run terminal-agent gate (C2-pre):** current Agent staged/fingerprinted the combined final tree, required no unstaged/untracked content, stopped, and asked the user to review it in a new terminal with their preferred Agent
 - [ ] User explicitly returned a clean result, or an explicit skip/override is recorded; the current Agent did not invoke any reviewer or infer pass from silence
 - [ ] Findings were fixed and handed back for another user-run review after every content-changing fix batch
@@ -41,14 +41,14 @@ Copy into PR bodies or walk verbally with the user. Keep items checkable.
 ### Fork governance
 
 - [ ] Permanent delta? `docs/fork/diff-inventory.md` updated (or explicitly N/A)
-- [ ] Inventory risk level honest (`high` if billing/auth/relay core **or** third-shell wiring GG-005)
+- [ ] Inventory risk level honest (`high` if billing/auth/relay core)
 - [ ] Regression points written so next sync can re-verify
 
-### Third shell / embed (GG-005 — when `web/ggapi`, theme, embed, Docker, makefile, or release touched)
+### Official frontend / embed (when `web/`, embed, Docker, makefile, or release is touched)
 
-- [ ] Backend + shipped admin surfaces accept `theme.frontend=ggapi`: `web/ggapi` + `web/default` (enum / select / normalize) **and** classic theme helpers that write the option
-- [ ] `makefile` / **`Dockerfile`** build ggapi dist (image path); `release.yml` only if dispatching bare binaries
-- [ ] Local bare `go build` / tag binary: `make build-all-web` (all three embed trees; not ggapi-only)
+- [ ] `web/ggapi` and `web/classic` remain absent; GG-005 and runtime multi-theme wiring are not restored
+- [ ] `makefile` / **`Dockerfile`** build official `web/dist` (image path); `release.yml` does the same only when dispatching bare binaries
+- [ ] Local bare `go build` / tag binary: run `make build-web` first
 - [ ] Protected title/meta/logo identity not replaced with bare fork product name
 - [ ] Locale key parity across en/zh/fr/ja/ru/vi/zh-TW for new strings
 
@@ -59,10 +59,10 @@ Copy into PR bodies or walk verbally with the user. Keep items checkable.
 - [ ] PR base = `main` on team repo (not QuantumNous/new-api)
 - [ ] PR describes what / why / how tested
 - [ ] No `git push upstream`
-- [ ] If UI strings added: **i18n-translate** on active shell for all locales including **zh-TW**; `i18n:sync` report clean **and** no English left in `zh-TW` (sync treats zh-TW as non-Latin; if unsure, run skill `find-untranslated` path). Classic strings → classic `i18n:*` scripts, not default/ggapi locale JSON.
+- [ ] If UI strings added: **i18n-translate** from `web/` for all locales including **zh-TW**; `i18n:sync` report clean **and** no English left in `zh-TW` (sync treats zh-TW as non-Latin; if unsure, run skill `find-untranslated` path)
 - [ ] If CI/workflows: existing jobs still use GitHub-hosted `ubuntu-latest` Linux amd64 unless an intentional, inventoried change says otherwise (GG-003)
 - [ ] If update-check: server proxy + PAT write-only (GG-004); no PAT in frontend
-- [ ] If third shell / theme wiring: GG-005 checks above
+- [ ] If frontend/embed wiring changed: official single-frontend checks above
 
 ---
 
@@ -75,7 +75,7 @@ Copy into PR bodies or walk verbally with the user. Keep items checkable.
 - [ ] `AGENTS.md` still contains ggapi 二开 section if it was present
 - [ ] Inventory meta: baseline commit + date updated
 - [ ] `needs-rebase` rows restored or still marked with reason
-- [ ] No large `web/ggapi` skin refactors mixed into the sync commit
+- [ ] `web/` conflicts use upstream structure first; remaining deltas map only to active inventory rows
 - [ ] Tests: `common` `service` `model` `relay` (and frontend if needed)
 - [ ] Smoke: login/token, chat+billing, admin basic page, inventory `active` items
 - [ ] Push to **origin** only; PR title `sync: merge upstream/main @ <sha>`
@@ -88,7 +88,7 @@ Copy into PR bodies or walk verbally with the user. Keep items checkable.
 - [ ] Sync remote branch deleted
 - [ ] Inventory baseline matches what actually landed
 - [ ] Any emergency fix during sync registered as GG-xxx
-- [ ] If `web/default` gained user-visible features: follow-up `chore/port-default-*` planned or opened (GG-005)
+- [ ] `web/ggapi`, classic, and multi-theme wiring remain removed (GG-005 stays dropped)
 - [ ] Team notified if `high` behavior changed
 - [ ] Optional: note next sync window
 
@@ -102,7 +102,7 @@ Copy into PR bodies or walk verbally with the user. Keep items checkable.
 - [ ] After tag push: list/watch run **for that tag** (`gh run list --branch "$REL_TAG"` + `gh run watch --exit-status`); only then claim 发版完成; on failure see §24
 - [ ] Bare binary assets: only if user wants — `release.yml` **manual dispatch + required tag**
 - [ ] Migrations reviewed for target DB
-- [ ] Dockerfile builds **ggapi** (+ default + classic) for image path; local bare binary still needs `make build-all-web` first
+- [ ] Dockerfile builds official `web/dist` for image path; local bare binary still needs `make build-web` first
 - [ ] Regression: login/token
 - [ ] Regression: main model path + billing correctness
 - [ ] Regression: quota/top-up paths if customized

@@ -115,49 +115,11 @@ func NewEstimatedGeminiChatBillingUsage(usage *Usage) *BillingUsage {
 	if totalTokens == 0 {
 		totalTokens = usage.PromptTokens + usage.CompletionTokens
 	}
-	// Preserve cache/modality/reasoning details already normalized onto the
-	// top-level Usage. patchGeminiZeroCompletionUsage rebuilds BillingUsage
-	// after estimating completion tokens; effectiveBillingUsage then settles
-	// from this nested record, so dropping details underbills cache/image/audio.
-	thoughts := usage.CompletionTokenDetails.ReasoningTokens
-	candidates := usage.CompletionTokens - thoughts
-	if candidates < 0 {
-		candidates = usage.CompletionTokens
-		thoughts = 0
-	}
-	metadata := &GeminiUsageMetadata{
-		PromptTokenCount:        usage.PromptTokens,
-		CandidatesTokenCount:    candidates,
-		ThoughtsTokenCount:      thoughts,
-		TotalTokenCount:         totalTokens,
-		CachedContentTokenCount: usage.PromptTokensDetails.CachedTokens,
-	}
-	if detail := geminiPromptDetailFromTokens("TEXT", usage.PromptTokensDetails.TextTokens); detail != nil {
-		metadata.PromptTokensDetails = append(metadata.PromptTokensDetails, *detail)
-	}
-	if detail := geminiPromptDetailFromTokens("IMAGE", usage.PromptTokensDetails.ImageTokens); detail != nil {
-		metadata.PromptTokensDetails = append(metadata.PromptTokensDetails, *detail)
-	}
-	if detail := geminiPromptDetailFromTokens("AUDIO", usage.PromptTokensDetails.AudioTokens); detail != nil {
-		metadata.PromptTokensDetails = append(metadata.PromptTokensDetails, *detail)
-	}
-	if detail := geminiPromptDetailFromTokens("TEXT", usage.CompletionTokenDetails.TextTokens); detail != nil {
-		metadata.CandidatesTokensDetails = append(metadata.CandidatesTokensDetails, *detail)
-	}
-	if detail := geminiPromptDetailFromTokens("IMAGE", usage.CompletionTokenDetails.ImageTokens); detail != nil {
-		metadata.CandidatesTokensDetails = append(metadata.CandidatesTokensDetails, *detail)
-	}
-	if detail := geminiPromptDetailFromTokens("AUDIO", usage.CompletionTokenDetails.AudioTokens); detail != nil {
-		metadata.CandidatesTokensDetails = append(metadata.CandidatesTokensDetails, *detail)
-	}
-	return newGeminiChatBillingUsage(metadata, true)
-}
-
-func geminiPromptDetailFromTokens(modality string, tokenCount int) *GeminiPromptTokensDetails {
-	if tokenCount == 0 {
-		return nil
-	}
-	return &GeminiPromptTokensDetails{Modality: modality, TokenCount: tokenCount}
+	return newGeminiChatBillingUsage(&GeminiUsageMetadata{
+		PromptTokenCount:     usage.PromptTokens,
+		CandidatesTokenCount: usage.CompletionTokens,
+		TotalTokenCount:      totalTokens,
+	}, true)
 }
 
 func newGeminiChatBillingUsage(metadata *GeminiUsageMetadata, estimated bool) *BillingUsage {

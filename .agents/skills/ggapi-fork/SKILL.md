@@ -4,17 +4,17 @@ description: >
   Maintain the ggapi fork of QuantumNous/new-api end to end: daily feature/fix
   work, branches, push/PR decisions, pre-commit user-run terminal-Agent review
   handoff, upstream sync and conflicts, diff inventory, releases, upstream
-  contributions, web/ggapi, GitHub-hosted runners, update-check PAT, and
+  contributions, the official web frontend, GitHub-hosted runners, update-check PAT, and
   controlled skill self-upgrade. Use for /ggapi-fork or questions/actions about
   二开, fork 开发, 开分支, 提交/commit, push, PR, 合并, 提交前手动审查,
   同步上游, merge upstream, 冲突, GG-xxx, diff-inventory, 发版, origin/upstream,
-  web/ggapi, 第三壳, GitHub-hosted, ubuntu-latest, runner, GitHub PAT,
+  官方前端, 单前端, web, GitHub-hosted, ubuntu-latest, runner, GitHub PAT,
   排障, 升级/改进/自检 ggapi-fork skill, or any long-term fork-maintenance
   task in this repository. Always load before fork workflow advice or actions,
   including plain “提交/commit” (Mode C C2-pre). For skill changes, follow
   Mode I/self-upgrade policy.
 metadata:
-  skill_version: "1.8.0"
+  skill_version: "1.9.0"
 ---
 
 # ggapi Fork Maintenance Playbook
@@ -181,30 +181,28 @@ aligned with active rows (not replace them):
 | ID | Topic |
 |----|--------|
 | GG-001 | `docs/fork/` + `AGENTS.md` 二开入口 |
-| GG-002 | this skill (`/ggapi-fork`, v1.8.0+; Modes A–I + C2-pre user-run terminal review; C-continue; chained C→F ship; release tag `v<upstream>.N` → GHCR wait) |
+| GG-002 | this skill (`/ggapi-fork`, v1.9.0+; Modes A–I + C2-pre user-run terminal review; C-continue; chained C→F ship; official single frontend; release tag `v<upstream>.N` → GHCR wait) |
 | GG-003 | GitHub-hosted `ubuntu-latest` Linux amd64; **tag → GHCR**; no Docker Hub `calciumion/new-api`; bare binary optional (manual) |
 | GG-004 | Server-side update check URL + GitHub PAT |
-| GG-005 | Third frontend shell `web/ggapi` (default `theme.frontend=ggapi`; feature tracks `web/default`) |
+| GG-005 | **Dropped:** former third frontend shell and multi-theme wiring; do not restore |
+| GG-006 | VIP membership-only plans and scheduled membership queue |
+| GG-007 | Auditable first-level affiliate commissions |
 
-## Product shell (frontend placement)
+## Official frontend placement
 
 | Path | Role |
 |------|------|
-| `web/ggapi` | **Product shell** — visual/product work; default theme (GG-005) |
-| `web/default` | Upstream default — sync source; keep close to upstream |
-| `web/classic` | Upstream classic shell |
+| `web/` | The only frontend source, dev server, build input, and embedded distribution |
 
-Rule of thumb (canonical: `docs/fork` SOP §3.5): **skin/product in `web/ggapi`; capabilities track `web/default`**. Do not expect production default UI from edits only in `web/default`. Local: `make dev` / `make dev-web-ggapi` / `make build-web-ggapi`.
+Rule of thumb (canonical: `docs/fork` SOP §3.5): keep upstream `web/` as the base and add only the smallest GG-004/006/007 capability delta. Do not recreate `web/ggapi`, classic, runtime theme selection, or fork-only visual redesigns. Local: `make dev` / `make dev-web` / `make build-web`.
 
 ## Related skills (hand off, do not reimplement)
 
 | Topic | Skill |
 |-------|--------|
 | Pre-commit / final-ship review | User opens a new terminal and uses any preferred terminal Agent; this skill only prepares the handoff, waits for the result, and owns the fix → manual re-review loop |
-| Frontend i18n keys (all locales incl. **zh-TW**; use `web/ggapi` or `web/default` paths) | `i18n-translate` (shell-aware) |
-| classic → default UI port | `classic-to-default-sync` |
-| default → ggapi feature port | Same *diff-review* idea as classic→default: map paths `web/default` → `web/ggapi` (no separate skill) |
-| shadcn/ui in product shell (and default) | `shadcn-ui` (shell-aware; prefer `web/ggapi`) |
+| Frontend i18n keys (all locales incl. **zh-TW** under `web/src/i18n`) | `i18n-translate` |
+| shadcn/ui in the official frontend | `shadcn-ui` (run from `web/`) |
 | React performance | `vercel-react-best-practices` |
 | Verify finished work | `check-work` / `/check-work` |
 

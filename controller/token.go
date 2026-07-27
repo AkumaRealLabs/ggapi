@@ -209,6 +209,7 @@ func AddToken(c *gin.Context) {
 	}
 	cleanToken := model.Token{
 		UserId:             c.GetInt("id"),
+		Status:             common.TokenStatusEnabled,
 		Name:               token.Name,
 		Key:                key,
 		CreatedTime:        common.GetTimestamp(),
@@ -222,11 +223,7 @@ func AddToken(c *gin.Context) {
 		Group:              token.Group,
 		CrossGroupRetry:    token.CrossGroupRetry,
 	}
-	if err := model.EnsureMembershipTokenGroupAllowed(cleanToken.UserId, cleanToken.Group, true); err != nil {
-		common.ApiError(c, err)
-		return
-	}
-	err = cleanToken.Insert()
+	err = cleanToken.InsertWithMembershipGuard()
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -290,11 +287,8 @@ func UpdateToken(c *gin.Context) {
 			return
 		}
 	}
-	effectiveGroup := cleanToken.Group
-	effectiveStatus := cleanToken.Status
 	if statusOnly != "" {
 		cleanToken.Status = token.Status
-		effectiveStatus = token.Status
 	} else {
 		// If you add more fields, please also update token.Update()
 		cleanToken.Name = token.Name
@@ -306,17 +300,8 @@ func UpdateToken(c *gin.Context) {
 		cleanToken.AllowIps = token.AllowIps
 		cleanToken.Group = token.Group
 		cleanToken.CrossGroupRetry = token.CrossGroupRetry
-		effectiveGroup = token.Group
 	}
-	if err := model.EnsureMembershipTokenGroupAllowed(
-		userId,
-		effectiveGroup,
-		effectiveStatus == common.TokenStatusEnabled,
-	); err != nil {
-		common.ApiError(c, err)
-		return
-	}
-	err = cleanToken.Update()
+	err = cleanToken.UpdateWithMembershipGuard()
 	if err != nil {
 		common.ApiError(c, err)
 		return

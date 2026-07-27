@@ -23,9 +23,9 @@ on:
         required: true
         type: string
 
-# Serialize publishes per tag name (push and dispatch share the same key)
+# Serialize GHCR metadata and optional binary Release writes across workflows.
 concurrency:
-  group: ghcr-${{ github.workflow }}-${{ github.event.inputs.tag || github.ref_name }}
+  group: ggapi-release-${{ github.event.inputs.tag || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
@@ -203,6 +203,7 @@ jobs:
 
       # After successful sign only: retag :latest from the signed digest (not mutable :TAG)
       - name: Maybe update :latest (recheck main tip after build+sign)
+        id: latest
         if: ${{ env.LATEST_CANDIDATE == 'true' }}
         env:
           IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
@@ -213,24 +214,54 @@ jobs:
           if [ "$MAIN_SHA" != "$TAG_SHA" ]; then
             echo "::warning::origin/main moved during build; skip :latest (kept version tag only)"
             echo "PUSHED_LATEST=false" >> "$GITHUB_ENV"
+            echo "pushed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           docker buildx imagetools create \
             --tag "${IMAGE}:latest" \
             "${IMAGE}@${IMAGE_DIGEST}"
           echo "PUSHED_LATEST=true" >> "$GITHUB_ENV"
+          echo "pushed=true" >> "$GITHUB_OUTPUT"
           echo "Updated :latest → ${IMAGE}@${IMAGE_DIGEST}"
 
       # Metadata-only GitHub Release so /releases/latest (update checker) tracks the tag.
       # Bare binaries remain optional via release.yml workflow_dispatch.
-      # make_latest only when this is a tip tag-push (same rule as Docker :latest).
+      - name: Determine GitHub Release latest policy
+        id: release_policy
+        env:
+          RELEASE_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ "${{ steps.latest.outputs.pushed }}" = "true" ]; then
+            echo "make_latest=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          STATUS=$(curl --silent --show-error \
+            --output /dev/null \
+            --write-out '%{http_code}' \
+            --header "Accept: application/vnd.github+json" \
+            --header "Authorization: Bearer ${RELEASE_TOKEN}" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/releases/tags/${TAG}")
+          case "$STATUS" in
+            200) echo "make_latest=" >> "$GITHUB_OUTPUT" ;;
+            404) echo "make_latest=false" >> "$GITHUB_OUTPUT" ;;
+            *)
+              echo "::error::Unable to determine existing Release state (HTTP ${STATUS})"
+              exit 1
+              ;;
+          esac
+
+      # Promote only with Docker :latest; preserve existing Releases and keep new
+      # historical Releases from becoming latest.
       - name: Create or update GitHub Release (metadata)
         uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2
         with:
           tag_name: ${{ env.TAG }}
           name: ${{ env.TAG }}
           generate_release_notes: true
-          make_latest: ${{ env.LATEST_CANDIDATE == 'true' && 'true' || 'false' }}
+          make_latest: ${{ steps.release_policy.outputs.make_latest }}
           body: |
             ## Container image
 

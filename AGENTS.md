@@ -55,12 +55,8 @@ types/         — Type definitions (relay formats, file sources, errors)
 i18n/          — Backend internationalization (go-i18n, en/zh)
 oauth/         — OAuth provider implementations
 pkg/           — Internal packages (cachex, ionet)
-web/             — Frontend themes container
- web/default/   — Upstream default frontend (React 19, Rsbuild, Base UI, Tailwind)
-  web/classic/   — Classic frontend (React 18, Vite, Semi Design)
-  web/ggapi/     — ggapi fork shell (tracks default features; theme.frontend=ggapi)
-  web/default/src/i18n/ — Frontend internationalization (i18next, zh/en/fr/ru/ja/vi)
-  web/ggapi/src/i18n/   — Fork shell i18n (same stack; keep in sync when porting)
+web/           — Frontend (React 19, Rsbuild, Base UI, Tailwind)
+  src/i18n/    — Frontend internationalization (i18next, en/zh/zh-TW/fr/ru/ja/vi)
 ```
 
 ## Internationalization (i18n)
@@ -69,13 +65,12 @@ web/             — Frontend themes container
 - Library: `nicksnyder/go-i18n/v2`
 - Languages: en, zh
 
-### Frontend (`web/default/src/i18n/` and `web/ggapi/src/i18n/`)
+### Frontend (`web/src/i18n/`)
 - Library: `i18next` + `react-i18next` + `i18next-browser-languagedetector`
-- Languages: en (base), zh (fallback), fr, ru, ja, vi
-- Translation files: `web/{default,ggapi}/src/i18n/locales/{lang}.json` — flat JSON, keys are English source strings
+- Languages: en (base), zh (fallback), zh-TW, fr, ru, ja, vi
+- Translation files: `web/src/i18n/locales/{lang}.json` — flat JSON, keys are English source strings
 - Usage: `useTranslation()` hook, call `t('English key')` in components
-- CLI tools: `bun run i18n:sync` (from the shell directory being edited)
-- **ggapi shell:** product UI lives in `web/ggapi`; port features from `web/default` rather than redesigning default in place (see `docs/fork/branch-and-sync-sop.md` §3.5)
+- CLI tools: `bun run i18n:sync` (from `web/`)
 
 ## Rules
 
@@ -149,15 +144,14 @@ Do NOT directly import or call `encoding/json` in business code. `json.RawMessag
 
 ### Frontend Rules
 
-- Use `bun` as the preferred package manager and script runner for the frontend (`web/default/` or fork shell `web/ggapi/`):
-  - `bun install` for dependency installation (workspace root: `web/`)
-  - `bun run dev` / `make dev-web-ggapi` for development server
-  - `bun run build` / `make build-web-ggapi` for production build
+- Use `bun` as the preferred package manager and script runner for the frontend (`web/`):
+  - `bun install` for dependency installation
+  - `bun run dev` for development server
+  - `bun run build` for production build
   - `bun run i18n:*` for i18n tooling
-- Frontend UI text must support i18n with `i18next`/`react-i18next`. Use flat JSON locale files in `web/{default,ggapi}/src/i18n/locales/{lang}.json`, with English source strings as keys.
+- Frontend UI text must support i18n with `i18next`/`react-i18next`. Use flat JSON locale files in `web/src/i18n/locales/{lang}.json`, with English source strings as keys.
 - In React components, use `useTranslation()` and call `t('English key')` for user-facing text.
-- Follow `web/default/AGENTS.md` (and the copy under `web/ggapi/AGENTS.md`) for detailed frontend conventions, including TypeScript, component structure, styling, accessibility, testing, and build checks.
-- **Shell policy (ggapi fork):** ship product experience in `web/ggapi` (`theme.frontend=ggapi` by default). Keep `web/default` aligned with upstream for sync; port feature deltas into `web/ggapi` instead of only customizing default.
+- Follow `web/AGENTS.md` for detailed frontend conventions, including TypeScript, component structure, styling, accessibility, testing, and build checks.
 
 ### Project Governance
 

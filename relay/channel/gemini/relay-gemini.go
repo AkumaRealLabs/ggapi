@@ -43,23 +43,16 @@ func attachEstimatedGeminiBillingUsage(usage *dto.Usage) *dto.Usage {
 // final chunk that carries candidatesTokenCount, leaving prompt-only metadata; without
 // this patch the output side would settle at zero quota.
 func patchGeminiZeroCompletionUsage(c *gin.Context, info *relaycommon.RelayInfo, usage *dto.Usage, responseText string, imageCount int) {
-	// Only patch when upstream metadata reported zero completion tokens.
 	if usage == nil || usage.CompletionTokens > 0 {
 		return
 	}
 	if responseText == "" && imageCount == 0 {
 		return
 	}
-	if responseText != "" {
-		estimated := service.ResponseText2Usage(c, responseText, info.UpstreamModelName, usage.PromptTokens)
-		usage.CompletionTokens = estimated.CompletionTokens
-	}
-	// Always add image estimates even when text estimation already made
-	// CompletionTokens nonzero; also record ImageTokens for tiered img_o.
-	if imageCount != 0 {
-		imageTokens := imageCount * 1400
-		usage.CompletionTokens += imageTokens
-		usage.CompletionTokenDetails.ImageTokens += imageTokens
+	estimated := service.ResponseText2Usage(c, responseText, info.UpstreamModelName, usage.PromptTokens)
+	usage.CompletionTokens = estimated.CompletionTokens
+	if imageCount != 0 && usage.CompletionTokens == 0 {
+		usage.CompletionTokens = imageCount * 1400
 	}
 	usage.TotalTokens = usage.PromptTokens + usage.CompletionTokens
 	// Overwrite the metadata-derived billing usage: effectiveBillingUsage prefers
@@ -83,6 +76,18 @@ func geminiResponseUsageText(response *dto.GeminiChatResponse) string {
 	return text.String()
 }
 
+func markGeminiGoogleSearchCall(c *gin.Context, response *dto.GeminiChatResponse) {
+	if c == nil || response == nil {
+		return
+	}
+	for _, candidate := range response.Candidates {
+		if candidate.GroundingMetadata != nil && len(candidate.GroundingMetadata.WebSearchQueries) > 0 {
+			c.Set("gemini_google_search_call", true)
+			return
+		}
+	}
+}
+
 func buildUsageFromGeminiResponse(c *gin.Context, info *relaycommon.RelayInfo, response *dto.GeminiChatResponse) dto.Usage {
 	metadata := response.GetUsageMetadata()
 	if dto.HasGeminiUsageMetadataTokens(metadata) {
@@ -91,12 +96,6 @@ func buildUsageFromGeminiResponse(c *gin.Context, info *relaycommon.RelayInfo, r
 		return usage
 	}
 	usage := service.ResponseText2Usage(c, geminiResponseUsageText(response), info.UpstreamModelName, info.GetEstimatePromptTokens())
-	if imageCount := geminiResponseInlineImageCount(response); imageCount != 0 {
-		imageTokens := imageCount * 1400
-		usage.CompletionTokens += imageTokens
-		usage.CompletionTokenDetails.ImageTokens += imageTokens
-		usage.TotalTokens = usage.PromptTokens + usage.CompletionTokens
-	}
 	attachEstimatedGeminiBillingUsage(usage)
 	return *usage
 }
@@ -162,6 +161,8 @@ func geminiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http
 			common.SetContextKey(c, constant.ContextKeyAdminRejectReason, fmt.Sprintf("gemini_block_reason=%s", *geminiResponse.PromptFeedback.BlockReason))
 		}
 
+		markGeminiGoogleSearchCall(c, &geminiResponse)
+
 		// 统计图片数量
 		for _, candidate := range geminiResponse.Candidates {
 			for _, part := range candidate.Content.Parts {
@@ -192,10 +193,8 @@ func geminiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http
 		} else {
 			usage = &dto.Usage{}
 		}
-		if imageCount != 0 {
-			imageTokens := imageCount * 1400
-			usage.CompletionTokens += imageTokens
-			usage.CompletionTokenDetails.ImageTokens += imageTokens
+		if imageCount != 0 && usage.CompletionTokens == 0 {
+			usage.CompletionTokens = imageCount * 1400
 			usage.TotalTokens = usage.PromptTokens + usage.CompletionTokens
 			common.SetContextKey(c, constant.ContextKeyLocalCountTokens, true)
 		}
@@ -323,6 +322,7 @@ func GeminiChatHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.R
 	if err != nil {
 		return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
 	}
+	markGeminiGoogleSearchCall(c, &geminiResponse)
 	if len(geminiResponse.Candidates) == 0 {
 		usage := buildUsageFromGeminiResponse(c, info, &geminiResponse)
 

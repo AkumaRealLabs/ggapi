@@ -455,6 +455,48 @@ func TestEnsureMembershipTokenGroupAllowed(t *testing.T) {
 	require.ErrorIs(t, EnsureMembershipTokenGroupAllowed(user.Id, "", true), ErrMembershipTokenGroupUnset)
 }
 
+func TestMembershipGuardedTokenWritesRejectUnsetGroupAtomically(t *testing.T) {
+	user, plan := setupSubscriptionPurchaseTest(t, 0)
+	_, err := AdminBindSubscription(user.Id, plan.Id, "")
+	require.NoError(t, err)
+
+	newToken := &Token{
+		UserId:      user.Id,
+		Key:         "test-membership-guarded-insert",
+		Name:        "test-membership-guarded-insert",
+		Status:      common.TokenStatusEnabled,
+		CreatedTime: GetDBTimestamp(),
+		Group:       "",
+	}
+	require.ErrorIs(t, newToken.InsertWithMembershipGuard(), ErrMembershipTokenGroupUnset)
+	var inserted int64
+	require.NoError(t, DB.Model(&Token{}).Where(commonKeyCol+" = ?", newToken.Key).Count(&inserted).Error)
+	assert.Zero(t, inserted)
+
+	existing := &Token{
+		UserId:      user.Id,
+		Key:         "test-membership-guarded-update",
+		Name:        "test-membership-guarded-update",
+		Status:      common.TokenStatusDisabled,
+		CreatedTime: GetDBTimestamp(),
+		Group:       "",
+	}
+	require.NoError(t, DB.Create(existing).Error)
+	existing.Status = common.TokenStatusEnabled
+	require.ErrorIs(t, existing.UpdateWithMembershipGuard(), ErrMembershipTokenGroupUnset)
+
+	var stored Token
+	require.NoError(t, DB.First(&stored, existing.Id).Error)
+	assert.Equal(t, common.TokenStatusDisabled, stored.Status)
+	assert.Empty(t, stored.Group)
+
+	existing.Group = "default"
+	require.NoError(t, existing.UpdateWithMembershipGuard())
+	require.NoError(t, DB.First(&stored, existing.Id).Error)
+	assert.Equal(t, common.TokenStatusEnabled, stored.Status)
+	assert.Equal(t, "default", stored.Group)
+}
+
 func TestExpireStalePendingDoesNotClobberCompletedOrders(t *testing.T) {
 	user, plan := setupSubscriptionPurchaseTest(t, 0)
 	now := GetDBTimestamp()

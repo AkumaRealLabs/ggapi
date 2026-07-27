@@ -213,14 +213,10 @@ func GetRandomSatisfiedChannel(group string, model string, retry int, requestPat
 // only when one of their configured routes matches requestPath and model. All
 // other channel types always pass. When requestPath is empty, filtering is skipped.
 // Caller must hold channelSyncLock (read lock). The cached slice is never mutated.
-// For /v1/responses/compact the distributor rewrites the model with
-// -openai-compact; strip that synthetic suffix so route rules written against
-// the original client model still match.
 func filterChannelsByRequestPathAndModel(channels []int, requestPath string, model string) []int {
 	if requestPath == "" || len(channels) == 0 {
 		return channels
 	}
-	routeModel := ratio_setting.WithoutCompactModelSuffix(model)
 	filtered := make([]int, 0, len(channels))
 	for _, channelId := range channels {
 		channel, ok := channelsIDM[channelId]
@@ -233,7 +229,7 @@ func filterChannelsByRequestPathAndModel(channels []int, requestPath string, mod
 			filtered = append(filtered, channelId)
 			continue
 		}
-		if config := channel2advancedCustomConfig[channelId]; config != nil && config.SupportsPathForModel(requestPath, routeModel) {
+		if config := channel2advancedCustomConfig[channelId]; config != nil && config.SupportsPathForModel(requestPath, model) {
 			filtered = append(filtered, channelId)
 		}
 	}
