@@ -28,11 +28,11 @@ import { StatusBadge } from '@/components/status-badge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { createOAuthFlow } from '@/features/auth/api'
+import { OAUTH_BIND_RESULT_MESSAGE } from '@/features/auth/constants'
 import {
-  OAUTH_BIND_CALLBACK_MESSAGE,
-  OAUTH_BIND_RESULT_MESSAGE,
-} from '@/features/auth/constants'
-import { watchOAuthPopupClosed } from '@/features/auth/lib/oauth-bind-window'
+  isOAuthBindCallbackMessage,
+  watchOAuthPopupClosed,
+} from '@/features/auth/lib/oauth-bind-window'
 import type { CustomOAuthProviderInfo } from '@/features/auth/types'
 import { useDialogs } from '@/hooks/use-dialog'
 import { useStatus } from '@/hooks/use-status'
@@ -70,15 +70,6 @@ interface PendingOAuthBinding {
   state: string
   popup: Window
   stopCloseWatcher: () => void
-}
-
-interface OAuthBindingCallback {
-  type: typeof OAUTH_BIND_CALLBACK_MESSAGE
-  provider: string
-  state: string
-  code?: string
-  error?: string
-  errorDescription?: string
 }
 
 export function AccountBindingsTab({
@@ -205,18 +196,19 @@ export function AccountBindingsTab({
 
     const handleMessage = async (event: MessageEvent<unknown>) => {
       if (event.origin !== window.location.origin) return
-      const message = event.data as Partial<OAuthBindingCallback> | null
       const pending = pendingOAuthBinding.current
       if (
-        !message ||
-        message.type !== OAUTH_BIND_CALLBACK_MESSAGE ||
         !pending ||
-        message.provider !== pending.provider ||
-        message.state !== pending.state ||
-        event.source !== pending.popup
+        !isOAuthBindCallbackMessage(event.data, pending.provider, pending.state)
       ) {
         return
       }
+
+      const message = event.data
+      const responseTarget =
+        event.source && 'postMessage' in event.source
+          ? (event.source as Pick<Window, 'postMessage'>)
+          : null
 
       clearPendingOAuthBinding(pending)
       let success = false
@@ -252,7 +244,7 @@ export function AccountBindingsTab({
         toast.error(resultMessage)
       }
 
-      pending.popup.postMessage(
+      responseTarget?.postMessage(
         {
           type: OAUTH_BIND_RESULT_MESSAGE,
           provider: message.provider,

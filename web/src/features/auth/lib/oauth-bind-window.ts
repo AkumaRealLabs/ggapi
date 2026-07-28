@@ -16,7 +16,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { TELEGRAM_BIND_RESULT_MESSAGE } from '@/features/auth/constants'
+import {
+  OAUTH_BIND_CALLBACK_MESSAGE,
+  OAUTH_BIND_RESULT_MESSAGE,
+  TELEGRAM_BIND_RESULT_MESSAGE,
+} from '@/features/auth/constants'
 
 interface TimerRuntime {
   schedule: (callback: () => void, delay: number) => unknown
@@ -41,6 +45,52 @@ interface TelegramBindCallbackSearch {
   telegram_bind?: string
   flow_token?: string
   error_code?: string
+}
+
+export interface OAuthBindCallbackMessage {
+  type: typeof OAUTH_BIND_CALLBACK_MESSAGE
+  provider: string
+  state: string
+  code?: string
+  error?: string
+  errorDescription?: string
+}
+
+export interface OAuthBindResultMessage {
+  type: typeof OAUTH_BIND_RESULT_MESSAGE
+  provider: string
+  state: string
+  success: boolean
+  message?: string
+}
+
+export function isOAuthBindCallbackMessage(
+  data: unknown,
+  provider: string,
+  state: string
+): data is OAuthBindCallbackMessage {
+  if (!data || typeof data !== 'object') return false
+  const message = data as Partial<OAuthBindCallbackMessage>
+  return (
+    message.type === OAUTH_BIND_CALLBACK_MESSAGE &&
+    message.provider === provider &&
+    message.state === state
+  )
+}
+
+export function isOAuthBindResultMessage(
+  data: unknown,
+  provider: string,
+  state: string
+): data is OAuthBindResultMessage {
+  if (!data || typeof data !== 'object') return false
+  const message = data as Partial<OAuthBindResultMessage>
+  return (
+    message.type === OAUTH_BIND_RESULT_MESSAGE &&
+    message.provider === provider &&
+    message.state === state &&
+    typeof message.success === 'boolean'
+  )
 }
 
 export type TelegramBindCallback =
@@ -113,6 +163,23 @@ export function startOAuthBindResponseDeadline(
     active = false
     onTimeout()
   }, delay)
+  return () => {
+    if (!active) return
+    active = false
+    runtime.cancel(handle)
+  }
+}
+
+export function startOAuthBindCallbackDelivery(
+  deliver: () => void,
+  interval = 500,
+  runtime: TimerRuntime = intervalRuntime
+): () => void {
+  let active = true
+  deliver()
+  const handle = runtime.schedule(() => {
+    if (active) deliver()
+  }, interval)
   return () => {
     if (!active) return
     active = false

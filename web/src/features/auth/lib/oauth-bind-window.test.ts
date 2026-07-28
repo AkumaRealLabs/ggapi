@@ -20,9 +20,12 @@ import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 
 import {
+  isOAuthBindCallbackMessage,
+  isOAuthBindResultMessage,
   isOAuthBindCallbackPopup,
   parseTelegramBindCallback,
   postTelegramBindResult,
+  startOAuthBindCallbackDelivery,
   startOAuthBindResponseDeadline,
   watchOAuthPopupClosed,
 } from './oauth-bind-window'
@@ -51,6 +54,60 @@ function fakeTimerRuntime() {
 }
 
 describe('OAuth bind popup lifecycle', () => {
+  test('validates callback and result messages by channel data, not window identity', () => {
+    assert.equal(
+      isOAuthBindCallbackMessage(
+        {
+          type: 'oauth:binding:callback',
+          provider: 'github',
+          state: 'state-1',
+          code: 'code-1',
+        },
+        'github',
+        'state-1'
+      ),
+      true
+    )
+    assert.equal(
+      isOAuthBindResultMessage(
+        {
+          type: 'oauth:binding:result',
+          provider: 'github',
+          state: 'state-1',
+          success: true,
+        },
+        'github',
+        'state-1'
+      ),
+      true
+    )
+    assert.equal(
+      isOAuthBindCallbackMessage(
+        {
+          type: 'oauth:binding:callback',
+          provider: 'github',
+          state: 'other-state',
+        },
+        'github',
+        'state-1'
+      ),
+      false
+    )
+    assert.equal(
+      isOAuthBindResultMessage(
+        {
+          type: 'oauth:binding:result',
+          provider: 'github',
+          state: 'state-1',
+          success: 'true',
+        },
+        'github',
+        'state-1'
+      ),
+      false
+    )
+  })
+
   test('identifies only OAuth callback routes opened by the binding window', () => {
     assert.equal(isOAuthBindCallbackPopup('/oauth/github', true), true)
     assert.equal(isOAuthBindCallbackPopup('/oauth/custom-provider', true), true)
@@ -171,6 +228,27 @@ describe('OAuth bind popup lifecycle', () => {
     cancel()
     timer.fire()
     assert.equal(timedOut, false)
+    assert.deepEqual(timer.cancelled, [timer.handle])
+  })
+
+  test('delivers the OAuth callback immediately and retries until stopped', () => {
+    const timer = fakeTimerRuntime()
+    let deliveryCount = 0
+    const stop = startOAuthBindCallbackDelivery(
+      () => {
+        deliveryCount += 1
+      },
+      undefined,
+      timer.runtime
+    )
+
+    assert.equal(timer.delay, 500)
+    assert.equal(deliveryCount, 1)
+    timer.fire()
+    assert.equal(deliveryCount, 2)
+    stop()
+    timer.fire()
+    assert.equal(deliveryCount, 2)
     assert.deepEqual(timer.cancelled, [timer.handle])
   })
 

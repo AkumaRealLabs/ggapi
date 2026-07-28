@@ -28,15 +28,14 @@ import { useEffect } from 'react'
 import { toast } from 'sonner'
 
 import { OAuthCallbackScreen } from '@/features/auth/components/oauth-callback-screen'
-import {
-  OAUTH_BIND_CALLBACK_MESSAGE,
-  OAUTH_BIND_RESULT_MESSAGE,
-} from '@/features/auth/constants'
+import { OAUTH_BIND_CALLBACK_MESSAGE } from '@/features/auth/constants'
 import { sanitizeAuthRedirect } from '@/features/auth/lib/auth-redirect'
 import {
+  isOAuthBindResultMessage,
   isOAuthBindCallbackPopup,
   parseTelegramBindCallback,
   postTelegramBindResult,
+  startOAuthBindCallbackDelivery,
   startOAuthBindResponseDeadline,
 } from '@/features/auth/lib/oauth-bind-window'
 import { api, applyAuthBundle, isAuthBundle } from '@/lib/api'
@@ -44,14 +43,6 @@ import { getServerErrorMessageKey } from '@/lib/server-error-message'
 
 type OAuthRequestConfig = AxiosRequestConfig & {
   skipBusinessError?: boolean
-}
-
-interface OAuthBindingResult {
-  type: typeof OAUTH_BIND_RESULT_MESSAGE
-  provider: string
-  state: string
-  success: boolean
-  message?: string
 }
 
 function OAuthCallback() {
@@ -113,23 +104,27 @@ function OAuthCallback() {
       }
 
       let cancelResultTimeout: () => void = () => undefined
+      let stopCallbackDelivery: () => void = () => undefined
       let delayedClose: number | undefined
+      const postCallback = () => {
+        if (opener.closed) return
+        opener.postMessage(
+          {
+            type: OAUTH_BIND_CALLBACK_MESSAGE,
+            provider,
+            code,
+            state,
+            error: search.error,
+            errorDescription: search.error_description,
+          },
+          window.location.origin
+        )
+      }
       const handleBindingResult = (event: MessageEvent<unknown>) => {
-        if (
-          event.origin !== window.location.origin ||
-          event.source !== opener
-        ) {
-          return
-        }
-        const result = event.data as Partial<OAuthBindingResult> | null
-        if (
-          !result ||
-          result.type !== OAUTH_BIND_RESULT_MESSAGE ||
-          result.provider !== provider ||
-          result.state !== state
-        ) {
-          return
-        }
+        if (event.origin !== window.location.origin) return
+        if (!isOAuthBindResultMessage(event.data, provider, state)) return
+        stopCallbackDelivery()
+        const result = event.data
         cancelResultTimeout()
         if (result.success) {
           toast.success(i18next.t('Binding successful!'))
@@ -141,23 +136,15 @@ function OAuthCallback() {
       }
 
       window.addEventListener('message', handleBindingResult)
+      stopCallbackDelivery = startOAuthBindCallbackDelivery(postCallback)
       cancelResultTimeout = startOAuthBindResponseDeadline(() => {
+        stopCallbackDelivery()
         toast.error(i18next.t('OAuth binding timed out. Please try again.'))
         delayedClose = window.setTimeout(() => window.close(), 1500)
       })
-      opener.postMessage(
-        {
-          type: OAUTH_BIND_CALLBACK_MESSAGE,
-          provider,
-          code,
-          state,
-          error: search.error,
-          errorDescription: search.error_description,
-        },
-        window.location.origin
-      )
       return () => {
         window.removeEventListener('message', handleBindingResult)
+        stopCallbackDelivery()
         cancelResultTimeout()
         if (delayedClose !== undefined) window.clearTimeout(delayedClose)
       }
