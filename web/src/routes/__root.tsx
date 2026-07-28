@@ -30,6 +30,7 @@ import { useEffect } from 'react'
 import { NavigationProgress } from '@/components/navigation-progress'
 import { Toaster } from '@/components/ui/sonner'
 import { ThemeCustomizationProvider } from '@/context/theme-customization-provider'
+import { isOAuthBindCallbackPopup } from '@/features/auth/lib/oauth-bind-window'
 import { saveAffiliateCode } from '@/features/auth/lib/storage'
 import { GeneralError } from '@/features/errors/general-error'
 import { NotFoundError } from '@/features/errors/not-found-error'
@@ -152,7 +153,12 @@ export const Route = createRootRouteWithContext<{
     const pathname = location?.pathname || ''
     const needsSetupCheck =
       !setupStatusChecked && !pathname.startsWith('/setup')
-    const authBootstrap = bootstrapAuthentication()
+    const isBindCallback =
+      typeof window !== 'undefined' &&
+      isOAuthBindCallbackPopup(pathname, Boolean(window.opener))
+    const authBootstrap = isBindCallback
+      ? Promise.resolve()
+      : bootstrapAuthentication()
 
     // 只检查 setup 状态（如果需要）
     if (needsSetupCheck) {

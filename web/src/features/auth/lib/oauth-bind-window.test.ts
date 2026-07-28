@@ -20,6 +20,7 @@ import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 
 import {
+  isOAuthBindCallbackPopup,
   parseTelegramBindCallback,
   postTelegramBindResult,
   startOAuthBindResponseDeadline,
@@ -50,6 +51,14 @@ function fakeTimerRuntime() {
 }
 
 describe('OAuth bind popup lifecycle', () => {
+  test('identifies only OAuth callback routes opened by the binding window', () => {
+    assert.equal(isOAuthBindCallbackPopup('/oauth/github', true), true)
+    assert.equal(isOAuthBindCallbackPopup('/oauth/custom-provider', true), true)
+    assert.equal(isOAuthBindCallbackPopup('/oauth/github', false), false)
+    assert.equal(isOAuthBindCallbackPopup('/oauth', true), false)
+    assert.equal(isOAuthBindCallbackPopup('/dashboard', true), false)
+  })
+
   test('parses Telegram success and stable error callbacks', () => {
     assert.deepEqual(
       parseTelegramBindCallback({
