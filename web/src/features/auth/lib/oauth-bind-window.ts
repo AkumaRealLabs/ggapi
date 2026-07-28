@@ -53,6 +53,13 @@ export type TelegramBindCallback =
   | { kind: 'invalid' }
   | null
 
+export function isOAuthBindCallbackPopup(
+  pathname: string,
+  hasOpener: boolean
+): boolean {
+  return hasOpener && /^\/oauth\/[^/]+\/?$/.test(pathname)
+}
+
 export function parseTelegramBindCallback(
   search: TelegramBindCallbackSearch
 ): TelegramBindCallback {

@@ -34,6 +34,7 @@ import {
 } from '@/features/auth/constants'
 import { sanitizeAuthRedirect } from '@/features/auth/lib/auth-redirect'
 import {
+  isOAuthBindCallbackPopup,
   parseTelegramBindCallback,
   postTelegramBindResult,
   startOAuthBindResponseDeadline,
@@ -69,7 +70,10 @@ function OAuthCallback() {
     error_code?: string
   }
   const mode: 'login' | 'bind' =
-    typeof window !== 'undefined' && window.opener ? 'bind' : 'login'
+    typeof window !== 'undefined' &&
+    isOAuthBindCallbackPopup(window.location.pathname, Boolean(window.opener))
+      ? 'bind'
+      : 'login'
 
   useEffect(() => {
     if (typeof window === 'undefined') return
