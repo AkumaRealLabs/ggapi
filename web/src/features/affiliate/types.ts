@@ -31,9 +31,14 @@ export interface AffiliateUserDetail {
   invite_count: number
 }
 
+export type AffiliateCommissionSourceType =
+  | 'topup'
+  | 'subscription'
+  | 'redemption'
+
 export interface AffiliateCommissionRecord {
   id: number
-  source_type: 'topup' | 'subscription'
+  source_type: AffiliateCommissionSourceType
   source_order_no: string
   payment_provider: string
   base_quota: number

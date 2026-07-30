@@ -20,6 +20,7 @@ import (
 const (
 	AffiliateCommissionSourceTopUp        = "topup"
 	AffiliateCommissionSourceSubscription = "subscription"
+	AffiliateCommissionSourceRedemption   = "redemption"
 )
 
 var (
@@ -612,24 +613,34 @@ func ListAffiliateCommissions(pageInfo *common.PageInfo, filters AffiliateCommis
 	return items, total, err
 }
 
-// SettleAffiliateCommissionTx credits the order-time inviter snapshot
-// (affInviterId). Rebinds after order creation must not reroute this settlement.
-// Overflow on aff_quota/aff_history skips commission without failing the parent payment.
+// SettleAffiliateCommissionTx credits the inviter snapshot supplied by the
+// caller. Payment orders use their creation-time snapshot, while redemptions
+// use the relationship read inside the redemption transaction.
+// Overflow on aff_quota/aff_history skips commission without failing the
+// parent transaction.
 func SettleAffiliateCommissionTx(tx *gorm.DB, inviteeId int, sourceType string, sourceId int, orderNo string, paymentProvider string, baseQuota int, affInviterId int) (*AffiliateCommission, bool, error) {
 	if tx == nil {
 		return nil, false, errors.New("tx is nil")
 	}
-	if sourceType != AffiliateCommissionSourceTopUp && sourceType != AffiliateCommissionSourceSubscription {
+	if sourceType != AffiliateCommissionSourceTopUp &&
+		sourceType != AffiliateCommissionSourceSubscription &&
+		sourceType != AffiliateCommissionSourceRedemption {
 		return nil, false, errors.New("无效的返佣来源")
 	}
-	if inviteeId <= 0 || affInviterId <= 0 || sourceId <= 0 || baseQuota <= 0 || !operation_setting.IsPaymentComplianceConfirmed() {
+	if inviteeId <= 0 || sourceId <= 0 || baseQuota <= 0 || !operation_setting.IsPaymentComplianceConfirmed() {
+		return nil, false, nil
+	}
+	if sourceType != AffiliateCommissionSourceRedemption && affInviterId <= 0 {
 		return nil, false, nil
 	}
 	if inviteeId == affInviterId {
 		return nil, false, nil
 	}
 
-	userIds := []int{inviteeId, affInviterId}
+	userIds := []int{inviteeId}
+	if affInviterId > 0 {
+		userIds = append(userIds, affInviterId)
+	}
 	sort.Ints(userIds)
 	var locked []User
 	if err := lockForUpdate(tx).
@@ -642,6 +653,14 @@ func SettleAffiliateCommissionTx(tx *gorm.DB, inviteeId int, sourceType string, 
 	invitee := affiliateUserById(locked, inviteeId)
 	if invitee == nil {
 		return nil, false, gorm.ErrRecordNotFound
+	}
+	// Payment orders intentionally keep their creation-time inviter. A
+	// redemption snapshot must still match after the user rows are locked.
+	if sourceType == AffiliateCommissionSourceRedemption && invitee.InviterId != affInviterId {
+		return nil, false, ErrAffiliateRelationChanged
+	}
+	if affInviterId <= 0 {
+		return nil, false, nil
 	}
 	inviter := affiliateUserById(locked, affInviterId)
 	if inviter == nil || inviter.Status != common.UserStatusEnabled {

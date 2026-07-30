@@ -31,6 +31,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { getAffiliateCommissionSourceLabelKey } from '@/features/affiliate/lib/source'
 import type { AffiliateAdminCommissionRecord } from '@/features/affiliate/types'
 import { formatQuota, formatTimestamp } from '@/lib/format'
 
@@ -126,7 +127,7 @@ export function AffiliateCommissionTable() {
         </TableCell>
         <TableCell>
           <StatusBadge variant='neutral'>
-            {t(record.source_type === 'topup' ? 'Top-up' : 'Subscription')}
+            {t(getAffiliateCommissionSourceLabelKey(record.source_type))}
           </StatusBadge>
         </TableCell>
         <TableCell>
@@ -175,6 +176,7 @@ export function AffiliateCommissionTable() {
             { value: 'all', label: t('All Sources') },
             { value: 'topup', label: t('Top-up') },
             { value: 'subscription', label: t('Subscription') },
+            { value: 'redemption', label: t('Redemption Code') },
           ]}
           value={draftFilters.sourceType || 'all'}
           onValueChange={(value) =>
@@ -193,6 +195,7 @@ export function AffiliateCommissionTable() {
               <SelectItem value='all'>{t('All Sources')}</SelectItem>
               <SelectItem value='topup'>{t('Top-up')}</SelectItem>
               <SelectItem value='subscription'>{t('Subscription')}</SelectItem>
+              <SelectItem value='redemption'>{t('Redemption Code')}</SelectItem>
             </SelectGroup>
           </SelectContent>
         </Select>

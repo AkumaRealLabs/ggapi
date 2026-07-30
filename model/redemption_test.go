@@ -1,10 +1,13 @@
 package model
 
 import (
+	"fmt"
+	"math"
 	"sync"
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
@@ -125,6 +128,29 @@ func setupRedeemFixture(t *testing.T, quota int) (userId int, key string) {
 	return user.Id, key
 }
 
+func setupAffiliateRedemptionTest(t *testing.T) {
+	t.Helper()
+	setupAffiliateTest(t)
+	require.NoError(t, DB.AutoMigrate(&Redemption{}))
+	require.NoError(t, DB.Session(&gorm.Session{AllowGlobalUpdate: true}).Unscoped().Delete(&Redemption{}).Error)
+	t.Cleanup(func() {
+		require.NoError(t, DB.Session(&gorm.Session{AllowGlobalUpdate: true}).Unscoped().Delete(&Redemption{}).Error)
+	})
+}
+
+func createAffiliateRedemption(t *testing.T, quota int) *Redemption {
+	t.Helper()
+	redemption := &Redemption{
+		Name:        "affiliate-redemption",
+		Key:         "20000000000000000000000000000001",
+		Status:      common.RedemptionCodeStatusEnabled,
+		Quota:       quota,
+		CreatedTime: common.GetTimestamp(),
+	}
+	require.NoError(t, DB.Create(redemption).Error)
+	return redemption
+}
+
 func TestRedeemCreditsQuotaExactlyOnce(t *testing.T) {
 	userId, key := setupRedeemFixture(t, 500)
 
@@ -178,4 +204,230 @@ func TestRedeemConcurrentSingleSuccess(t *testing.T) {
 	var user User
 	require.NoError(t, DB.First(&user, "id = ?", userId).Error)
 	assert.Equal(t, 300, user.Quota, "quota must be credited exactly once")
+}
+
+func TestRedeemCreatesAffiliateCommissionExactlyOnce(t *testing.T) {
+	setupAffiliateRedemptionTest(t)
+	createAffiliateTestUser(t, 1, "inviter", "redeem-inviter", 0, nil)
+	createAffiliateTestUser(t, 2, "invitee", "redeem-invitee", 1, nil)
+	redemption := createAffiliateRedemption(t, 500)
+
+	quota, err := Redeem(redemption.Key, 2)
+	require.NoError(t, err)
+	assert.Equal(t, 500, quota)
+	_, err = Redeem(redemption.Key, 2)
+	require.Error(t, err)
+
+	var inviter, invitee User
+	require.NoError(t, DB.First(&inviter, 1).Error)
+	require.NoError(t, DB.First(&invitee, 2).Error)
+	assert.Equal(t, 500, invitee.Quota)
+	assert.Equal(t, 50, inviter.AffQuota)
+	assert.Equal(t, 50, inviter.AffHistoryQuota)
+
+	var commissions []AffiliateCommission
+	require.NoError(t, DB.Find(&commissions).Error)
+	require.Len(t, commissions, 1)
+	commission := commissions[0]
+	assert.Equal(t, AffiliateCommissionSourceRedemption, commission.SourceType)
+	assert.Equal(t, redemption.Id, commission.SourceId)
+	assert.Equal(t, fmt.Sprintf("RED-%d", redemption.Id), commission.SourceOrderNo)
+	assert.NotContains(t, commission.SourceOrderNo, redemption.Key)
+	assert.Empty(t, commission.PaymentProvider)
+	assert.Equal(t, 500, commission.BaseQuota)
+	assert.Equal(t, 10.0, commission.CommissionRate)
+	assert.Equal(t, 50, commission.CommissionQuota)
+
+	items, total, err := ListAffiliateCommissions(
+		&common.PageInfo{Page: 1, PageSize: 20},
+		AffiliateCommissionFilters{SourceType: AffiliateCommissionSourceRedemption},
+	)
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), total)
+	require.Len(t, items, 1)
+	assert.Equal(t, redemption.Id, items[0].SourceId)
+}
+
+func TestAffiliateCommissionFailureRollsBackRedemption(t *testing.T) {
+	setupAffiliateRedemptionTest(t)
+	createAffiliateTestUser(t, 1, "inviter", "redeem-rollback", 0, nil)
+	createAffiliateTestUser(t, 2, "invitee", "redeem-invitee", 1, nil)
+	redemption := createAffiliateRedemption(t, 500)
+	require.NoError(t, DB.Create(&AffiliateCommission{
+		InviterId:       1,
+		InviteeId:       2,
+		SourceType:      AffiliateCommissionSourceRedemption,
+		SourceId:        redemption.Id,
+		SourceOrderNo:   fmt.Sprintf("RED-%d", redemption.Id),
+		BaseQuota:       redemption.Quota,
+		CommissionRate:  10,
+		CommissionQuota: 0,
+	}).Error)
+
+	_, err := Redeem(redemption.Key, 2)
+	require.Error(t, err)
+
+	var gotRedemption Redemption
+	var inviter, invitee User
+	require.NoError(t, DB.First(&gotRedemption, redemption.Id).Error)
+	require.NoError(t, DB.First(&inviter, 1).Error)
+	require.NoError(t, DB.First(&invitee, 2).Error)
+	assert.Equal(t, common.RedemptionCodeStatusEnabled, gotRedemption.Status)
+	assert.Zero(t, gotRedemption.UsedUserId)
+	assert.Zero(t, gotRedemption.RedeemedTime)
+	assert.Zero(t, invitee.Quota)
+	assert.Zero(t, inviter.AffQuota)
+	assert.Zero(t, inviter.AffHistoryQuota)
+}
+
+func TestRedemptionSettlementRejectsConcurrentAffiliateRebind(t *testing.T) {
+	setupAffiliateRedemptionTest(t)
+	createAffiliateTestUser(t, 1, "old-inviter", "old-inviter", 0, nil)
+	createAffiliateTestUser(t, 2, "invitee", "rebind-invitee", 1, nil)
+	createAffiliateTestUser(t, 3, "new-inviter", "new-inviter", 0, nil)
+	redemption := createAffiliateRedemption(t, 500)
+
+	var inviteeSnapshot User
+	require.NoError(t, DB.Select("id", "inviter_id").First(&inviteeSnapshot, 2).Error)
+	assert.Equal(t, 1, inviteeSnapshot.InviterId)
+
+	// SQLite serializes writers, so stage the production interleaving directly:
+	// a concurrent rebind commits after the snapshot and before settlement locks.
+	rebindResult := make(chan error, 1)
+	go func() {
+		rebindResult <- SetAffiliateUserConfig(2, "rebind-invitee", nil, 3)
+	}()
+	require.NoError(t, <-rebindResult)
+
+	err := DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&Redemption{}).Where("id = ?", redemption.Id).Updates(map[string]any{
+			"redeemed_time": common.GetTimestamp(),
+			"status":        common.RedemptionCodeStatusUsed,
+			"used_user_id":  2,
+		}).Error; err != nil {
+			return err
+		}
+		if _, _, err := SettleAffiliateCommissionTx(
+			tx,
+			2,
+			AffiliateCommissionSourceRedemption,
+			redemption.Id,
+			fmt.Sprintf("RED-%d", redemption.Id),
+			"",
+			redemption.Quota,
+			inviteeSnapshot.InviterId,
+		); err != nil {
+			return err
+		}
+		return tx.Model(&User{}).Where("id = ?", 2).
+			Update("quota", gorm.Expr("quota + ?", redemption.Quota)).Error
+	})
+	require.ErrorIs(t, err, ErrAffiliateRelationChanged)
+
+	var gotRedemption Redemption
+	var oldInviter, newInviter, invitee User
+	require.NoError(t, DB.First(&gotRedemption, redemption.Id).Error)
+	require.NoError(t, DB.First(&oldInviter, 1).Error)
+	require.NoError(t, DB.First(&invitee, 2).Error)
+	require.NoError(t, DB.First(&newInviter, 3).Error)
+	assert.Equal(t, common.RedemptionCodeStatusEnabled, gotRedemption.Status)
+	assert.Zero(t, gotRedemption.UsedUserId)
+	assert.Zero(t, invitee.Quota)
+	assert.Equal(t, 3, invitee.InviterId)
+	assert.Zero(t, oldInviter.AffQuota)
+	assert.Zero(t, newInviter.AffQuota)
+	var commissionCount int64
+	require.NoError(t, DB.Model(&AffiliateCommission{}).Count(&commissionCount).Error)
+	assert.Zero(t, commissionCount)
+
+	quota, err := Redeem(redemption.Key, 2)
+	require.NoError(t, err)
+	assert.Equal(t, 500, quota)
+	require.NoError(t, DB.First(&oldInviter, 1).Error)
+	require.NoError(t, DB.First(&newInviter, 3).Error)
+	assert.Zero(t, oldInviter.AffQuota)
+	assert.Equal(t, 50, newInviter.AffQuota)
+	var commission AffiliateCommission
+	require.NoError(t, DB.First(&commission).Error)
+	assert.Equal(t, 3, commission.InviterId)
+	assert.Equal(t, AffiliateCommissionSourceRedemption, commission.SourceType)
+}
+
+func TestRedeemSkipsIneligibleAffiliateCommission(t *testing.T) {
+	zeroRate := 0.0
+	tests := []struct {
+		name                string
+		inviterId           int
+		inviterStatus       int
+		customRate          *float64
+		inviterAffQuota     int
+		inviterAffHistory   int
+		complianceConfirmed bool
+	}{
+		{
+			name:                "no inviter",
+			inviterStatus:       common.UserStatusEnabled,
+			complianceConfirmed: true,
+		},
+		{
+			name:                "disabled inviter",
+			inviterId:           1,
+			inviterStatus:       common.UserStatusDisabled,
+			complianceConfirmed: true,
+		},
+		{
+			name:                "zero commission rate",
+			inviterId:           1,
+			inviterStatus:       common.UserStatusEnabled,
+			customRate:          &zeroRate,
+			complianceConfirmed: true,
+		},
+		{
+			name:                "affiliate balance overflow",
+			inviterId:           1,
+			inviterStatus:       common.UserStatusEnabled,
+			inviterAffQuota:     math.MaxInt32 - 10,
+			inviterAffHistory:   math.MaxInt32 - 10,
+			complianceConfirmed: true,
+		},
+		{
+			name:          "unconfirmed compliance",
+			inviterId:     1,
+			inviterStatus: common.UserStatusEnabled,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			setupAffiliateRedemptionTest(t)
+			if tt.inviterId > 0 {
+				createAffiliateTestUser(t, tt.inviterId, "inviter", "skip-inviter", 0, tt.customRate)
+				require.NoError(t, DB.Model(&User{}).Where("id = ?", tt.inviterId).Updates(map[string]any{
+					"status":      tt.inviterStatus,
+					"aff_quota":   tt.inviterAffQuota,
+					"aff_history": tt.inviterAffHistory,
+				}).Error)
+			}
+			createAffiliateTestUser(t, 2, "invitee", "skip-invitee", tt.inviterId, nil)
+			operation_setting.GetPaymentSetting().ComplianceConfirmed = tt.complianceConfirmed
+			redemption := createAffiliateRedemption(t, 500)
+
+			quota, err := Redeem(redemption.Key, 2)
+			require.NoError(t, err)
+			assert.Equal(t, 500, quota)
+
+			var invitee User
+			require.NoError(t, DB.First(&invitee, 2).Error)
+			assert.Equal(t, 500, invitee.Quota)
+			var commissionCount int64
+			require.NoError(t, DB.Model(&AffiliateCommission{}).Count(&commissionCount).Error)
+			assert.Zero(t, commissionCount)
+			if tt.inviterId > 0 {
+				var inviter User
+				require.NoError(t, DB.First(&inviter, tt.inviterId).Error)
+				assert.Equal(t, tt.inviterAffQuota, inviter.AffQuota)
+				assert.Equal(t, tt.inviterAffHistory, inviter.AffHistoryQuota)
+			}
+		})
+	}
 }
