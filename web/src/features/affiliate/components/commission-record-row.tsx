@@ -11,6 +11,7 @@ import { useTranslation } from 'react-i18next'
 import { StatusBadge } from '@/components/status-badge'
 import { formatQuota, formatTimestamp } from '@/lib/format'
 
+import { getAffiliateCommissionSourceLabelKey } from '../lib/source'
 import type { AffiliateCommissionRecord } from '../types'
 
 type CommissionRecordRowProps = {
@@ -40,7 +41,7 @@ export function CommissionRecordRow(props: CommissionRecordRowProps) {
       <div className='text-muted-foreground mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs'>
         <span>
           {t('Source')}:{' '}
-          {t(props.record.source_type === 'topup' ? 'Top-up' : 'Subscription')}
+          {t(getAffiliateCommissionSourceLabelKey(props.record.source_type))}
         </span>
         <span>
           {t('Commission Base')}: {formatQuota(props.record.base_quota)}
