@@ -2328,6 +2328,7 @@
     "Increased user quota by {{quota}}": "ユーザーのクォータを {{quota}} 増やしました",
     "Index": "インデックス",
     "Inherit default": "デフォルトを継承",
+    "Inherit global Auto order": "グローバル Auto 順序を継承",
     "Initial quota given to new users": "新規ユーザーに付与される初期クォータ",
     "Initial quota given to new users ({{formattedQuota}})": "新規ユーザーに付与される初期クォータ（{{formattedQuota}}）",
     "Initialization failed, please try again.": "初期化に失敗しました。もう一度お試しください。",

@@ -2328,6 +2328,7 @@
     "Increased user quota by {{quota}}": "Đã tăng hạn mức người dùng thêm {{quota}}",
     "Index": "Chỉ mục",
     "Inherit default": "Dùng mặc định",
+    "Inherit global Auto order": "Kế thừa thứ tự Auto toàn cục",
     "Initial quota given to new users": "Hạn mức ban đầu cấp cho người dùng mới",
     "Initial quota given to new users ({{formattedQuota}})": "Hạn mức ban đầu cấp cho người dùng mới ({{formattedQuota}})",
     "Initialization failed, please try again.": "Khởi tạo thất bại, vui lòng thử lại.",

@@ -2328,6 +2328,7 @@
     "Increased user quota by {{quota}}": "增加用户额度 {{quota}}",
     "Index": "索引",
     "Inherit default": "继承默认值",
+    "Inherit global Auto order": "继承全局 Auto 顺序",
     "Initial quota given to new users": "授予新用户的初始配额",
     "Initial quota given to new users ({{formattedQuota}})": "授予新用户的初始配额（{{formattedQuota}}）",
     "Initialization failed, please try again.": "初始化失败，请重试。",

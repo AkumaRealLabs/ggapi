@@ -2328,6 +2328,7 @@
     "Increased user quota by {{quota}}": "Increased user quota by {{quota}}",
     "Index": "Index",
     "Inherit default": "Inherit default",
+    "Inherit global Auto order": "Inherit global Auto order",
     "Initial quota given to new users": "Initial quota given to new users",
     "Initial quota given to new users ({{formattedQuota}})": "Initial quota given to new users ({{formattedQuota}})",
     "Initialization failed, please try again.": "Initialization failed, please try again.",
