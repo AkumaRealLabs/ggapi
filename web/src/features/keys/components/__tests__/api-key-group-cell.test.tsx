@@ -100,7 +100,7 @@ describe('API key group table cell', () => {
     domWindow.close()
   })
 
-  test('renders two unclipped rings and a localized Auto ratio when API data uses a nonlocalized string', async () => {
+  test('renders two unclipped Auto markers when API data uses a nonlocalized string', async () => {
     const container = document.createElement('div')
     document.body.append(container)
     const root = createRoot(container)
@@ -155,7 +155,7 @@ describe('API key group table cell', () => {
     container.remove()
   })
 
-  test('keeps static Auto frames but omits both moving layers for reduced motion', async () => {
+  test('keeps static Auto markers but omits moving layers for reduced motion', async () => {
     const container = document.createElement('div')
     document.body.append(container)
     const root = createRoot(container)
@@ -177,13 +177,19 @@ describe('API key group table cell', () => {
     container.remove()
   })
 
-  test('shows only the Auto badge when ratio data is unavailable', async () => {
+  test('keeps Auto visible and shows cross-group only when retry is enabled', async () => {
     const container = document.createElement('div')
     document.body.append(container)
     const root = createRoot(container)
 
     await act(async () =>
-      root.render(<CellHarness group='auto' shouldReduceMotion={false} />)
+      root.render(
+        <CellHarness
+          group='auto'
+          crossGroupRetry
+          shouldReduceMotion={false}
+        />
+      )
     )
 
     assert.equal(
@@ -199,7 +205,19 @@ describe('API key group table cell', () => {
       null
     )
     assert.equal(container.textContent?.includes('Auto'), true)
+    assert.equal(container.textContent?.includes('Cross-group'), true)
     assert.equal(container.textContent?.includes('Ratio'), false)
+
+    await act(async () =>
+      root.render(<CellHarness group='auto' shouldReduceMotion={false} />)
+    )
+
+    assert.equal(container.textContent?.includes('Auto'), true)
+    assert.equal(container.textContent?.includes('Cross-group'), false)
+    assert.equal(
+      container.querySelectorAll('[data-auto-group-frame]').length,
+      1
+    )
 
     await act(async () => root.unmount())
     container.remove()

@@ -99,7 +99,8 @@ func fetchCodexChannelWhamData(
 		return
 	}
 
-	client, err := service.GetHttpClientWithProxy(ch.GetSetting().Proxy)
+	channelSettings := ch.GetSetting()
+	client, err := service.GetHttpClientWithProxySettings(channelSettings.Proxy, channelSettings)
 	if err != nil {
 		common.ApiError(c, err)
 		return

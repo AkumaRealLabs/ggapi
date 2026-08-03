@@ -85,4 +85,6 @@ jobs:
         run: bun run typecheck
 
       - name: Test
-        run: bun test
+        run: |
+          bun test scripts/subscription-purchase-dialog.test.tsx
+          bun test src

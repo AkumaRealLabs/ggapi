@@ -1134,12 +1134,19 @@ func GetUserQuota(id int, fromDB bool) (quota int, err error) {
 		// Don't return error - fall through to DB
 	}
 	fromDB = true
-	err = DB.Model(&User{}).Where("id = ?", id).Select("quota").Find(&quota).Error
+	quota, err = GetUserQuotaFromDB(id)
 	if err != nil {
 		return 0, err
 	}
 
 	return quota, nil
+}
+
+// GetUserQuotaFromDB reads the durable wallet balance without refreshing Redis.
+func GetUserQuotaFromDB(id int) (int, error) {
+	var quota int
+	err := DB.Model(&User{}).Where("id = ?", id).Select("quota").Find(&quota).Error
+	return quota, err
 }
 
 func GetUserUsedQuota(id int) (quota int, err error) {
@@ -1218,9 +1225,12 @@ func GetUserSetting(id int, fromDB bool) (settingMap dto.UserSetting, err error)
 	return userBase.GetSetting(), nil
 }
 
-func IncreaseUserQuota(id int, quota int, db bool) (err error) {
+func IncreaseUserQuota(id int, quota int, _ bool) (err error) {
 	if quota < 0 {
 		return errors.New("quota 不能为负数！")
+	}
+	if err := increaseUserQuota(id, quota); err != nil {
+		return err
 	}
 	gopool.Go(func() {
 		err := cacheIncrUserQuota(id, int64(quota))
@@ -1228,11 +1238,7 @@ func IncreaseUserQuota(id int, quota int, db bool) (err error) {
 			common.SysLog("failed to increase user quota: " + err.Error())
 		}
 	})
-	if !db && common.BatchUpdateEnabled {
-		addNewRecord(BatchUpdateTypeUserQuota, id, quota)
-		return nil
-	}
-	return increaseUserQuota(id, quota)
+	return nil
 }
 
 func increaseUserQuota(id int, quota int) (err error) {
@@ -1243,9 +1249,12 @@ func increaseUserQuota(id int, quota int) (err error) {
 	return err
 }
 
-func DecreaseUserQuota(id int, quota int, db bool) (err error) {
+func DecreaseUserQuota(id int, quota int, _ bool) (err error) {
 	if quota < 0 {
 		return errors.New("quota 不能为负数！")
+	}
+	if err := decreaseUserQuota(id, quota); err != nil {
+		return err
 	}
 	gopool.Go(func() {
 		err := cacheDecrUserQuota(id, int64(quota))
@@ -1253,11 +1262,35 @@ func DecreaseUserQuota(id int, quota int, db bool) (err error) {
 			common.SysLog("failed to decrease user quota: " + err.Error())
 		}
 	})
-	if !db && common.BatchUpdateEnabled {
-		addNewRecord(BatchUpdateTypeUserQuota, id, -quota)
+	return nil
+}
+
+// DecreaseUserQuotaIfEnough atomically validates and deducts wallet quota.
+// Wallet quota always uses the shared database as its durable cross-node
+// ledger, even when non-financial counters use batch updates.
+func DecreaseUserQuotaIfEnough(id int, quota int) error {
+	if quota < 0 {
+		return errors.New("quota 不能为负数！")
+	}
+	if quota == 0 {
 		return nil
 	}
-	return decreaseUserQuota(id, quota)
+	result := DB.Model(&User{}).
+		Where("id = ? AND quota >= ?", id, quota).
+		Update("quota", gorm.Expr("quota - ?", quota))
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected != 1 {
+		return ErrInsufficientUserQuota
+	}
+
+	gopool.Go(func() {
+		if err := cacheDecrUserQuota(id, int64(quota)); err != nil {
+			common.SysLog("failed to decrease user quota: " + err.Error())
+		}
+	})
+	return nil
 }
 
 func decreaseUserQuota(id int, quota int) (err error) {

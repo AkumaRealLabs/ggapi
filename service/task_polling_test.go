@@ -23,6 +23,7 @@ import (
 type taskPollingFetchAdaptor struct {
 	mu           sync.Mutex
 	taskIDs      []string
+	settings     []dto.ChannelSettings
 	fetched      chan string
 	blockTaskID  string
 	blockStarted chan struct{}
@@ -36,7 +37,7 @@ type sunoFailurePollingAdaptor struct {
 
 func (a *sunoFailurePollingAdaptor) Init(_ *relaycommon.RelayInfo) {}
 
-func (a *sunoFailurePollingAdaptor) FetchTask(_ string, _ string, body map[string]any, _ string) (*http.Response, error) {
+func (a *sunoFailurePollingAdaptor) FetchTask(_ string, _ string, body map[string]any, _ dto.ChannelSettings) (*http.Response, error) {
 	taskIDs, _ := body["ids"].([]string)
 	items := make([]taskdto.SunoDataResponse, 0, len(taskIDs))
 	for _, taskID := range taskIDs {
@@ -71,7 +72,7 @@ func (a *sunoFailurePollingAdaptor) AdjustBillingOnComplete(_ *model.Task, _ *re
 
 func (a *taskPollingFetchAdaptor) Init(_ *relaycommon.RelayInfo) {}
 
-func (a *taskPollingFetchAdaptor) FetchTask(_ string, _ string, body map[string]any, _ string) (*http.Response, error) {
+func (a *taskPollingFetchAdaptor) FetchTask(_ string, _ string, body map[string]any, settings dto.ChannelSettings) (*http.Response, error) {
 	taskID, _ := body["task_id"].(string)
 	if taskID == a.blockTaskID && a.releaseBlock != nil {
 		a.blockOnce.Do(func() {
@@ -84,6 +85,7 @@ func (a *taskPollingFetchAdaptor) FetchTask(_ string, _ string, body map[string]
 
 	a.mu.Lock()
 	a.taskIDs = append(a.taskIDs, taskID)
+	a.settings = append(a.settings, settings)
 	a.mu.Unlock()
 	if a.fetched != nil {
 		select {
@@ -128,6 +130,12 @@ func (a *taskPollingFetchAdaptor) fetchedTaskIDs() []string {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	return append([]string(nil), a.taskIDs...)
+}
+
+func (a *taskPollingFetchAdaptor) fetchedSettings() []dto.ChannelSettings {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return append([]dto.ChannelSettings(nil), a.settings...)
 }
 
 func seedTaskPollingChannel(t *testing.T, id int, disableSleep bool) {
@@ -223,6 +231,36 @@ func TestUpdateVideoTasksCanSkipPollingSleepPerChannel(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, 2, adaptor.fetchCount())
+}
+
+func TestUpdateVideoTasksPassesChannelHTTPSettings(t *testing.T) {
+	truncate(t)
+
+	const channelID = 103
+	seedTaskPollingChannel(t, channelID, true)
+	channel, err := model.GetChannelById(channelID, true)
+	require.NoError(t, err)
+	channel.SetSetting(dto.ChannelSettings{
+		Proxy:                 "http://proxy.example:8080",
+		HTTPProtocol:          dto.HTTPProtocolAuto,
+		HTTP2ConnectionShards: 4,
+	})
+	require.NoError(t, model.DB.Model(&model.Channel{}).Where("id = ?", channelID).Update("setting", channel.Setting).Error)
+	task := seedPollingTask(t, channelID, "task_public_http_settings", "upstream_http_settings")
+
+	adaptor := &taskPollingFetchAdaptor{}
+	previousFactory := GetTaskAdaptorFunc
+	GetTaskAdaptorFunc = func(constant.TaskPlatform) TaskPollingAdaptor { return adaptor }
+	t.Cleanup(func() { GetTaskAdaptorFunc = previousFactory })
+
+	require.NoError(t, UpdateVideoTasks(context.Background(), constant.TaskPlatform("kling"), map[int][]string{
+		channelID: {task.GetUpstreamTaskID()},
+	}, map[string]*model.Task{
+		task.GetUpstreamTaskID(): task,
+	}))
+
+	require.Len(t, adaptor.fetchedSettings(), 1)
+	assert.Equal(t, channel.GetSetting(), adaptor.fetchedSettings()[0])
 }
 
 func TestUpdateVideoTasksDefaultSleepDoesNotBlockOtherChannels(t *testing.T) {
