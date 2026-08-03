@@ -6,7 +6,7 @@ import (
 
 	"github.com/QuantumNous/new-api/logger"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
-	"github.com/QuantumNous/new-api/types"
+	"github.com/QuantumNous/new-api/relaykit/types"
 	"github.com/gin-gonic/gin"
 )
 
@@ -18,7 +18,36 @@ const (
 // PreConsumeBilling 根据用户计费偏好创建 BillingSession 并执行预扣费。
 // 会话存储在 relayInfo.Billing 上，供后续 Settle / Refund 使用。
 func PreConsumeBilling(c *gin.Context, preConsumedQuota int, relayInfo *relaycommon.RelayInfo) *types.NewAPIError {
-	if relayInfo != nil && relayInfo.QuotaClamp != nil {
+	if apiErr := validatePreConsumeBilling(relayInfo, preConsumedQuota); apiErr != nil {
+		return apiErr
+	}
+	session, apiErr := NewBillingSession(c, relayInfo, preConsumedQuota)
+	if apiErr != nil {
+		return apiErr
+	}
+	relayInfo.Billing = session
+	return nil
+}
+
+// PreConsumeWalletBilling reserves a fixed-price request from the wallet even
+// when the user's general billing preference would select a subscription.
+func PreConsumeWalletBilling(c *gin.Context, preConsumedQuota int, relayInfo *relaycommon.RelayInfo) *types.NewAPIError {
+	if apiErr := validatePreConsumeBilling(relayInfo, preConsumedQuota); apiErr != nil {
+		return apiErr
+	}
+	session, apiErr := newWalletBillingSession(c, relayInfo, preConsumedQuota)
+	if apiErr != nil {
+		return apiErr
+	}
+	relayInfo.Billing = session
+	return nil
+}
+
+func validatePreConsumeBilling(relayInfo *relaycommon.RelayInfo, preConsumedQuota int) *types.NewAPIError {
+	if relayInfo == nil {
+		return types.NewError(fmt.Errorf("relayInfo is nil"), types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
+	}
+	if relayInfo.QuotaClamp != nil {
 		return types.NewErrorWithStatusCode(
 			relayInfo.QuotaClamp,
 			types.ErrorCodeModelPriceError,
@@ -34,11 +63,6 @@ func PreConsumeBilling(c *gin.Context, preConsumedQuota int, relayInfo *relaycom
 			types.ErrOptionWithSkipRetry(),
 		)
 	}
-	session, apiErr := NewBillingSession(c, relayInfo, preConsumedQuota)
-	if apiErr != nil {
-		return apiErr
-	}
-	relayInfo.Billing = session
 	return nil
 }
 

@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/dto"
+	"github.com/QuantumNous/new-api/relaykit/dto"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -25,6 +25,109 @@ func setupUserUpdateTestState(t *testing.T) {
 		common.RedisEnabled = oldRedisEnabled
 		common.BatchUpdateEnabled = oldBatchUpdateEnabled
 	})
+}
+
+func TestUserQuotaBypassesBatchLedger(t *testing.T) {
+	truncateTables(t)
+	useUserCacheMiniRedis(t)
+
+	oldBatchUpdateEnabled := common.BatchUpdateEnabled
+	common.BatchUpdateEnabled = true
+	t.Cleanup(func() {
+		common.BatchUpdateEnabled = oldBatchUpdateEnabled
+	})
+
+	user := User{
+		Id:          3001,
+		Username:    "durable-wallet-quota",
+		Password:    "password",
+		Status:      common.UserStatusEnabled,
+		Quota:       100_000,
+		AuthVersion: 1,
+	}
+	require.NoError(t, DB.Create(&user).Error)
+	require.NoError(t, populateUserCache(user))
+
+	// Wallet debits and refunds remain durable even while non-financial counters
+	// use batch updates and the short-lived user cache disappears.
+	require.NoError(t, DecreaseUserQuota(user.Id, 70_000, false))
+	require.NoError(t, invalidateUserCache(user.Id))
+	require.NoError(t, IncreaseUserQuota(user.Id, 20_000, false))
+
+	var quota int
+	require.NoError(t, DB.Model(&User{}).Where("id = ?", user.Id).Select("quota").Scan(&quota).Error)
+	assert.Equal(t, 50_000, quota)
+
+	// Running the batch flusher cannot apply wallet quota a second time.
+	batchUpdate()
+	require.NoError(t, DB.Model(&User{}).Where("id = ?", user.Id).Select("quota").Scan(&quota).Error)
+	assert.Equal(t, 50_000, quota)
+}
+
+func TestDecreaseUserQuotaIfEnoughUsesDatabaseCASWithBatchingEnabled(t *testing.T) {
+	truncateTables(t)
+	useUserCacheMiniRedis(t)
+
+	oldBatchUpdateEnabled := common.BatchUpdateEnabled
+	common.BatchUpdateEnabled = true
+	t.Cleanup(func() {
+		common.BatchUpdateEnabled = oldBatchUpdateEnabled
+	})
+
+	user := User{
+		Id:          3003,
+		Username:    "database-wallet-cas",
+		Password:    "password",
+		Status:      common.UserStatusEnabled,
+		Quota:       100_000,
+		AuthVersion: 1,
+	}
+	require.NoError(t, DB.Create(&user).Error)
+	require.NoError(t, populateUserCache(user))
+	require.NoError(t, DecreaseUserQuota(user.Id, 70_000, false))
+	require.NoError(t, invalidateUserCache(user.Id))
+
+	require.ErrorIs(t, DecreaseUserQuotaIfEnough(user.Id, 40_000), ErrInsufficientUserQuota)
+	var quota int
+	require.NoError(t, DB.Model(&User{}).Where("id = ?", user.Id).Select("quota").Scan(&quota).Error)
+	assert.Equal(t, 30_000, quota)
+}
+
+func TestDecreaseUserQuotaIfEnoughSerializesConcurrentReservations(t *testing.T) {
+	setupUserUpdateTestState(t)
+
+	user := User{
+		Id:       3004,
+		Username: "concurrent-wallet-cas",
+		Password: "password",
+		Status:   common.UserStatusEnabled,
+		Quota:    50_000,
+	}
+	require.NoError(t, DB.Create(&user).Error)
+
+	errs := make(chan error, 2)
+	go func() { errs <- DecreaseUserQuotaIfEnough(user.Id, 40_000) }()
+	go func() { errs <- DecreaseUserQuotaIfEnough(user.Id, 40_000) }()
+
+	var succeeded int
+	var insufficient int
+	for range 2 {
+		err := <-errs
+		switch {
+		case err == nil:
+			succeeded++
+		case errors.Is(err, ErrInsufficientUserQuota):
+			insufficient++
+		default:
+			require.NoError(t, err)
+		}
+	}
+	assert.Equal(t, 1, succeeded)
+	assert.Equal(t, 1, insufficient)
+
+	var quota int
+	require.NoError(t, DB.Model(&User{}).Where("id = ?", user.Id).Select("quota").Scan(&quota).Error)
+	assert.Equal(t, 10_000, quota)
 }
 
 func TestUserUpdateDoesNotOverwriteAccountingFields(t *testing.T) {

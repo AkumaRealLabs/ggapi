@@ -2328,6 +2328,7 @@
     "Increased user quota by {{quota}}": "Квота пользователя увеличена на {{quota}}",
     "Index": "Индекс",
     "Inherit default": "Использовать ставку по умолчанию",
+    "Inherit global Auto order": "Наследовать глобальный порядок Auto",
     "Initial quota given to new users": "Начальная квота, предоставляемая новым пользователям",
     "Initial quota given to new users ({{formattedQuota}})": "Начальная квота, предоставляемая новым пользователям ({{formattedQuota}})",
     "Initialization failed, please try again.": "Инициализация не удалась, попробуйте ещё раз.",
