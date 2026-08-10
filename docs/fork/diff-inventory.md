@@ -11,9 +11,9 @@
 | 字段 | 填写说明 | 当前值 |
 |------|----------|--------|
 | 清单维护人 | 负责督促更新的人 | Akuma-real |
-| 最近更新日期 | `YYYY-MM-DD` | 2026-08-02 |
-| 基准 upstream 版本 | 最近一次完整同步时的 tag 或 `VERSION` | **`v1.0.0-rc.23`**（`0ab020206`；官方前端收敛为 `web/`，本仓仅重放 GG-004/006/007 的必要功能补丁。发版 `N` 自 `.1` 起重计） |
-| 基准 upstream commit | 最近一次 `merge upstream/main` 的提交 SHA（短哈希即可） | `0ab020206` |
+| 最近更新日期 | `YYYY-MM-DD` | 2026-08-10 |
+| 基准 upstream 版本 | 最近一次完整同步时的 tag 或 `VERSION` | **`v1.0.0-rc.24`**（`5c3abffe`；已合入至 `upstream/main` 的后续提交。官方前端收敛为 `web/`，本仓仅重放 GG-004/006/007 的必要功能补丁。发版 `N` 自 `.1` 起重计） |
+| 基准 upstream commit | 最近一次 `merge upstream/main` 的提交 SHA（短哈希即可） | `9c97e78ac` |
 | 本仓版本策略 | git tag 格式（见 [SOP §5.1](./branch-and-sync-sop.md)） | **`v<上游基线>.N`**（例已发 `v1.0.0-rc.20.5`；同步后新基线发版从 **`v1.0.0-rc.22.1`** 起）；基线须为 `origin/main` 祖先；正式 tag **只钉** `origin/main` tip；**禁止**与 upstream 同名 tag；`N` 仅在「基准 upstream 版本」串变化时归 1；**默认 tag 产物 = GHCR 镜像**（非裸二进制） |
 
 同步完成后，务必更新「基准 upstream 版本 / commit」与「最近更新日期」。
