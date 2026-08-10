@@ -176,7 +176,14 @@ func inviteUser(inviterId int, reward int) error {
 		updates["aff_quota"] = gorm.Expr("aff_quota + ?", reward)
 		updates["aff_history"] = gorm.Expr("aff_history + ?", reward)
 	}
-	return DB.Model(&User{}).Where("id = ?", inviterId).Updates(updates).Error
+	result := DB.Model(&User{}).Where("id = ?", inviterId).Updates(updates)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
 }
 
 func finishAffiliateInvite(inviteeId int, inviterId int) {
