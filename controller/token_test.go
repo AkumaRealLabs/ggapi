@@ -553,6 +553,46 @@ func TestUpdateTokenMasksKeyInResponse(t *testing.T) {
 	}
 }
 
+func TestUpdateTokenStatusOnlyDoesNotRestoreStaleQuotaSnapshot(t *testing.T) {
+	db := setupTokenControllerTestDB(t)
+	require.NoError(t, db.AutoMigrate(
+		&model.User{},
+		&model.SubscriptionPlan{},
+		&model.SubscriptionOrder{},
+		&model.UserSubscription{},
+	))
+	require.NoError(t, db.Create(&model.User{Id: 1, Username: "token-owner"}).Error)
+	token := seedToken(t, db, 1, "status-only-token", "stat1234only5678")
+	require.NoError(t, db.Model(token).Updates(map[string]interface{}{
+		"remain_quota": 90,
+		"used_quota":   10,
+	}).Error)
+
+	body := map[string]any{
+		"id":           token.Id,
+		"status":       common.TokenStatusDisabled,
+		"remain_quota": 100,
+		"used_quota":   0,
+	}
+	ctx, recorder := newAuthenticatedContext(t, http.MethodPut, "/api/token/?status_only=true", body, 1)
+	ctx.Request.URL.RawQuery = "status_only=true"
+	UpdateToken(ctx)
+
+	response := decodeAPIResponse(t, recorder)
+	if !response.Success {
+		t.Fatalf("expected success response, got message: %s", response.Message)
+	}
+
+	var stored model.Token
+	require.NoError(t, db.First(&stored, token.Id).Error)
+	if stored.Status != common.TokenStatusDisabled {
+		t.Fatalf("expected disabled status, got %d", stored.Status)
+	}
+	if stored.RemainQuota != 90 || stored.UsedQuota != 10 {
+		t.Fatalf("status-only update restored stale quota: remain=%d used=%d", stored.RemainQuota, stored.UsedQuota)
+	}
+}
+
 func TestGetTokenKeyRequiresOwnershipAndReturnsFullKey(t *testing.T) {
 	db := setupTokenControllerTestDB(t)
 	token := seedToken(t, db, 1, "owned-token", "owner1234token5678")

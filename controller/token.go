@@ -279,7 +279,7 @@ func AddToken(c *gin.Context) {
 			common.ApiErrorI18n(c, i18n.MsgTokenQuotaNegative)
 			return
 		}
-		maxQuotaValue := int((1000000000 * common.QuotaPerUnit))
+		maxQuotaValue := common.QuotaFromFloat(1000000000 * common.QuotaPerUnit)
 		if token.RemainQuota > maxQuotaValue {
 			common.ApiErrorI18n(c, i18n.MsgTokenQuotaExceedMax, map[string]any{"Max": maxQuotaValue})
 			return
@@ -374,7 +374,7 @@ func UpdateToken(c *gin.Context) {
 			common.ApiErrorI18n(c, i18n.MsgTokenQuotaNegative)
 			return
 		}
-		maxQuotaValue := int((1000000000 * common.QuotaPerUnit))
+		maxQuotaValue := common.QuotaFromFloat(1000000000 * common.QuotaPerUnit)
 		if token.RemainQuota > maxQuotaValue {
 			common.ApiErrorI18n(c, i18n.MsgTokenQuotaExceedMax, map[string]any{"Max": maxQuotaValue})
 			return
@@ -397,6 +397,7 @@ func UpdateToken(c *gin.Context) {
 	}
 	if statusOnly != "" {
 		cleanToken.Status = token.Status
+		err = cleanToken.UpdateStatusWithMembershipGuard()
 	} else {
 		// If you add more fields, please also update token.Update()
 		cleanToken.Name = token.Name
@@ -416,8 +417,8 @@ func UpdateToken(c *gin.Context) {
 				return
 			}
 		}
+		err = cleanToken.UpdateWithMembershipGuard()
 	}
-	err = cleanToken.UpdateWithMembershipGuard()
 	if err != nil {
 		common.ApiError(c, err)
 		return

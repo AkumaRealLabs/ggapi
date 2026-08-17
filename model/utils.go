@@ -12,8 +12,7 @@ import (
 )
 
 const (
-	BatchUpdateTypeTokenQuota = iota
-	BatchUpdateTypeUsedQuota
+	BatchUpdateTypeUsedQuota = iota
 	BatchUpdateTypeChannelUsedQuota
 	BatchUpdateTypeRequestCount
 	BatchUpdateTypeCount // if you add a new type, you need to add a new map and a new lock
@@ -80,11 +79,6 @@ func batchUpdate() {
 		}
 		for key, value := range store {
 			switch i {
-			case BatchUpdateTypeTokenQuota:
-				err := increaseTokenQuota(key, value)
-				if err != nil {
-					common.SysLog("failed to batch update token quota: " + err.Error())
-				}
 			case BatchUpdateTypeChannelUsedQuota:
 				updateChannelUsedQuota(key, value)
 			}

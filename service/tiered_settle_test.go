@@ -338,6 +338,10 @@ func (s *recordingBillingSettler) Reserve(targetQuota int) error {
 	return nil
 }
 
+func (s *recordingBillingSettler) ReserveAdditional(quota int) error {
+	return s.Reserve(s.preConsumedQuota + quota)
+}
+
 func TestPrepareTieredBillingForSelectedGroupUpdatesReservation(t *testing.T) {
 	const expr = `tier("base", p)`
 	billing := &recordingBillingSettler{preConsumedQuota: 50_000}

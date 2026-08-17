@@ -254,8 +254,12 @@ func TestRechargeCreatesOneAffiliateCommission(t *testing.T) {
 		Status:          common.TopUpStatusPending,
 	}).Error)
 
-	require.NoError(t, RechargeEpay("affiliate-topup", "wechat", "127.0.0.1"))
-	require.NoError(t, RechargeEpay("affiliate-topup", "wechat", "127.0.0.1"))
+	alreadyDone, err := RechargeEpay("affiliate-topup", "wechat", "127.0.0.1")
+	require.NoError(t, err)
+	assert.False(t, alreadyDone)
+	alreadyDone, err = RechargeEpay("affiliate-topup", "wechat", "127.0.0.1")
+	require.NoError(t, err)
+	assert.True(t, alreadyDone, "duplicate callback must be reported as idempotent")
 
 	var inviter User
 	var invitee User
@@ -318,7 +322,8 @@ func TestConcurrentTopUpCompletionCreatesOneAffiliateCommission(t *testing.T) {
 		waitGroup.Add(1)
 		go func() {
 			defer waitGroup.Done()
-			errors <- RechargeEpay("concurrent-topup", "alipay", "127.0.0.1")
+			_, err := RechargeEpay("concurrent-topup", "alipay", "127.0.0.1")
+			errors <- err
 		}()
 	}
 	waitGroup.Wait()
@@ -351,7 +356,10 @@ func TestAllTopUpCompletionPathsCreateCommission(t *testing.T) {
 			provider: PaymentProviderEpay,
 			amount:   10,
 			money:    10,
-			complete: func(tradeNo string) error { return RechargeEpay(tradeNo, "alipay", "127.0.0.1") },
+			complete: func(tradeNo string) error {
+				_, err := RechargeEpay(tradeNo, "alipay", "127.0.0.1")
+				return err
+			},
 		},
 		{
 			name:     "stripe",
@@ -432,7 +440,8 @@ func TestCustomZeroCommissionRateDisablesCommission(t *testing.T) {
 		Status:          common.TopUpStatusPending,
 	}).Error)
 
-	require.NoError(t, RechargeEpay("zero-rate-topup", "alipay", "127.0.0.1"))
+	_, err := RechargeEpay("zero-rate-topup", "alipay", "127.0.0.1")
+	require.NoError(t, err)
 	var count int64
 	require.NoError(t, DB.Model(&AffiliateCommission{}).Count(&count).Error)
 	assert.Zero(t, count)
@@ -458,7 +467,8 @@ func TestCustomCommissionRateOverridesAndCanInheritDefault(t *testing.T) {
 		if tradeNo == "default-rate-topup" {
 			require.NoError(t, SetAffiliateUserConfig(1, "rate125", nil, 0))
 		}
-		require.NoError(t, RechargeEpay(tradeNo, "alipay", "127.0.0.1"))
+		_, err := RechargeEpay(tradeNo, "alipay", "127.0.0.1")
+		require.NoError(t, err)
 	}
 
 	var commissions []AffiliateCommission
@@ -507,7 +517,8 @@ func TestCommissionSkipsUnavailableInviterAndUnconfirmedCompliance(t *testing.T)
 				Status:          common.TopUpStatusPending,
 			}).Error)
 
-			require.NoError(t, RechargeEpay("skip-"+testCase.name, "alipay", "127.0.0.1"))
+			_, err := RechargeEpay("skip-"+testCase.name, "alipay", "127.0.0.1")
+			require.NoError(t, err)
 			var count int64
 			require.NoError(t, DB.Model(&AffiliateCommission{}).Count(&count).Error)
 			assert.Zero(t, count)
@@ -580,7 +591,8 @@ func TestCommissionFailureRollsBackTopUpAndUserQuota(t *testing.T) {
 		CommissionQuota: 500,
 	}).Error)
 
-	require.Error(t, RechargeEpay(topUp.TradeNo, "alipay", "127.0.0.1"))
+	_, err := RechargeEpay(topUp.TradeNo, "alipay", "127.0.0.1")
+	require.Error(t, err)
 	var gotTopUp TopUp
 	var invitee User
 	require.NoError(t, DB.First(&gotTopUp, topUp.Id).Error)
@@ -607,7 +619,8 @@ func TestCommissionUsesOrderTimeInviterSnapshot(t *testing.T) {
 
 	// Rebind after order creation must not reroute this pending order.
 	require.NoError(t, SetAffiliateUserConfig(2, "invitee", nil, 3))
-	require.NoError(t, RechargeEpay("snapshot-topup", "alipay", "127.0.0.1"))
+	_, err := RechargeEpay("snapshot-topup", "alipay", "127.0.0.1")
+	require.NoError(t, err)
 
 	var commissions []AffiliateCommission
 	require.NoError(t, DB.Find(&commissions).Error)
@@ -640,7 +653,8 @@ func TestCommissionOverflowDoesNotBlockTopUp(t *testing.T) {
 		Status:          common.TopUpStatusPending,
 	}).Error)
 
-	require.NoError(t, RechargeEpay("overflow-topup", "alipay", "127.0.0.1"))
+	_, err := RechargeEpay("overflow-topup", "alipay", "127.0.0.1")
+	require.NoError(t, err)
 	var invitee, inviter User
 	var count int64
 	require.NoError(t, DB.First(&invitee, 2).Error)

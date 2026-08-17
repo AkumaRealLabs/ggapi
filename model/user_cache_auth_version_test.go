@@ -86,6 +86,32 @@ func TestPendingUserAuthFenceRejectsStaleCacheWrite(t *testing.T) {
 	assert.False(t, server.Exists(getUserCacheKey(userID)))
 }
 
+func TestQuotaFenceRejectsStaleCacheAndFallsBackToDatabase(t *testing.T) {
+	truncateTables(t)
+	useUserCacheMiniRedis(t)
+
+	user := User{
+		Username:    "quota-fence-fallback",
+		Password:    "password",
+		Role:        common.RoleCommonUser,
+		Status:      common.UserStatusEnabled,
+		Group:       "default",
+		AuthVersion: 1,
+		Quota:       50,
+	}
+	require.NoError(t, DB.Create(&user).Error)
+	stale := user
+	stale.Quota = 100
+	require.NoError(t, populateUserCache(stale))
+	require.NoError(t, common.RDB.Set(t.Context(), getUserQuotaCacheFenceKey(user.Id), 1, time.Minute).Err())
+
+	_, err := cacheGetUserBase(user.Id)
+	assert.ErrorIs(t, err, ErrUserQuotaCachePending)
+	quota, err := GetUserQuota(user.Id, false)
+	require.NoError(t, err)
+	assert.Equal(t, 50, quota)
+}
+
 func TestUserAuthFieldUpdateRejectsVersionMismatch(t *testing.T) {
 	useUserCacheMiniRedis(t)
 	const userID = 4202
