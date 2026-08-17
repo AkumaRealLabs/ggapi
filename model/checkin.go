@@ -113,10 +113,9 @@ func userCheckinWithTransaction(checkin *Checkin, userId int, quotaAwarded int) 
 		return nil, err
 	}
 
-	// 事务成功后，异步更新缓存
-	go func() {
-		_ = cacheIncrUserQuota(userId, int64(quotaAwarded))
-	}()
+	if err := invalidateUserQuotaCacheForMutation(userId); err != nil {
+		common.SysLog("failed to invalidate user quota cache after check-in: " + err.Error())
+	}
 
 	return checkin, nil
 }

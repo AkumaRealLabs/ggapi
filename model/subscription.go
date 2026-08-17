@@ -991,6 +991,8 @@ func CompleteSubscriptionOrder(tradeNo string, providerPayload string, expectedP
 		}
 		// The user has already paid, so fulfillment intentionally does not rerun
 		// checkout-only active membership, pending order, or token-group guards.
+		// MaxPurchasePerUser 竞态由 CreateUserSubscriptionFromPlanTx 内的
+		// plan 行锁串行化；不采用上游的用户行预锁以保持全仓 plan → user 锁序。
 		sub, err := CreateUserSubscriptionFromPlanTx(tx, order.UserId, &plan, "order")
 		if err != nil {
 			return err
@@ -1236,8 +1238,8 @@ func PurchaseSubscriptionWithBalance(userId int, planId int) (string, error) {
 	}
 
 	if chargedQuota > 0 {
-		if err := cacheDecrUserQuota(userId, int64(chargedQuota)); err != nil {
-			common.SysLog("failed to decrease user quota cache after subscription balance purchase: " + err.Error())
+		if err := invalidateUserQuotaCacheForMutation(userId); err != nil {
+			common.SysLog("failed to invalidate user quota cache after subscription balance purchase: " + err.Error())
 		}
 	}
 	if upgradeGroup != "" {

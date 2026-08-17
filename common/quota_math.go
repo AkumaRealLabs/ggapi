@@ -148,6 +148,12 @@ func QuotaFromDecimalChecked(d decimal.Decimal) (int, *QuotaClamp) {
 	return saturateQuota(f, "QuotaFromDecimal")
 }
 
+// QuotaFromDecimalStrict converts an in-range decimal quota and rejects a
+// value that would otherwise be saturated at the database's int32 boundary.
+func QuotaFromDecimalStrict(d decimal.Decimal) (int, error) {
+	return strictQuota(QuotaFromDecimalChecked(d))
+}
+
 // QuotaFromMoney converts a non-negative payment amount to internal quota
 // using the current QuotaPerUnit setting. Conversion truncates toward zero
 // (decimal.IntPart) to match historical top-up settlement semantics.

@@ -200,10 +200,8 @@ func completeTopUp(tradeNo string, options topUpCompletionOptions) (*TopUp, int,
 	if err != nil {
 		return nil, 0, false, err
 	}
-	if !alreadyCompleted && quotaToAdd > 0 {
-		if err := cacheIncrUserQuota(completed.UserId, int64(quotaToAdd)); err != nil {
-			common.SysLog("failed to refresh user quota cache after topup: " + err.Error())
-		}
+	if !alreadyCompleted {
+		syncCreditUserQuotaCache(completed.UserId, quotaToAdd, completed.PaymentProvider+" topup")
 	}
 	return &completed, quotaToAdd, alreadyCompleted, nil
 }
@@ -464,11 +462,24 @@ func RechargeWaffoPancake(tradeNo string) error {
 	return nil
 }
 
-func RechargeEpay(tradeNo string, actualPaymentMethod string, callerIp string) error {
-	return finishTopUp(tradeNo, topUpCompletionOptions{
+// RechargeEpay 原子完成易支付订单：订单行锁、状态校验、成功更新、用户额度增加
+// 与返佣结算在同一个事务内完成，因此同一订单的并发/重复回调（包括多实例部署下）
+// 最多充值一次。alreadyDone=true 表示订单此前已完成，本次为幂等重复回调。
+// 进程内的 LockOrder 只是优化，正确性由本函数的数据库行锁保证。
+func RechargeEpay(tradeNo string, actualPaymentMethod string, callerIp string) (alreadyDone bool, err error) {
+	topUp, quotaToAdd, alreadyDone, err := completeTopUp(tradeNo, topUpCompletionOptions{
 		ExpectedPaymentProvider: PaymentProviderEpay,
 		ActualPaymentMethod:     actualPaymentMethod,
-	}, func(topUp *TopUp, quotaToAdd int) {
-		RecordTopupLog(topUp.UserId, fmt.Sprintf("使用在线充值成功，充值金额: %v，支付金额：%f", logger.LogQuota(quotaToAdd), topUp.Money), callerIp, topUp.PaymentMethod, PaymentProviderEpay)
 	})
+	if err != nil {
+		if !errors.Is(err, ErrTopUpNotFound) && !errors.Is(err, ErrPaymentMethodMismatch) && !errors.Is(err, ErrTopUpStatusInvalid) {
+			common.SysError("epay topup failed: " + err.Error())
+		}
+		return false, err
+	}
+	if alreadyDone {
+		return true, nil
+	}
+	RecordTopupLog(topUp.UserId, fmt.Sprintf("使用在线充值成功，充值金额: %v，支付金额：%f", logger.LogQuota(quotaToAdd), topUp.Money), callerIp, topUp.PaymentMethod, PaymentProviderEpay)
+	return false, nil
 }

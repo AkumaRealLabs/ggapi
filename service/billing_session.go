@@ -146,22 +146,37 @@ func (s *BillingSession) needsRefundLocked() bool {
 
 // GetPreConsumedQuota 返回实际预扣的额度。
 func (s *BillingSession) GetPreConsumedQuota() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	return s.preConsumedQuota
 }
 
 func (s *BillingSession) Reserve(targetQuota int) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	return s.reserveToTargetLocked(targetQuota)
+}
 
+func (s *BillingSession) ReserveAdditional(quota int) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if quota <= 0 {
+		return nil
+	}
+	return s.reserveDeltaLocked(quota)
+}
+
+func (s *BillingSession) reserveToTargetLocked(targetQuota int) error {
 	if s.settled || s.refunded || targetQuota <= s.preConsumedQuota {
 		return nil
 	}
+	return s.reserveDeltaLocked(targetQuota - s.preConsumedQuota)
+}
 
-	delta := targetQuota - s.preConsumedQuota
-	if delta <= 0 {
+func (s *BillingSession) reserveDeltaLocked(delta int) error {
+	if s.settled || s.refunded || delta <= 0 {
 		return nil
 	}
-
 	if err := s.reserveFunding(delta); err != nil {
 		return err
 	}
@@ -218,6 +233,16 @@ func (s *BillingSession) preConsume(c *gin.Context, quota int) *types.NewAPIErro
 			)
 		}
 		// TODO: model 层应定义哨兵错误（如 ErrNoActiveSubscription），用 errors.Is 替代字符串匹配
+		if errors.Is(err, ErrInsufficientWalletQuota) {
+			userQuota, quotaErr := model.GetUserQuota(s.relayInfo.UserId, false)
+			if quotaErr != nil {
+				userQuota = 0
+			}
+			return types.NewErrorWithStatusCode(
+				fmt.Errorf("用户额度不足, 剩余额度: %s", logger.FormatQuota(userQuota)),
+				types.ErrorCodeInsufficientUserQuota, http.StatusForbidden,
+				types.ErrOptionWithSkipRetry(), types.ErrOptionWithNoRecordErrorLog())
+		}
 		errMsg := err.Error()
 		if strings.Contains(errMsg, "no active subscription") || strings.Contains(errMsg, "subscription quota insufficient") {
 			return types.NewErrorWithStatusCode(fmt.Errorf("订阅额度不足或未配置订阅: %s", errMsg), types.ErrorCodeInsufficientUserQuota, http.StatusForbidden, types.ErrOptionWithSkipRetry(), types.ErrOptionWithNoRecordErrorLog())

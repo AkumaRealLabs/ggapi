@@ -21,6 +21,8 @@ import (
 
 var ErrUserAuthCachePending = errors.New("user authentication state update is pending")
 
+var ErrUserQuotaCachePending = errors.New("user quota update is pending")
+
 var ErrUserAuthVersionConflict = errors.New("user authentication version update conflicted")
 
 func getUserAuthFenceKey(userId int) string {
@@ -66,6 +68,9 @@ local current = tonumber(redis.call('HGET', KEYS[1], 'AuthVersion') or '0')
 if pending > incoming or committed > incoming or current > incoming then
   return 0
 end
+if ARGV[10] == '1' and (redis.call('EXISTS', KEYS[4]) == 1 or redis.call('EXISTS', KEYS[5]) == 1) then
+  return 2
+end
 if committed < incoming then
   redis.call('SET', KEYS[3], ARGV[1])
 end
@@ -85,7 +90,7 @@ end
 redis.call('EXPIRE', KEYS[1], ARGV[12])
 return 1`
 	result, err := common.RDB.Eval(context.Background(), script,
-		[]string{getUserCacheKey(user.Id), getUserAuthFenceKey(user.Id), getUserAuthVersionKey(user.Id)},
+		[]string{getUserCacheKey(user.Id), getUserAuthFenceKey(user.Id), getUserAuthVersionKey(user.Id), getUserQuotaCacheFenceKey(user.Id), getUserQuotaCacheDirtyKey(user.Id)},
 		user.AuthVersion, user.Id, user.Group, user.Email, user.Status, user.Role,
 		user.Username, user.Setting, user.CacheSchema, includeQuotaArg, user.Quota, ttl,
 	).Int()
@@ -94,6 +99,9 @@ return 1`
 	}
 	if result == 0 {
 		return ErrUserAuthCachePending
+	}
+	if result == 2 {
+		return ErrUserQuotaCachePending
 	}
 	return nil
 }
