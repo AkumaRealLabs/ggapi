@@ -138,6 +138,7 @@ func RelayMidjourneyNotify(c *gin.Context) *dto.MidjourneyResponse {
 			Result:      "",
 		}
 	}
+	preStatus := midjourneyTask.Status
 	midjourneyTask.Progress = midjRequest.Progress
 	midjourneyTask.PromptEn = midjRequest.PromptEn
 	midjourneyTask.State = midjRequest.State
@@ -150,7 +151,7 @@ func RelayMidjourneyNotify(c *gin.Context) *dto.MidjourneyResponse {
 	midjourneyTask.VideoUrls = string(videoUrlsStr)
 	midjourneyTask.Status = midjRequest.Status
 	midjourneyTask.FailReason = midjRequest.FailReason
-	err = midjourneyTask.Update()
+	_, err = midjourneyTask.UpdateWithStatus(preStatus)
 	if err != nil {
 		return &dto.MidjourneyResponse{
 			Code:        4,
@@ -240,7 +241,9 @@ func RelaySwapFace(c *gin.Context, info *relaycommon.RelayInfo) *dto.MidjourneyR
 		quotaReserved = true
 		defer func() {
 			if quotaReserved && info.Billing != nil {
-				info.Billing.Refund(c)
+				if refundErr := info.Billing.Refund(c); refundErr != nil {
+					logger.LogError(c, "refund Midjourney pre-consumed quota: "+refundErr.Error())
+				}
 			}
 		}()
 	}
@@ -253,10 +256,6 @@ func RelaySwapFace(c *gin.Context, info *relaycommon.RelayInfo) *dto.MidjourneyR
 	}
 	midjResponse := &mjResp.Response
 	chargeable := mjResp.StatusCode == http.StatusOK && midjResponse.Code == 1
-	taskQuota := 0
-	if chargeable {
-		taskQuota = priceData.Quota
-	}
 	midjourneyTask := &model.Midjourney{
 		UserId:      info.UserId,
 		Code:        midjResponse.Code,
@@ -274,38 +273,52 @@ func RelaySwapFace(c *gin.Context, info *relaycommon.RelayInfo) *dto.MidjourneyR
 		Progress:    "0%",
 		FailReason:  "",
 		ChannelId:   c.GetInt("channel_id"),
-		Quota:       taskQuota,
+	}
+	billingPrepared, billingErr := service.PrepareMidjourneyTaskBilling(
+		info,
+		midjourneyTask,
+		priceData.Quota,
+		chargeable,
+	)
+	if billingErr != nil {
+		return service.MidjourneyErrorWrapper(constant.MjRequestError, "prepare_billing_failed")
+	}
+	if billingPrepared && quotaReserved && !info.IsPlayground {
+		midjourneyTask.TokenId = info.TokenId
 	}
 	err = midjourneyTask.Insert()
 	if err != nil {
 		return service.MidjourneyErrorWrapper(constant.MjRequestError, "insert_midjourney_task_failed")
 	}
-	if chargeable && quotaReserved {
+	if billingPrepared && quotaReserved {
 		if err := service.SettleBilling(c, info, priceData.Quota); err != nil {
 			midjourneyTask.Quota = 0
-			if updateErr := midjourneyTask.Update(); updateErr != nil {
+			midjourneyTask.TokenId = 0
+			midjourneyTask.BillingChannelId = 0
+			if updateErr := midjourneyTask.UpdateBillingState(); updateErr != nil {
 				common.SysLog("error clearing unsettled Midjourney task quota: " + updateErr.Error())
 			}
 			return service.MidjourneyErrorWrapper(constant.MjRequestError, "settle_billing_failed")
 		}
 		quotaReserved = false
 	}
-	if chargeable {
+	if billingPrepared {
+		billingChannelId := midjourneyTask.GetBillingChannelId()
 		tokenName := c.GetString("token_name")
 		logContent := fmt.Sprintf("模型固定价格 %.2f，分组倍率 %.2f，操作 %s", priceData.ModelPrice, priceData.GroupRatioInfo.GroupRatio, constant.MjActionSwapFace)
 		other := service.GenerateMjOtherInfo(info, priceData)
 		model.RecordConsumeLog(c, info.UserId, model.RecordConsumeLogParams{
-			ChannelId: info.ChannelId,
+			ChannelId: billingChannelId,
 			ModelName: modelName,
 			TokenName: tokenName,
-			Quota:     priceData.Quota,
+			Quota:     midjourneyTask.Quota,
 			Content:   logContent,
-			TokenId:   info.TokenId,
+			TokenId:   midjourneyTask.TokenId,
 			Group:     info.UsingGroup,
 			Other:     other,
 		})
-		model.UpdateUserUsedQuotaAndRequestCount(info.UserId, priceData.Quota)
-		model.UpdateChannelUsedQuota(info.ChannelId, priceData.Quota)
+		model.UpdateUserUsedQuotaAndRequestCount(info.UserId, midjourneyTask.Quota)
+		model.UpdateChannelUsedQuota(billingChannelId, midjourneyTask.Quota)
 	}
 	c.Writer.WriteHeader(mjResp.StatusCode)
 	respBody, err := json.Marshal(midjResponse)
@@ -556,7 +569,9 @@ func RelayMidjourneySubmit(c *gin.Context, relayInfo *relaycommon.RelayInfo) *dt
 		quotaReserved = true
 		defer func() {
 			if quotaReserved && relayInfo.Billing != nil {
-				relayInfo.Billing.Refund(c)
+				if refundErr := relayInfo.Billing.Refund(c); refundErr != nil {
+					logger.LogError(c, "refund Midjourney pre-consumed quota: "+refundErr.Error())
+				}
 			}
 		}()
 	}
@@ -591,7 +606,6 @@ func RelayMidjourneySubmit(c *gin.Context, relayInfo *relaycommon.RelayInfo) *dt
 		Progress:    "0%",
 		FailReason:  "",
 		ChannelId:   c.GetInt("channel_id"),
-		Quota:       0,
 	}
 	if midjResponse.Code == 3 {
 		//无实例账号自动禁用渠道（No available account instance）
@@ -637,8 +651,17 @@ func RelayMidjourneySubmit(c *gin.Context, relayInfo *relaycommon.RelayInfo) *dt
 		midjourneyTask.Status = "SUCCESS"
 	}
 	chargeable := consumeQuota && midjResponseWithStatus.StatusCode == http.StatusOK
-	if chargeable {
-		midjourneyTask.Quota = priceData.Quota
+	billingPrepared, billingErr := service.PrepareMidjourneyTaskBilling(
+		relayInfo,
+		midjourneyTask,
+		priceData.Quota,
+		chargeable,
+	)
+	if billingErr != nil {
+		return service.MidjourneyErrorWrapper(constant.MjRequestError, "prepare_billing_failed")
+	}
+	if billingPrepared && quotaReserved && !relayInfo.IsPlayground {
+		midjourneyTask.TokenId = relayInfo.TokenId
 	}
 	err = midjourneyTask.Insert()
 	if err != nil {
@@ -647,32 +670,35 @@ func RelayMidjourneySubmit(c *gin.Context, relayInfo *relaycommon.RelayInfo) *dt
 			Description: "insert_midjourney_task_failed",
 		}
 	}
-	if chargeable && quotaReserved {
+	if billingPrepared && quotaReserved {
 		if err := service.SettleBilling(c, relayInfo, priceData.Quota); err != nil {
 			midjourneyTask.Quota = 0
-			if updateErr := midjourneyTask.Update(); updateErr != nil {
+			midjourneyTask.TokenId = 0
+			midjourneyTask.BillingChannelId = 0
+			if updateErr := midjourneyTask.UpdateBillingState(); updateErr != nil {
 				common.SysLog("error clearing unsettled Midjourney task quota: " + updateErr.Error())
 			}
 			return service.MidjourneyErrorWrapper(constant.MjRequestError, "settle_billing_failed")
 		}
 		quotaReserved = false
 	}
-	if chargeable {
+	if billingPrepared {
+		billingChannelId := midjourneyTask.GetBillingChannelId()
 		tokenName := c.GetString("token_name")
 		logContent := fmt.Sprintf("模型固定价格 %.2f，分组倍率 %.2f，操作 %s，ID %s", priceData.ModelPrice, priceData.GroupRatioInfo.GroupRatio, midjRequest.Action, midjResponse.Result)
 		other := service.GenerateMjOtherInfo(relayInfo, priceData)
 		model.RecordConsumeLog(c, relayInfo.UserId, model.RecordConsumeLogParams{
-			ChannelId: relayInfo.ChannelId,
+			ChannelId: billingChannelId,
 			ModelName: modelName,
 			TokenName: tokenName,
-			Quota:     priceData.Quota,
+			Quota:     midjourneyTask.Quota,
 			Content:   logContent,
-			TokenId:   relayInfo.TokenId,
+			TokenId:   midjourneyTask.TokenId,
 			Group:     relayInfo.UsingGroup,
 			Other:     other,
 		})
-		model.UpdateUserUsedQuotaAndRequestCount(relayInfo.UserId, priceData.Quota)
-		model.UpdateChannelUsedQuota(relayInfo.ChannelId, priceData.Quota)
+		model.UpdateUserUsedQuotaAndRequestCount(relayInfo.UserId, midjourneyTask.Quota)
+		model.UpdateChannelUsedQuota(billingChannelId, midjourneyTask.Quota)
 	}
 
 	if midjResponse.Code == 22 { //22-排队中，说明任务已存在

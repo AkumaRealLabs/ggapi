@@ -175,7 +175,14 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 		if newAPIError != nil {
 			newAPIError = service.NormalizeViolationFeeError(newAPIError)
 			if relayInfo.Billing != nil {
-				relayInfo.Billing.Refund(c)
+				if refundErr := relayInfo.Billing.Refund(c); refundErr != nil {
+					newAPIError = types.NewErrorWithStatusCode(
+						errors.Join(newAPIError, fmt.Errorf("refund pre-consumed quota: %w", refundErr)),
+						types.ErrorCodeUpdateDataError,
+						http.StatusInternalServerError,
+						types.ErrOptionWithSkipRetry(),
+					)
+				}
 			}
 			service.ChargeViolationFeeIfNeeded(c, relayInfo, newAPIError)
 		}
@@ -509,7 +516,9 @@ func RelayTask(c *gin.Context) {
 	var taskErr *taskdto.TaskError
 	defer func() {
 		if taskErr != nil && relayInfo.Billing != nil {
-			relayInfo.Billing.Refund(c)
+			if refundErr := relayInfo.Billing.Refund(c); refundErr != nil {
+				logger.LogError(c, "refund task pre-consumed quota: "+refundErr.Error())
+			}
 		}
 	}()
 

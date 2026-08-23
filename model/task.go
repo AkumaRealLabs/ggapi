@@ -10,6 +10,7 @@ import (
 	"github.com/QuantumNous/new-api/constant"
 	commonRelay "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relaykit/dto"
+	"gorm.io/gorm"
 )
 
 type TaskStatus string
@@ -311,24 +312,26 @@ func GetTimedOutUnfinishedTasks(cutoffUnix int64, limit int) []*Task {
 func GetAllUnFinishSyncTasks(limit int) []*Task {
 	var tasks []*Task
 	var err error
-	// get all tasks progress is not 100%
-	err = DB.Where("progress != ?", "100%").Where("status != ?", TaskStatusFailure).Where("status != ?", TaskStatusSuccess).Limit(limit).Order("id").Find(&tasks).Error
+	err = DB.Where(
+		"(progress != ? AND status NOT IN ?) OR (status = ? AND quota != 0 AND submit_time >= ?)",
+		"100%", []string{TaskStatusFailure, TaskStatusSuccess}, TaskStatusFailure, TaskRefundLegacyCutoff,
+	).Limit(limit).Order("id").Find(&tasks).Error
 	if err != nil {
 		return nil
 	}
 	return tasks
 }
 
-// HasUnfinishedSyncTasks reports whether at least one async (Suno/video) task is
-// still in progress. It is a cheap existence check (LIMIT 1) used to decide
-// whether the async_task_poll system task needs to run; when no task is pending
-// the scheduler skips creating a row entirely.
+// HasUnfinishedSyncTasks reports whether an async task still needs polling or
+// has a pending failed-task refund. It is a cheap existence check (LIMIT 1)
+// used to decide whether the async_task_poll system task needs to run.
 func HasUnfinishedSyncTasks() bool {
 	var id int64
 	err := DB.Model(&Task{}).
-		Where("progress != ?", "100%").
-		Where("status != ?", TaskStatusFailure).
-		Where("status != ?", TaskStatusSuccess).
+		Where(
+			"(progress != ? AND status NOT IN ?) OR (status = ? AND quota != 0 AND submit_time >= ?)",
+			"100%", []string{TaskStatusFailure, TaskStatusSuccess}, TaskStatusFailure, TaskRefundLegacyCutoff,
+		).
 		Limit(1).
 		Pluck("id", &id).Error
 	return err == nil && id != 0
@@ -409,6 +412,83 @@ func (Task *Task) Update() error {
 
 func (t *Task) UpdateQuota() error {
 	return DB.Model(t).Update("quota", t.Quota).Error
+}
+
+type TaskRefund struct {
+	Quota   int
+	TokenId int
+}
+
+// RefundBilling atomically restores all accounting recorded by a failed task.
+func (t *Task) RefundBilling() (*TaskRefund, error) {
+	var refund *TaskRefund
+	var tokenKey string
+	var tokenActive bool
+	err := DB.Transaction(func(tx *gorm.DB) error {
+		var current Task
+		if err := lockForUpdate(tx).First(&current, t.ID).Error; err != nil {
+			return err
+		}
+		if current.Status != TaskStatusFailure || current.Quota == 0 {
+			return nil
+		}
+
+		quota := current.Quota
+		if current.PrivateData.BillingSource == "subscription" && current.PrivateData.SubscriptionId > 0 {
+			if err := postConsumeUserSubscriptionDeltaWithDB(tx, current.PrivateData.SubscriptionId, -int64(quota)); err != nil {
+				return err
+			}
+		} else if err := increaseUserQuotaWithDB(tx, current.UserId, quota); err != nil {
+			return err
+		}
+
+		if current.PrivateData.TokenId > 0 {
+			var token Token
+			tokenTx := tx.Unscoped()
+			if err := lockForUpdate(tokenTx).First(&token, current.PrivateData.TokenId).Error; err != nil {
+				return err
+			}
+			if err := increaseTokenQuotaWithDB(tokenTx, token.Id, quota); err != nil {
+				return err
+			}
+			tokenKey = token.Key
+			tokenActive = !token.DeletedAt.Valid
+		}
+
+		if err := tx.Model(&User{}).Where("id = ?", current.UserId).
+			Update("used_quota", gorm.Expr("used_quota - ?", quota)).Error; err != nil {
+			return err
+		}
+		if current.ChannelId > 0 {
+			if err := tx.Model(&Channel{}).Where("id = ?", current.ChannelId).
+				Update("used_quota", gorm.Expr("used_quota - ?", quota)).Error; err != nil {
+				return err
+			}
+		}
+		if err := tx.Model(&Task{}).Where("id = ?", current.ID).Update("quota", 0).Error; err != nil {
+			return err
+		}
+
+		refund = &TaskRefund{Quota: quota, TokenId: current.PrivateData.TokenId}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	t.Quota = 0
+	if refund == nil {
+		return nil, nil
+	}
+	if err := invalidateUserQuotaCacheForMutation(t.UserId); err != nil {
+		common.SysLog("failed to invalidate user quota cache after task refund: " + err.Error())
+	}
+	if tokenActive {
+		if err := invalidateTokenCacheForMutation(tokenKey); err != nil {
+			common.SysLog("failed to invalidate token cache after task refund: " + err.Error())
+		}
+	}
+	return refund, nil
 }
 
 // UpdateWithStatus performs a conditional UPDATE guarded by fromStatus (CAS).

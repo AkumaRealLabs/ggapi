@@ -13,6 +13,77 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestBillingSessionRefundRetryDoesNotRepeatCompletedStages(t *testing.T) {
+	truncate(t)
+	const userID, tokenID, refundedQuota = 707, 707, 100
+	seedUser(t, userID, 1000)
+	seedToken(t, tokenID, userID, "billing-refund-retry", common.MaxQuota-50)
+	require.NoError(t, model.DB.Model(&model.Token{}).Where("id = ?", tokenID).Update("used_quota", refundedQuota).Error)
+
+	info := &relaycommon.RelayInfo{UserId: userID, TokenId: tokenID, TokenKey: "billing-refund-retry"}
+	session := &BillingSession{
+		relayInfo:     info,
+		funding:       &WalletFunding{userId: userID, consumed: refundedQuota},
+		tokenConsumed: refundedQuota,
+	}
+	ctx := billingTestContext(t, 1000)
+
+	err := session.Refund(ctx)
+	require.ErrorIs(t, err, model.ErrTokenQuotaLimitExceeded)
+	assert.Equal(t, 1000, getUserQuota(t, userID))
+	assert.False(t, session.refunded)
+
+	require.NoError(t, model.DB.Model(&model.Token{}).Where("id = ?", tokenID).Update("remain_quota", 1000).Error)
+	require.NoError(t, session.Refund(ctx))
+	assert.Equal(t, 1100, getUserQuota(t, userID))
+	assert.Equal(t, 1100, getTokenRemainQuota(t, tokenID))
+	assert.True(t, session.refunded)
+}
+
+func TestBillingSessionSubscriptionRefundRollsBackWithTokenFailure(t *testing.T) {
+	truncate(t)
+	const userID, tokenID, subscriptionID = 708, 708, 708
+	const baseQuota, extraQuota, tokenQuota = 100, 50, 150
+	const subscriptionUsed int64 = 500
+	seedUser(t, userID, 0)
+	seedToken(t, tokenID, userID, "billing-subscription-refund", common.MaxQuota-100)
+	seedSubscription(t, subscriptionID, userID, 1_000, subscriptionUsed)
+	require.NoError(t, model.DB.Model(&model.Token{}).Where("id = ?", tokenID).Update("used_quota", tokenQuota).Error)
+	record := model.SubscriptionPreConsumeRecord{
+		RequestId:          "billing-subscription-refund",
+		UserId:             userID,
+		UserSubscriptionId: subscriptionID,
+		PreConsumed:        baseQuota,
+		Status:             "consumed",
+	}
+	require.NoError(t, model.DB.Create(&record).Error)
+
+	info := &relaycommon.RelayInfo{UserId: userID, TokenId: tokenID, TokenKey: "billing-subscription-refund"}
+	session := &BillingSession{
+		relayInfo: info,
+		funding: &SubscriptionFunding{
+			requestId:      record.RequestId,
+			subscriptionId: subscriptionID,
+			preConsumed:    baseQuota,
+		},
+		tokenConsumed: tokenQuota,
+		extraReserved: extraQuota,
+	}
+	ctx := billingTestContext(t, 0)
+
+	require.ErrorIs(t, session.Refund(ctx), model.ErrTokenQuotaLimitExceeded)
+	assert.Equal(t, subscriptionUsed, getSubscriptionUsed(t, subscriptionID))
+	require.NoError(t, model.DB.First(&record, record.Id).Error)
+	assert.Equal(t, "consumed", record.Status)
+
+	require.NoError(t, model.DB.Model(&model.Token{}).Where("id = ?", tokenID).Update("remain_quota", 1000).Error)
+	require.NoError(t, session.Refund(ctx))
+	assert.Equal(t, subscriptionUsed-baseQuota-extraQuota, getSubscriptionUsed(t, subscriptionID))
+	assert.Equal(t, 1000+tokenQuota, getTokenRemainQuota(t, tokenID))
+	require.NoError(t, model.DB.First(&record, record.Id).Error)
+	assert.Equal(t, "refunded", record.Status)
+}
+
 func TestBillingSessionReserveAdditionalSerializesConcurrentIncrements(t *testing.T) {
 	truncate(t)
 	const userID = 706

@@ -64,6 +64,78 @@ func TestUserQuotaBypassesBatchLedger(t *testing.T) {
 	assert.Equal(t, 50_000, quota)
 }
 
+func TestIncreaseUserQuotaRejectsWalletOverflow(t *testing.T) {
+	setupUserUpdateTestState(t)
+
+	user := User{
+		Id:       3002,
+		Username: "wallet-quota-limit",
+		Password: "password",
+		Quota:    common.MaxQuota - 100,
+	}
+	require.NoError(t, DB.Create(&user).Error)
+
+	require.ErrorIs(t, IncreaseUserQuota(user.Id, 100, false), ErrUserQuotaLimitExceeded)
+	assert.Equal(t, common.MaxQuota-100, getUserQuotaFromDB(t, user.Id))
+	require.NoError(t, IncreaseUserQuota(user.Id, 99, false))
+	assert.Equal(t, common.MaxQuota-1, getUserQuotaFromDB(t, user.Id))
+	require.ErrorIs(t, OverrideUserQuota(user.Id, common.MaxQuota), ErrUserQuotaLimitExceeded)
+}
+
+func TestTransferAffQuotaRejectsWalletOverflow(t *testing.T) {
+	setupUserUpdateTestState(t)
+	transferQuota := common.QuotaFromFloat(common.QuotaPerUnit)
+	require.Positive(t, transferQuota)
+
+	user := User{
+		Id:       3003,
+		Username: "affiliate-wallet-limit",
+		Password: "password",
+		Quota:    common.MaxQuota - transferQuota,
+		AffQuota: transferQuota,
+	}
+	require.NoError(t, DB.Create(&user).Error)
+
+	require.ErrorIs(t, user.TransferAffQuotaToQuota(transferQuota), ErrUserQuotaLimitExceeded)
+	var reloaded User
+	require.NoError(t, DB.First(&reloaded, user.Id).Error)
+	assert.Equal(t, common.MaxQuota-transferQuota, reloaded.Quota)
+	assert.Equal(t, transferQuota, reloaded.AffQuota)
+}
+
+func TestInsertRejectsNewUserWalletOverflow(t *testing.T) {
+	setupUserUpdateTestState(t)
+	oldQuotaForNewUser := common.QuotaForNewUser
+	common.QuotaForNewUser = common.MaxQuota
+	t.Cleanup(func() { common.QuotaForNewUser = oldQuotaForNewUser })
+
+	user := User{Username: "new-user-wallet-limit", Password: "password"}
+	require.ErrorIs(t, user.Insert(0), ErrUserQuotaLimitExceeded)
+
+	var count int64
+	require.NoError(t, DB.Model(&User{}).Where("username = ?", user.Username).Count(&count).Error)
+	assert.Zero(t, count)
+}
+
+func TestIncreaseTokenQuotaRestoresMaxBalanceButRejectsOverflow(t *testing.T) {
+	setupUserUpdateTestState(t)
+	token := Token{
+		Id:          3002,
+		UserId:      3002,
+		Key:         "sk-token-quota-limit",
+		RemainQuota: common.MaxQuota - 100,
+		UsedQuota:   100,
+	}
+	require.NoError(t, DB.Create(&token).Error)
+
+	require.NoError(t, IncreaseTokenQuota(token.Id, token.Key, 100))
+	reloaded, err := GetTokenById(token.Id)
+	require.NoError(t, err)
+	assert.Equal(t, common.MaxQuota, reloaded.RemainQuota)
+	assert.Zero(t, reloaded.UsedQuota)
+	require.ErrorIs(t, IncreaseTokenQuota(token.Id, token.Key, 1), ErrTokenQuotaLimitExceeded)
+}
+
 func TestDecreaseUserQuotaIfEnoughUsesDatabaseCASWithBatchingEnabled(t *testing.T) {
 	truncateTables(t)
 	useUserCacheMiniRedis(t)
@@ -190,6 +262,61 @@ func TestUserUpdateDoesNotOverwriteConcurrentAccountingOrTokenChanges(t *testing
 	assert.Equal(t, 300, got.AffQuota)
 	assert.Equal(t, 1700, got.AffHistoryQuota)
 	assert.Equal(t, "rotated-token", got.GetAccessToken())
+}
+
+func TestUsageAccountingSupportsSignedDirectAndBatchDeltas(t *testing.T) {
+	setupUserUpdateTestState(t)
+	resetBatchUpdateTestState(t)
+
+	user := User{
+		Id:           10,
+		Username:     "usage-adjustment-user",
+		Password:     "password",
+		Status:       common.UserStatusEnabled,
+		UsedQuota:    1000,
+		RequestCount: 3,
+	}
+	channel := Channel{
+		Id:        10,
+		Name:      "usage-adjustment-channel",
+		Key:       "sk-test",
+		Status:    common.ChannelStatusEnabled,
+		UsedQuota: 1000,
+	}
+	require.NoError(t, DB.Create(&user).Error)
+	require.NoError(t, DB.Create(&channel).Error)
+
+	UpdateUserUsedQuota(user.Id, -200)
+	UpdateUserUsedQuota(user.Id, 50)
+	UpdateChannelUsedQuota(channel.Id, -200)
+	UpdateChannelUsedQuota(channel.Id, 50)
+
+	var got User
+	require.NoError(t, DB.Select("used_quota", "request_count").First(&got, user.Id).Error)
+	assert.Equal(t, 850, got.UsedQuota)
+	assert.Equal(t, 3, got.RequestCount)
+	var gotChannel Channel
+	require.NoError(t, DB.Select("used_quota").First(&gotChannel, channel.Id).Error)
+	assert.Equal(t, int64(850), gotChannel.UsedQuota)
+
+	common.BatchUpdateEnabled = true
+	UpdateUserUsedQuota(user.Id, 400)
+	UpdateUserUsedQuota(user.Id, -100)
+	UpdateChannelUsedQuota(channel.Id, 400)
+	UpdateChannelUsedQuota(channel.Id, -100)
+
+	require.NoError(t, DB.Select("used_quota", "request_count").First(&got, user.Id).Error)
+	assert.Equal(t, 850, got.UsedQuota, "batch deltas must remain queued until flush")
+	assert.Equal(t, 3, got.RequestCount)
+	require.NoError(t, DB.Select("used_quota").First(&gotChannel, channel.Id).Error)
+	assert.Equal(t, int64(850), gotChannel.UsedQuota, "batch deltas must remain queued until flush")
+
+	batchUpdate()
+	require.NoError(t, DB.Select("used_quota", "request_count").First(&got, user.Id).Error)
+	assert.Equal(t, 1150, got.UsedQuota)
+	assert.Equal(t, 3, got.RequestCount)
+	require.NoError(t, DB.Select("used_quota").First(&gotChannel, channel.Id).Error)
+	assert.Equal(t, int64(1150), gotChannel.UsedQuota)
 }
 
 func TestUpdateUserAccessTokenOnlyUpdatesAccessToken(t *testing.T) {

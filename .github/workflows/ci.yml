@@ -87,4 +87,4 @@ jobs:
       - name: Test
         run: |
           bun test scripts/subscription-purchase-dialog.test.tsx
-          bun test src
+          bun run test

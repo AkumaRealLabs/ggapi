@@ -1,5 +1,10 @@
 package model
 
+import (
+	"github.com/QuantumNous/new-api/common"
+	"gorm.io/gorm"
+)
+
 type Midjourney struct {
 	Id          int    `json:"id"`
 	Code        int    `json:"code"`
@@ -23,6 +28,9 @@ type Midjourney struct {
 	Quota       int    `json:"quota"`
 	Buttons     string `json:"buttons"`
 	Properties  string `json:"properties"`
+
+	TokenId          int `json:"-" gorm:"default:0"`
+	BillingChannelId int `json:"-" gorm:"default:0"`
 }
 
 // TaskQueryParams 用于包含所有搜索条件的结构体，可以根据需求添加更多字段
@@ -93,22 +101,25 @@ func GetAllTasks(startIdx int, num int, queryParams TaskQueryParams) []*Midjourn
 func GetAllUnFinishTasks() []*Midjourney {
 	var tasks []*Midjourney
 	var err error
-	// get all tasks progress is not 100%
-	err = DB.Where("progress != ?", "100%").Find(&tasks).Error
+	err = DB.Where(
+		"(progress != ? AND status != ?) OR (status = ? AND quota != 0 AND billing_channel_id != 0)",
+		"100%", "FAILURE", "FAILURE",
+	).Find(&tasks).Error
 	if err != nil {
 		return nil
 	}
 	return tasks
 }
 
-// HasUnfinishedMidjourneyTasks reports whether at least one Midjourney task is
-// still in progress. It is a cheap existence check (LIMIT 1) used to decide
-// whether the midjourney_poll system task needs to run; when no task is pending
-// the scheduler skips creating a row entirely.
+// HasUnfinishedMidjourneyTasks reports whether a task needs polling or a failed
+// task still has a durable refund marker.
 func HasUnfinishedMidjourneyTasks() bool {
 	var id int
 	err := DB.Model(&Midjourney{}).
-		Where("progress != ?", "100%").
+		Where(
+			"(progress != ? AND status != ?) OR (status = ? AND quota != 0 AND billing_channel_id != 0)",
+			"100%", "FAILURE", "FAILURE",
+		).
 		Limit(1).
 		Pluck("id", &id).Error
 	return err == nil && id != 0
@@ -164,19 +175,113 @@ func (midjourney *Midjourney) Insert() error {
 	return err
 }
 
-func (midjourney *Midjourney) Update() error {
-	var err error
-	err = DB.Save(midjourney).Error
-	return err
+func (midjourney *Midjourney) UpdateBillingState() error {
+	return DB.Model(midjourney).
+		Select("quota", "token_id", "billing_channel_id").
+		Updates(midjourney).Error
+}
+
+func (midjourney *Midjourney) GetBillingChannelId() int {
+	if midjourney.BillingChannelId > 0 {
+		return midjourney.BillingChannelId
+	}
+	return midjourney.ChannelId
+}
+
+type MidjourneyRefund struct {
+	Quota            int
+	TokenId          int
+	BillingChannelId int
+}
+
+// RefundBilling atomically restores the wallet, token, and usage counters
+// before clearing the task's durable refund marker.
+func (midjourney *Midjourney) RefundBilling() (*MidjourneyRefund, error) {
+	var refund *MidjourneyRefund
+	var tokenKey string
+	var tokenActive bool
+	err := DB.Transaction(func(tx *gorm.DB) error {
+		var current Midjourney
+		if err := lockForUpdate(tx).First(&current, midjourney.Id).Error; err != nil {
+			return err
+		}
+		if current.Status != "FAILURE" || current.Quota == 0 {
+			return nil
+		}
+
+		quota := current.Quota
+		if err := increaseUserQuotaWithDB(tx, current.UserId, quota); err != nil {
+			return err
+		}
+		if current.TokenId > 0 {
+			var token Token
+			tokenTx := tx.Unscoped()
+			if err := lockForUpdate(tokenTx).First(&token, current.TokenId).Error; err != nil {
+				return err
+			}
+			if err := increaseTokenQuotaWithDB(tokenTx, current.TokenId, quota); err != nil {
+				return err
+			}
+			tokenKey = token.Key
+			tokenActive = !token.DeletedAt.Valid
+		}
+
+		billingChannelId := current.GetBillingChannelId()
+		if err := tx.Model(&User{}).Where("id = ?", current.UserId).
+			Update("used_quota", gorm.Expr("used_quota - ?", quota)).Error; err != nil {
+			return err
+		}
+		if billingChannelId > 0 {
+			if err := tx.Model(&Channel{}).Where("id = ?", billingChannelId).
+				Update("used_quota", gorm.Expr("used_quota - ?", quota)).Error; err != nil {
+				return err
+			}
+		}
+		if err := tx.Model(&Midjourney{}).Where("id = ?", current.Id).
+			Update("quota", 0).Error; err != nil {
+			return err
+		}
+
+		refund = &MidjourneyRefund{
+			Quota:            quota,
+			TokenId:          current.TokenId,
+			BillingChannelId: billingChannelId,
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	midjourney.Quota = 0
+	if refund == nil {
+		return nil, nil
+	}
+	if err := invalidateUserQuotaCacheForMutation(midjourney.UserId); err != nil {
+		common.SysLog("failed to invalidate user quota cache after Midjourney refund: " + err.Error())
+	}
+	if tokenActive {
+		if err := invalidateTokenCacheForMutation(tokenKey); err != nil {
+			common.SysLog("failed to invalidate token cache after Midjourney refund: " + err.Error())
+		}
+	}
+	return refund, nil
 }
 
 // UpdateWithStatus performs a conditional UPDATE guarded by fromStatus (CAS).
-// Returns (true, nil) if this caller won the update, (false, nil) if
-// another process already moved the task out of fromStatus.
-// UpdateWithStatus performs a conditional UPDATE guarded by fromStatus (CAS).
-// Uses Model().Select("*").Updates() to avoid GORM Save()'s INSERT fallback.
+// Terminal states cannot be reversed, and billing fields are never written by
+// status polling or notifications.
 func (midjourney *Midjourney) UpdateWithStatus(fromStatus string) (bool, error) {
-	result := DB.Model(midjourney).Where("status = ?", fromStatus).Select("*").Updates(midjourney)
+	if (fromStatus == "FAILURE" || fromStatus == "SUCCESS") && midjourney.Status != fromStatus {
+		return false, nil
+	}
+	result := DB.Model(&Midjourney{}).
+		Where("id = ? AND status = ?", midjourney.Id, fromStatus).
+		Select(
+			"code", "progress", "prompt_en", "state", "submit_time", "start_time", "finish_time",
+			"image_url", "video_url", "video_urls", "status", "fail_reason", "buttons", "properties",
+		).
+		Updates(midjourney)
 	if result.Error != nil {
 		return false, result.Error
 	}
