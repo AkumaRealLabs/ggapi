@@ -48,6 +48,10 @@ func runMidjourneyTaskUpdateOnce(ctx context.Context, report func(processed, tot
 	taskM := make(map[string]*model.Midjourney)
 	nullTaskIds := make([]int, 0)
 	for _, task := range tasks {
+		if task.Status == "FAILURE" && task.Quota != 0 {
+			service.RefundMidjourneyQuota(ctx, task, "构图失败退款重试")
+			continue
+		}
 		if task.MjId == "" {
 			// 统计失败的未完成任务
 			nullTaskIds = append(nullTaskIds, task.Id)

@@ -464,7 +464,7 @@ func TestUpdateSunoTasksStalePollsRefundExactlyOnce(t *testing.T) {
 	assert.Equal(t, int64(1), countLogs(t))
 }
 
-func TestRunTaskPollingOnceDoesNotRefundHistoricalFailedTask(t *testing.T) {
+func TestRunTaskPollingOnceDoesNotRefundHistoricalFailedTasks(t *testing.T) {
 	truncate(t)
 
 	const userID, initialQuota, taskQuota = 402, 10_000, 1_200
@@ -474,9 +474,15 @@ func TestRunTaskPollingOnceDoesNotRefundHistoricalFailedTask(t *testing.T) {
 	task.TaskID = "historical_failed_already_refunded"
 	task.Status = model.TaskStatusFailure
 	task.Progress = "100%"
-	task.SubmitTime = time.Now().Add(-90 * 24 * time.Hour).Unix()
+	task.SubmitTime = model.TaskRefundLegacyCutoff - 1
 	task.UpdatedAt = time.Now().Add(-time.Minute).Unix()
 	require.NoError(t, model.DB.Create(task).Error)
+	zeroTimestampTask := makeTask(userID, 0, taskQuota, 0, BillingSourceWallet, 0)
+	zeroTimestampTask.TaskID = "zero_timestamp_failed_already_refunded"
+	zeroTimestampTask.Status = model.TaskStatusFailure
+	zeroTimestampTask.Progress = "100%"
+	zeroTimestampTask.SubmitTime = 0
+	require.NoError(t, model.DB.Create(zeroTimestampTask).Error)
 
 	previousFactory := GetTaskAdaptorFunc
 	GetTaskAdaptorFunc = func(constant.TaskPlatform) TaskPollingAdaptor {
@@ -489,7 +495,44 @@ func TestRunTaskPollingOnceDoesNotRefundHistoricalFailedTask(t *testing.T) {
 	assert.Zero(t, summary.UnfinishedTasks)
 	assert.Equal(t, initialQuota, getUserQuota(t, userID))
 	assert.Equal(t, taskQuota, getTaskQuota(t, task.ID))
+	assert.Equal(t, taskQuota, getTaskQuota(t, zeroTimestampTask.ID))
 	assert.Equal(t, int64(0), countLogs(t))
+	assert.False(t, model.HasUnfinishedSyncTasks())
+}
+
+func TestRunTaskPollingOnceRetriesFailedTaskRefundWithoutUpstream(t *testing.T) {
+	truncate(t)
+
+	const userID, walletAfterCharge, taskQuota = 404, 8_000, 1_200
+	seedUser(t, userID, walletAfterCharge)
+	seedChargedAccounting(t, userID, 0, 0, taskQuota, 1)
+
+	task := makeTask(userID, 0, taskQuota, 0, BillingSourceWallet, 0)
+	task.TaskID = "failed_refund_retry"
+	task.Platform = constant.TaskPlatformSuno
+	task.Status = model.TaskStatusFailure
+	task.Progress = "100%"
+	task.FailReason = "upstream failed"
+	task.SubmitTime = model.TaskRefundLegacyCutoff
+	require.NoError(t, model.DB.Create(task).Error)
+	previousLimit := constant.TaskQueryLimit
+	constant.TaskQueryLimit = 100
+	t.Cleanup(func() { constant.TaskQueryLimit = previousLimit })
+
+	previousFactory := GetTaskAdaptorFunc
+	GetTaskAdaptorFunc = func(constant.TaskPlatform) TaskPollingAdaptor {
+		t.Fatal("failed refund retry must not call the upstream adaptor")
+		return nil
+	}
+	t.Cleanup(func() { GetTaskAdaptorFunc = previousFactory })
+
+	summary := RunTaskPollingOnce(context.Background(), nil)
+
+	assert.Equal(t, 1, summary.UnfinishedTasks)
+	assert.Equal(t, walletAfterCharge+taskQuota, getUserQuota(t, userID))
+	assert.Zero(t, getTaskQuota(t, task.ID))
+	assert.Equal(t, int64(1), countLogs(t))
+	assert.False(t, model.HasUnfinishedSyncTasks())
 }
 
 func TestSweepTimedOutTasksHonorsRefundRolloutBoundary(t *testing.T) {
@@ -509,6 +552,12 @@ func TestSweepTimedOutTasksHonorsRefundRolloutBoundary(t *testing.T) {
 	legacyTask.SubmitTime = 1771718399 // 2026-02-21 23:59:59 UTC
 	require.NoError(t, model.DB.Create(legacyTask).Error)
 
+	zeroTimestampTask := makeTask(userID, 0, legacyTaskQuota, 0, BillingSourceWallet, 0)
+	zeroTimestampTask.TaskID = "zero_timestamp_timeout_without_refund"
+	zeroTimestampTask.Progress = "50%"
+	zeroTimestampTask.SubmitTime = 0
+	require.NoError(t, model.DB.Create(zeroTimestampTask).Error)
+
 	modernTask := makeTask(userID, 0, modernTaskQuota, 0, BillingSourceWallet, 0)
 	modernTask.TaskID = "modern_timeout_with_refund"
 	modernTask.Progress = "50%"
@@ -522,14 +571,19 @@ func TestSweepTimedOutTasksHonorsRefundRolloutBoundary(t *testing.T) {
 	sweepTimedOutTasks(context.Background())
 
 	var reloadedLegacy model.Task
+	var reloadedZeroTimestamp model.Task
 	var reloadedModern model.Task
 	require.NoError(t, model.DB.First(&reloadedLegacy, legacyTask.ID).Error)
+	require.NoError(t, model.DB.First(&reloadedZeroTimestamp, zeroTimestampTask.ID).Error)
 	require.NoError(t, model.DB.First(&reloadedModern, modernTask.ID).Error)
 	assert.EqualValues(t, model.TaskStatusFailure, reloadedLegacy.Status)
+	assert.EqualValues(t, model.TaskStatusFailure, reloadedZeroTimestamp.Status)
 	assert.EqualValues(t, model.TaskStatusFailure, reloadedModern.Status)
 	assert.Zero(t, reloadedLegacy.Quota)
+	assert.Zero(t, reloadedZeroTimestamp.Quota)
 	assert.Zero(t, reloadedModern.Quota)
 	assert.Contains(t, reloadedLegacy.FailReason, "旧系统遗留任务")
+	assert.Contains(t, reloadedZeroTimestamp.FailReason, "旧系统遗留任务")
 	assert.Contains(t, reloadedModern.FailReason, "任务超时")
 	assert.Equal(t, initialQuota+modernTaskQuota, getUserQuota(t, userID))
 	assert.Equal(t, int64(1), countLogs(t))

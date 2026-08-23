@@ -629,11 +629,12 @@ export function validateAdvancedCustomConfig(
       const existingIndex = isModelListRoute
         ? modelListRouteIndex
         : balanceRouteIndex
-      const routeLabel = isModelListRoute ? 'OpenAI Models' : 'Balance Query'
       if (existingIndex !== null) {
         return {
           routeIndex: index,
-          message: `Only one ${routeLabel} route is allowed`,
+          message: isModelListRoute
+            ? 'Only one OpenAI Models route is allowed'
+            : 'Only one Balance Query route is allowed',
         }
       }
       if (isModelListRoute) modelListRouteIndex = index
@@ -641,19 +642,25 @@ export function validateAdvancedCustomConfig(
       if (routeModels.length > 0) {
         return {
           routeIndex: index,
-          message: `${routeLabel} route does not support client model rules`,
+          message: isModelListRoute
+            ? 'OpenAI Models route does not support client model rules'
+            : 'Balance Query route does not support client model rules',
         }
       }
       if (converter !== 'none') {
         return {
           routeIndex: index,
-          message: `${routeLabel} route must use native forwarding`,
+          message: isModelListRoute
+            ? 'OpenAI Models route must use native forwarding'
+            : 'Balance Query route must use native forwarding',
         }
       }
       if (upstreamPath.includes('{model}')) {
         return {
           routeIndex: index,
-          message: `${routeLabel} upstream path must not contain {model}`,
+          message: isModelListRoute
+            ? 'OpenAI Models upstream path must not contain {model}'
+            : 'Balance Query upstream path must not contain {model}',
         }
       }
     }

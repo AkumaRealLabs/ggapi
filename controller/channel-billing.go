@@ -403,7 +403,8 @@ func fetchAdvancedCustomBalance(channel *model.Channel) (channelBalanceResult, e
 			request.Host = headers.Get(name)
 		}
 	}
-	client, err := service.GetHttpClientWithProxy(channel.GetSetting().Proxy)
+	channelSettings := channel.GetSetting()
+	client, err := service.GetHttpClientWithProxySettings(channelSettings.Proxy, channelSettings)
 	if err != nil {
 		return channelBalanceResult{}, sanitizeFetchModelsError(err, key)
 	}

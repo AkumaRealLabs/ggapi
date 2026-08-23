@@ -477,7 +477,7 @@ func IncreaseTokenQuota(tokenId int, key string, quota int) (err error) {
 	if quota < 0 {
 		return errors.New("quota 不能为负数！")
 	}
-	if err := increaseTokenQuota(tokenId, quota); err != nil {
+	if err := increaseTokenQuotaWithDB(DB, tokenId, quota); err != nil {
 		return err
 	}
 	if err := invalidateTokenCacheForMutation(key); err != nil {
@@ -486,15 +486,46 @@ func IncreaseTokenQuota(tokenId int, key string, quota int) (err error) {
 	return nil
 }
 
-func increaseTokenQuota(id int, quota int) (err error) {
-	err = DB.Model(&Token{}).Where("id = ?", id).Updates(
-		map[string]interface{}{
-			"remain_quota":  gorm.Expr("remain_quota + ?", quota),
-			"used_quota":    gorm.Expr("used_quota - ?", quota),
-			"accessed_time": common.GetTimestamp(),
-		},
-	).Error
-	return err
+func increaseTokenQuotaWithDB(tx *gorm.DB, id int, quota int) error {
+	if quota == 0 {
+		return nil
+	}
+	if quota < 0 || quota > common.MaxQuota {
+		return ErrTokenQuotaLimitExceeded
+	}
+	unscoped := tx.Statement != nil && tx.Statement.Unscoped
+	mutationDB := tx.Session(&gorm.Session{NewDB: true})
+	if unscoped {
+		mutationDB = mutationDB.Unscoped()
+	}
+	result := mutationDB.Model(&Token{}).
+		Where("id = ? AND remain_quota <= ?", id, common.MaxQuota-quota).
+		Updates(
+			map[string]interface{}{
+				"remain_quota":  gorm.Expr("remain_quota + ?", quota),
+				"used_quota":    gorm.Expr("used_quota - ?", quota),
+				"accessed_time": common.GetTimestamp(),
+			},
+		)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 1 {
+		return nil
+	}
+
+	var count int64
+	lookupDB := tx.Session(&gorm.Session{NewDB: true})
+	if unscoped {
+		lookupDB = lookupDB.Unscoped()
+	}
+	if err := lookupDB.Model(&Token{}).Where("id = ?", id).Count(&count).Error; err != nil {
+		return err
+	}
+	if count == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return ErrTokenQuotaLimitExceeded
 }
 
 func DecreaseTokenQuota(id int, key string, quota int) (err error) {

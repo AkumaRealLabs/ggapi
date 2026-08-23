@@ -64,6 +64,78 @@ func TestUserQuotaBypassesBatchLedger(t *testing.T) {
 	assert.Equal(t, 50_000, quota)
 }
 
+func TestIncreaseUserQuotaRejectsWalletOverflow(t *testing.T) {
+	setupUserUpdateTestState(t)
+
+	user := User{
+		Id:       3002,
+		Username: "wallet-quota-limit",
+		Password: "password",
+		Quota:    common.MaxQuota - 100,
+	}
+	require.NoError(t, DB.Create(&user).Error)
+
+	require.ErrorIs(t, IncreaseUserQuota(user.Id, 100, false), ErrUserQuotaLimitExceeded)
+	assert.Equal(t, common.MaxQuota-100, getUserQuotaFromDB(t, user.Id))
+	require.NoError(t, IncreaseUserQuota(user.Id, 99, false))
+	assert.Equal(t, common.MaxQuota-1, getUserQuotaFromDB(t, user.Id))
+	require.ErrorIs(t, OverrideUserQuota(user.Id, common.MaxQuota), ErrUserQuotaLimitExceeded)
+}
+
+func TestTransferAffQuotaRejectsWalletOverflow(t *testing.T) {
+	setupUserUpdateTestState(t)
+	transferQuota := common.QuotaFromFloat(common.QuotaPerUnit)
+	require.Positive(t, transferQuota)
+
+	user := User{
+		Id:       3003,
+		Username: "affiliate-wallet-limit",
+		Password: "password",
+		Quota:    common.MaxQuota - transferQuota,
+		AffQuota: transferQuota,
+	}
+	require.NoError(t, DB.Create(&user).Error)
+
+	require.ErrorIs(t, user.TransferAffQuotaToQuota(transferQuota), ErrUserQuotaLimitExceeded)
+	var reloaded User
+	require.NoError(t, DB.First(&reloaded, user.Id).Error)
+	assert.Equal(t, common.MaxQuota-transferQuota, reloaded.Quota)
+	assert.Equal(t, transferQuota, reloaded.AffQuota)
+}
+
+func TestInsertRejectsNewUserWalletOverflow(t *testing.T) {
+	setupUserUpdateTestState(t)
+	oldQuotaForNewUser := common.QuotaForNewUser
+	common.QuotaForNewUser = common.MaxQuota
+	t.Cleanup(func() { common.QuotaForNewUser = oldQuotaForNewUser })
+
+	user := User{Username: "new-user-wallet-limit", Password: "password"}
+	require.ErrorIs(t, user.Insert(0), ErrUserQuotaLimitExceeded)
+
+	var count int64
+	require.NoError(t, DB.Model(&User{}).Where("username = ?", user.Username).Count(&count).Error)
+	assert.Zero(t, count)
+}
+
+func TestIncreaseTokenQuotaRestoresMaxBalanceButRejectsOverflow(t *testing.T) {
+	setupUserUpdateTestState(t)
+	token := Token{
+		Id:          3002,
+		UserId:      3002,
+		Key:         "sk-token-quota-limit",
+		RemainQuota: common.MaxQuota - 100,
+		UsedQuota:   100,
+	}
+	require.NoError(t, DB.Create(&token).Error)
+
+	require.NoError(t, IncreaseTokenQuota(token.Id, token.Key, 100))
+	reloaded, err := GetTokenById(token.Id)
+	require.NoError(t, err)
+	assert.Equal(t, common.MaxQuota, reloaded.RemainQuota)
+	assert.Zero(t, reloaded.UsedQuota)
+	require.ErrorIs(t, IncreaseTokenQuota(token.Id, token.Key, 1), ErrTokenQuotaLimitExceeded)
+}
+
 func TestDecreaseUserQuotaIfEnoughUsesDatabaseCASWithBatchingEnabled(t *testing.T) {
 	truncateTables(t)
 	useUserCacheMiniRedis(t)

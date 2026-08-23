@@ -974,7 +974,7 @@ export function AdvancedCustomEditorDialog({
           {
             removed: routeRows.length,
             created: selectedTemplate?.config.advanced_routes?.length || 0,
-            template: selectedTemplate?.label || '',
+            template: t(selectedTemplate?.label || ''),
           }
         )}
         confirmText={t('Replace')}

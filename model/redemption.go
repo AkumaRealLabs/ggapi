@@ -194,7 +194,7 @@ func Redeem(key string, userId int) (quota int, err error) {
 			); err != nil {
 				return err
 			}
-			return tx.Model(&User{}).Where("id = ?", userId).Update("quota", gorm.Expr("quota + ?", redemption.Quota)).Error
+			return increaseUserQuotaWithDB(tx, userId, redemption.Quota)
 		})
 		if !errors.Is(err, ErrAffiliateRelationChanged) {
 			break

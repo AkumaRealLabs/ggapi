@@ -559,18 +559,19 @@ func (user *User) TransferAffQuotaToQuota(quota int) error {
 		return errors.New("邀请额度不足！")
 	}
 
-	// 更新用户额度
-	user.AffQuota -= quota
-	user.Quota += quota
-
-	// 保存用户状态
-	if err := tx.Save(user).Error; err != nil {
+	if err := increaseUserQuotaWithDB(tx, user.Id, quota); err != nil {
+		return err
+	}
+	if err := tx.Model(&User{}).Where("id = ?", user.Id).
+		Update("aff_quota", gorm.Expr("aff_quota - ?", quota)).Error; err != nil {
 		return err
 	}
 
 	if err := tx.Commit().Error; err != nil {
 		return err
 	}
+	user.AffQuota -= quota
+	user.Quota += quota
 	if err := invalidateUserQuotaCacheForMutation(user.Id); err != nil {
 		common.SysError("failed to invalidate user quota cache after affiliate transfer: " + err.Error())
 	}
@@ -582,6 +583,10 @@ func (user *User) prepareForInsert(tx *gorm.DB) error {
 	if err := ensureEmailAvailableWithTx(tx, user.Email, 0); err != nil {
 		return err
 	}
+	if _, err := userQuotaMaxCurrent(common.QuotaForNewUser); err != nil {
+		return err
+	}
+	user.Quota = common.QuotaForNewUser
 	if user.Password == "" {
 		return nil
 	}
@@ -634,7 +639,6 @@ func (user *User) Insert(inviterId int) error {
 			if err := user.prepareForInsert(tx); err != nil {
 				return err
 			}
-			user.Quota = common.QuotaForNewUser
 			user.AffCode = common.GetRandomString(4)
 			if inviterId > 0 {
 				user.InviterId = inviterId
@@ -691,7 +695,6 @@ func (user *User) InsertWithTx(tx *gorm.DB, inviterId int) error {
 		if err := user.prepareForInsert(tx); err != nil {
 			return err
 		}
-		user.Quota = common.QuotaForNewUser
 		user.AffCode = common.GetRandomString(4)
 		// OAuth registration previously only rewarded the inviter and never
 		// persisted inviter_id, so later top-up/subscription snapshots saw 0.
@@ -1266,7 +1269,7 @@ func IncreaseUserQuota(id int, quota int, _ bool) (err error) {
 	if quota < 0 {
 		return errors.New("quota 不能为负数！")
 	}
-	if err := increaseUserQuota(id, quota); err != nil {
+	if err := increaseUserQuotaWithDB(DB, id, quota); err != nil {
 		return err
 	}
 	if err := invalidateUserQuotaCacheForMutation(id); err != nil {
@@ -1279,8 +1282,8 @@ func OverrideUserQuota(id int, quota int) error {
 	if id <= 0 {
 		return errors.New("id 为空！")
 	}
-	if quota < 0 {
-		return errors.New("quota 不能为负数！")
+	if quota < 0 || quota >= common.MaxQuota {
+		return ErrUserQuotaLimitExceeded
 	}
 	return DB.Transaction(func(tx *gorm.DB) error {
 		var user User
@@ -1294,12 +1297,103 @@ func OverrideUserQuota(id int, quota int) error {
 	})
 }
 
-func increaseUserQuota(id int, quota int) (err error) {
-	err = DB.Model(&User{}).Where("id = ?", id).Update("quota", gorm.Expr("quota + ?", quota)).Error
+func userQuotaMaxCurrent(quota int) (int, error) {
+	if quota < 0 || quota >= common.MaxQuota {
+		return 0, ErrUserQuotaLimitExceeded
+	}
+	return common.MaxQuota - 1 - quota, nil
+}
+
+func increaseUserQuotaWithDB(tx *gorm.DB, id int, quota int) error {
+	if quota == 0 {
+		return nil
+	}
+	maxCurrentQuota, err := userQuotaMaxCurrent(quota)
 	if err != nil {
 		return err
 	}
-	return err
+	result := tx.Session(&gorm.Session{NewDB: true}).Model(&User{}).
+		Where("id = ? AND quota <= ?", id, maxCurrentQuota).
+		Update("quota", gorm.Expr("quota + ?", quota))
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 1 {
+		return nil
+	}
+
+	var count int64
+	if err := tx.Session(&gorm.Session{NewDB: true}).Model(&User{}).Where("id = ?", id).Count(&count).Error; err != nil {
+		return err
+	}
+	if count == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return ErrUserQuotaLimitExceeded
+}
+
+type BillingSessionRefund struct {
+	UserId                 int
+	WalletQuota            int
+	SubscriptionRequestId  string
+	SubscriptionId         int
+	SubscriptionExtraQuota int64
+	TokenId                int
+	TokenQuota             int
+}
+
+// RefundBillingSession restores a request's funding source and token quota in one transaction.
+func RefundBillingSession(refund BillingSessionRefund) error {
+	if refund.WalletQuota < 0 || refund.SubscriptionExtraQuota < 0 || refund.TokenQuota < 0 {
+		return errors.New("refund quota cannot be negative")
+	}
+	var tokenKey string
+	var tokenActive bool
+	err := DB.Transaction(func(tx *gorm.DB) error {
+		if refund.SubscriptionRequestId != "" {
+			applied, err := refundSubscriptionPreConsumeWithDB(tx, refund.SubscriptionRequestId)
+			if err != nil || !applied {
+				return err
+			}
+			if refund.SubscriptionExtraQuota > 0 {
+				if err := postConsumeUserSubscriptionDeltaWithDB(tx, refund.SubscriptionId, -refund.SubscriptionExtraQuota); err != nil {
+					return err
+				}
+			}
+		} else if refund.WalletQuota > 0 {
+			if err := increaseUserQuotaWithDB(tx, refund.UserId, refund.WalletQuota); err != nil {
+				return err
+			}
+		}
+
+		if refund.TokenId > 0 && refund.TokenQuota > 0 {
+			var token Token
+			tokenTx := tx.Unscoped()
+			if err := lockForUpdate(tokenTx).First(&token, refund.TokenId).Error; err != nil {
+				return err
+			}
+			if err := increaseTokenQuotaWithDB(tokenTx, token.Id, refund.TokenQuota); err != nil {
+				return err
+			}
+			tokenKey = token.Key
+			tokenActive = !token.DeletedAt.Valid
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	if refund.SubscriptionRequestId == "" && refund.WalletQuota > 0 {
+		if err := invalidateUserQuotaCacheForMutation(refund.UserId); err != nil {
+			common.SysLog("failed to invalidate user quota cache after billing refund: " + err.Error())
+		}
+	}
+	if tokenActive {
+		if err := invalidateTokenCacheForMutation(tokenKey); err != nil {
+			common.SysLog("failed to invalidate token cache after billing refund: " + err.Error())
+		}
+	}
+	return nil
 }
 
 func DecreaseUserQuota(id int, quota int, _ bool) (err error) {

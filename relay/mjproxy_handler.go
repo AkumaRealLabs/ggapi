@@ -138,6 +138,7 @@ func RelayMidjourneyNotify(c *gin.Context) *dto.MidjourneyResponse {
 			Result:      "",
 		}
 	}
+	preStatus := midjourneyTask.Status
 	midjourneyTask.Progress = midjRequest.Progress
 	midjourneyTask.PromptEn = midjRequest.PromptEn
 	midjourneyTask.State = midjRequest.State
@@ -150,7 +151,7 @@ func RelayMidjourneyNotify(c *gin.Context) *dto.MidjourneyResponse {
 	midjourneyTask.VideoUrls = string(videoUrlsStr)
 	midjourneyTask.Status = midjRequest.Status
 	midjourneyTask.FailReason = midjRequest.FailReason
-	err = midjourneyTask.Update()
+	_, err = midjourneyTask.UpdateWithStatus(preStatus)
 	if err != nil {
 		return &dto.MidjourneyResponse{
 			Code:        4,
@@ -240,7 +241,9 @@ func RelaySwapFace(c *gin.Context, info *relaycommon.RelayInfo) *dto.MidjourneyR
 		quotaReserved = true
 		defer func() {
 			if quotaReserved && info.Billing != nil {
-				info.Billing.Refund(c)
+				if refundErr := info.Billing.Refund(c); refundErr != nil {
+					logger.LogError(c, "refund Midjourney pre-consumed quota: "+refundErr.Error())
+				}
 			}
 		}()
 	}
@@ -566,7 +569,9 @@ func RelayMidjourneySubmit(c *gin.Context, relayInfo *relaycommon.RelayInfo) *dt
 		quotaReserved = true
 		defer func() {
 			if quotaReserved && relayInfo.Billing != nil {
-				relayInfo.Billing.Refund(c)
+				if refundErr := relayInfo.Billing.Refund(c); refundErr != nil {
+					logger.LogError(c, "refund Midjourney pre-consumed quota: "+refundErr.Error())
+				}
 			}
 		}()
 	}
