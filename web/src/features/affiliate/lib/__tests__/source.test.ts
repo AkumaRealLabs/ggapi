@@ -11,27 +11,23 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 GNU Affero General Public License for more details.
 */
-import assert from 'node:assert/strict'
-import { describe, test } from 'node:test'
+import { describe, expect, test } from 'vitest'
 
 import { getAffiliateCommissionSourceLabelKey } from '../source.ts'
 
 describe('affiliate commission source labels', () => {
   test('maps every supported commission source to its translation key', () => {
-    assert.equal(getAffiliateCommissionSourceLabelKey('topup'), 'Top-up')
-    assert.equal(
-      getAffiliateCommissionSourceLabelKey('subscription'),
+    expect(getAffiliateCommissionSourceLabelKey('topup')).toBe('Top-up')
+    expect(getAffiliateCommissionSourceLabelKey('subscription')).toBe(
       'Subscription'
     )
-    assert.equal(
-      getAffiliateCommissionSourceLabelKey('redemption'),
+    expect(getAffiliateCommissionSourceLabelKey('redemption')).toBe(
       'Redemption Code'
     )
   })
 
   test('does not present an unknown source as a subscription', () => {
-    assert.equal(
-      getAffiliateCommissionSourceLabelKey('future-source'),
+    expect(getAffiliateCommissionSourceLabelKey('future-source')).toBe(
       'Unknown'
     )
   })

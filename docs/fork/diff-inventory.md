@@ -11,10 +11,10 @@
 | 字段 | 填写说明 | 当前值 |
 |------|----------|--------|
 | 清单维护人 | 负责督促更新的人 | Akuma-real |
-| 最近更新日期 | `YYYY-MM-DD` | 2026-08-13 |
-| 基准 upstream 版本 | 最近一次完整同步时的 tag 或 `VERSION` | **`v1.0.0-rc.24`**（`5c3abffe`；已合入至 `upstream/main` 的后续提交，最近含并发额度/渠道状态加固与充值原子结算。官方前端收敛为 `web/`，本仓仅重放 GG-004/006/007 的必要功能补丁。发版 `N` 自 `.1` 起递增） |
-| 基准 upstream commit | 最近一次 `merge upstream/main` 的提交 SHA（短哈希即可） | `ccd535ef8` |
-| 本仓版本策略 | git tag 格式（见 [SOP §5.1](./branch-and-sync-sop.md)） | **`v<上游基线>.N`**（例已发 `v1.0.0-rc.20.5`；同步后新基线发版从 **`v1.0.0-rc.22.1`** 起）；基线须为 `origin/main` 祖先；正式 tag **只钉** `origin/main` tip；**禁止**与 upstream 同名 tag；`N` 仅在「基准 upstream 版本」串变化时归 1；**默认 tag 产物 = GHCR 镜像**（非裸二进制） |
+| 最近更新日期 | `YYYY-MM-DD` | 2026-08-23 |
+| 基准 upstream 版本 | 最近一次完整同步时的 tag 或 `VERSION` | **`v1.0.0-rc.25`**（`f11641428`；已继续合入 `upstream/main` 至 `2d8e50bf3`，最近含 Responses 缓存 token 结算、充值钱包上限保护、渠道测试与路由编辑器、Claude tools 转换及前端 Vitest 收敛。官方前端保持 `web/`，本仓仅重放 GG-004/006/007 的必要功能补丁。发版 `N` 自 `.1` 起递增） |
+| 基准 upstream commit | 最近一次 `merge upstream/main` 的提交 SHA（短哈希即可） | `2d8e50bf3` |
+| 本仓版本策略 | git tag 格式（见 [SOP §5.1](./branch-and-sync-sop.md)） | **`v<上游基线>.N`**（例已发 `v1.0.0-rc.24.2`；本次新基线发版从 **`v1.0.0-rc.25.1`** 起）；基线须为 `origin/main` 祖先；正式 tag **只钉** `origin/main` tip；**禁止**与 upstream 同名 tag；`N` 仅在「基准 upstream 版本」串变化时归 1；**默认 tag 产物 = GHCR 镜像**（非裸二进制） |
 
 同步完成后，务必更新「基准 upstream 版本 / commit」与「最近更新日期」。
 
