@@ -3,6 +3,9 @@ name: CI
 on:
   pull_request:
     types: [opened, synchronize, closed]
+  # ggapi lands work by pushing main without a PR (GG-003).
+  push:
+    branches: [main]
 
 permissions:
   contents: read

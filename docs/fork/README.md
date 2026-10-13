@@ -31,11 +31,11 @@ git remote -v
 在 Grok / 兼容 agent 中可用：
 
 - 斜杠命令：`/ggapi-fork`
-- 自然语言：二开、开分支、push 还是 PR、同步上游、冲突、差异清单、发版回归等
+- 自然语言：二开、开分支、提交与合并、同步上游、冲突、差异清单、发版回归等
 
-Skill 会按模式（日常开发 / 推送与 PR / 上游同步 / 冲突与清单 / 发版 / 排障 / **skill 自升级**）逐步给出命令，并与本目录 SOP 对齐；**流程以本目录文档为准**，skill 负责执行级指引。当前 skill 版本见清单 [GG-002](./diff-inventory.md)（**v3.0.0+**）。本仓 git tag 规则见 [SOP §5.1](./branch-and-sync-sop.md)（**`v<上游基线>.N`**，例 `v1.0.0-rc.22.1`；基线须为 `origin/main` 祖先；正式 tag 只钉 `origin/main` tip；`N` 仅在基线版本串变化时归 1；**默认产物 = GHCR 镜像**，裸二进制仅手动 dispatch）。
+Skill 会按模式（日常开发 / 提交与合并 / 上游同步 / 冲突与清单 / 发版 / 排障 / **skill 自升级**）逐步给出命令，并与本目录 SOP 对齐；**流程以本目录文档为准**，skill 负责执行级指引。当前 skill 版本见清单 [GG-002](./diff-inventory.md)（**v4.0.0+**）。本仓 git tag 规则见 [SOP §5.1](./branch-and-sync-sop.md)（**`v<上游基线>.N`**，例 `v1.0.0-rc.22.1`；基线须为 `origin/main` 祖先；正式 tag 只钉 `origin/main` tip；`N` 仅在基线版本串变化时归 1；**默认产物 = GHCR 镜像**，裸二进制仅手动 dispatch）。
 
-**提交：** 本地验证完成后，用户明确说「提交/commit」时 skill Mode C 直接 commit；push、开 PR、合并各需用户明确说出。
+**提交与合并：** 本仓只有一名维护者，日常改动不走 PR。本地验证完成后，用户说「提交」时 skill Mode C 在功能分支上 commit；用户说「合并」或「推送」时，在本地用 `git merge --no-ff` 合入 `main` 并推送 `origin/main`，推送后由 CI 检查（见 [SOP §3](./branch-and-sync-sop.md)）。
 
 自升级策略（能改进自身、禁止乱改）：见 skill 内 [`references/self-upgrade.md`](../../.agents/skills/ggapi-fork/references/self-upgrade.md)。摘要：**L1** 对齐文档/小修补可主动改文件但不自动提交；**L2/L3** 须先方案后确认；永不静默削弱 hard rules、不自动 push。
 

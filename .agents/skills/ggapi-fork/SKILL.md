@@ -2,7 +2,7 @@
 name: ggapi-fork
 description: >
   Maintain the ggapi fork of QuantumNous/new-api end to end: daily feature/fix
-  work, branches, commit/push/PR decisions, upstream sync and conflicts, diff inventory,
+  work, branches, commit/merge-to-main decisions, upstream sync and conflicts, diff inventory,
   releases, upstream contributions, the official web frontend, GitHub-hosted runners, update-check PAT, and
   controlled skill self-upgrade. Use for /ggapi-fork or questions/actions about
   二开, fork 开发, 开分支, 提交/commit, push, PR, 合并,
@@ -13,7 +13,7 @@ description: >
   including plain “提交/commit” (Mode C). For skill changes, follow
   Mode I/self-upgrade policy.
 metadata:
-  skill_version: "3.0.0"
+  skill_version: "4.0.0"
 ---
 
 # ggapi Fork Maintenance Playbook
@@ -57,14 +57,14 @@ git rev-parse --short upstream/main 2>/dev/null || true
 | Rule | Detail |
 |------|--------|
 | Push target | **Only** `origin`. Never `git push upstream`. |
-| `main` protection | **Never** commit/push directly to `main` for normal work. Branch → PR → merge. |
+| `main` protection | Never commit directly on `main` and never force-push it. Land work only by a local `git merge --no-ff` of a topic branch followed by `git push origin main`, and only when the user says 合并/推送 (no PR step; single maintainer). |
 | Thin customization | Prefer config / independent packages / new channel dirs over patching hotspots. |
 | Hotspots | Extra care: `service/*quota*`, `model/` locks/transactions, `relay/`, auth middleware, `pkg/billingexpr/`. Billing → read `pkg/billingexpr/expr.md` first. |
 | Diff inventory | Permanent fork diffs must be registered in `docs/fork/diff-inventory.md`. Sync updates baseline commit/date. |
 | Branding | Never remove/replace **new-api** / **QuantumNous** protected identity (AGENTS.md). |
 | Engineering rules | JSON via `common/*`, three DBs, billing safety, frontend i18n — all still apply. |
 | Confirm before risk | Force-push, `reset --hard`, deploy, production DB, or anything shared: **ask user first**. |
-| Commit/PR policy | Only commit/push/open PR when the user explicitly asks. Follow repo commit/PR rules. |
+| Commit/merge policy | Only commit, merge into `main`, or push when the user explicitly asks. Follow repo commit rules. |
 | Skill self-upgrade | May improve `.agents/skills/ggapi-fork/**` only per `references/self-upgrade.md`. **Never** silent L2/L3 rewrites; **never** auto-commit/push; **never** weaken Hard rules to “make it easier”. Prefer aligning skill → docs, not docs → bad skill. |
 
 ## Mode router
@@ -77,7 +77,7 @@ workflow end-to-end.
 |------|--------------|------|
 | **A. Bootstrap** | 首次配置, remote, 环境, 怎么开始二开 | `references/workflows.md` §A |
 | **B. Daily feature/fix** | 新功能, bug, 开分支, 实现, 本地验证 | `references/workflows.md` §B |
-| **C. Ship (commit + push + PR)** | 提交, commit, 最终提交, push, PR, 合入, 合并, 继续 (when ship in progress), push 还是 PR; 链式「提交→push→PR→merge(→发版)」 | `references/workflows.md` §C (含 **C0** / **C-continue**) + `references/checklists.md` §Pre-PR |
+| **C. Ship (commit + merge into main)** | 提交, commit, 最终提交, 合并, 推送, push, 合入, 推分支, 继续 (when ship in progress), 怎么进 main; 链式「提交→合并(→发版)」; Dependabot PR 合并/关闭 | `references/workflows.md` §C (含 **C0** / **C-continue** / **C6**) + `references/checklists.md` §Pre-merge |
 | **D. Upstream sync** | 同步上游, merge upstream, sync | `references/workflows.md` §D + `references/checklists.md` §Post-sync |
 | **E. Conflict / inventory** | 冲突, 差异清单, GG-xxx, needs-rebase | `references/workflows.md` §E + `references/troubleshooting.md` |
 | **F. Release** | 发版, 部署, 回归 | `references/workflows.md` §F + `references/checklists.md` §Release |
@@ -85,8 +85,8 @@ workflow end-to-end.
 | **H. Stuck / diagnose** | 报错, 推不了, 分叉乱了, 不知道下一步 | `references/troubleshooting.md` first, then re-route |
 | **I. Skill self-upgrade** | 升级 skill, 改进 ggapi-fork, 自升级, 自提升, 自检 skill, skill 与文档不一致 | `references/self-upgrade.md` + `references/CHANGELOG.md` |
 
-If the user only asks a conceptual question ("到底应该 PR 还是 push？"), answer
-from Mode C hard decision table **without** running push/PR unless they ask.
+If the user only asks a conceptual question ("改动怎么进 main？"), answer from
+the Mode C decision table **without** merging or pushing unless they ask.
 
 ### Mode I quick gate (self-upgrade)
 
@@ -94,8 +94,8 @@ from Mode C hard decision table **without** running push/PR unless they ask.
 2. Classify change **L0 / L1 / L2 / L3**.
 3. **L0:** explain gap only. **L1:** may edit skill files after one-line notice; no commit. **L2/L3:** written plan → user confirms → then edit.
 4. Always bump `metadata.skill_version` + `references/CHANGELOG.md` when files change.
-5. Ship skill changes via `docs/…` branch + PR like any other docs change; do not mix with unrelated features unless user insists.
-6. If `docs/fork` must change for truth: edit docs first (or same PR), skill second.
+5. Ship skill changes on a `docs/…` branch landed via Mode C like any other docs change; do not mix with unrelated features unless user insists.
+6. If `docs/fork` must change for truth: edit docs first (or on the same branch), skill second.
 
 ## Coaching language (user-facing)
 
@@ -123,29 +123,32 @@ For multi-step work, present progress as:
 Do **not** dump the entire SOP unprompted. Walk one phase at a time unless the
 user asks for the full map.
 
-## Decision: push vs PR (quick answer)
+## Decision: how work reaches main (quick answer)
 
 ```text
 功能/文档/同步工作在分支上完成
+        │  用户说「提交」→ commit
+        ▼
+  本地检查通过 + 合入最新 origin/main 后复测
+        │  用户说「合并」/「推送」
+        ▼
+  git checkout main && git merge --no-ff <分支>
         │
         ▼
-  git push -u origin HEAD     ← 推的是「分支」，不是 main
-        │
-        ▼
-  开 PR → base: main          ← 唯一合入 main 的正规路径
-        │
-        ▼
-  Review / CI → merge → 删分支 → 必要时更新 diff-inventory
+  git push origin main → 删分支 → 看 main 的 CI → 必要时更新 diff-inventory
 ```
 
 | Action | Allowed? |
 |--------|----------|
-| `git push -u origin feat/…` (or current topic branch) | Yes |
-| Open PR into `main` | Yes (required for normal land) |
-| `git push origin main` / commit on `main` for routine work | **No** |
+| Commit on a topic branch | Yes, when the user says 提交 |
+| `git merge --no-ff <topic>` into local `main` + `git push origin main` | Yes, when the user says 合并/推送 |
+| `git push -u origin <topic>` | Only on 推分支 (backup; does not land) |
+| Commit directly on `main` (other than the merge commit) | **No** |
+| Force-push `main` | **Never** |
+| PR for routine work | Not used (Dependabot PRs: C6) |
 | `git push upstream …` | **Never** |
 
-Full ship checklist: `references/checklists.md` §Pre-PR.
+Full ship checklist: `references/checklists.md` §Pre-merge.
 
 ## Where customization should land
 
@@ -166,8 +169,8 @@ aligned with active rows (not replace them):
 | ID | Topic |
 |----|--------|
 | GG-001 | `docs/fork/` + `AGENTS.md` 二开入口 |
-| GG-002 | this skill (`/ggapi-fork`, v3.0.0+; Modes A–I; C-continue; chained C→F ship; official single frontend; release tag `v<upstream>.N` → GHCR wait) |
-| GG-003 | GitHub-hosted `ubuntu-latest` Linux amd64; **tag → GHCR**; no Docker Hub `calciumion/new-api`; bare binary optional (manual) |
+| GG-002 | this skill (`/ggapi-fork`, v4.0.0+; Modes A–I; local merge to `main` without PR; C-continue; chained C→F ship; official single frontend; release tag `v<upstream>.N` → GHCR wait) |
+| GG-003 | GitHub-hosted `ubuntu-latest` Linux amd64; `ci.yml` also runs on push to `main`; **tag → GHCR**; no Docker Hub `calciumion/new-api`; bare binary optional (manual) |
 | GG-004 | Server-side update check URL + GitHub PAT |
 | GG-005 | **Dropped:** former third frontend shell and multi-theme wiring; do not restore |
 | GG-006 | **Dropped (2026-10-13):** VIP membership-only plans; startup migration retires old data; do not restore |
@@ -200,7 +203,7 @@ Rule of thumb (canonical: `docs/fork` SOP §3.5): keep upstream `web/` as the ba
 | `docs/fork/diff-inventory.md` | Permanent diffs + baseline upstream SHA |
 | `AGENTS.md` | Engineering rules + protected branding |
 | `pkg/billingexpr/expr.md` | Billing expression system (read before quota work) |
-| `.github/PULL_REQUEST_TEMPLATE.md` | Required structure for ggapi PRs; upstream contributions must load the target's current template/rules |
+| `.github/PULL_REQUEST_TEMPLATE.md` | Structure for any PR opened on ggapi (routine work has none); upstream contributions must load the target's current template/rules |
 | `.github/SECURITY.md` | Vulnerability disclosure |
 
 If skill text and `docs/fork/*` disagree, **docs win** — then offer Mode **I**
@@ -211,7 +214,7 @@ user explicitly wants an SOP change.
 
 Always leave the user with:
 
-1. Current branch + whether it is pushed
+1. Current branch + whether it has landed on `origin/main`
 2. Whether `diff-inventory` needs an update
 3. Exact next command **or** "done for this mode"
 4. If they finished a permanent customization: remind GG-xxx registration before merge to `main`
