@@ -205,25 +205,36 @@ func TestCheckUpdateOmitsEmptyPublishedAt(t *testing.T) {
 	assert.Contains(t, w.Body.String(), `"published_at":null`)
 }
 
-func TestCheckUpdateReportsRateLimit(t *testing.T) {
+// Failures answer with the message the system update panel shows for their
+// kind; only a rate limit has its own status.
+func TestCheckUpdateReportsFailureKind(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	limited := make(http.Header)
 	limited.Set("X-RateLimit-Remaining", "0")
 	tests := []struct {
-		name   string
-		status int
-		header http.Header
-		want   int
+		name    string
+		status  int
+		header  http.Header
+		want    int
+		wantKey string
 	}{
-		{name: "too many requests", status: http.StatusTooManyRequests, want: http.StatusTooManyRequests},
-		{name: "exhausted primary limit", status: http.StatusForbidden, header: limited, want: http.StatusTooManyRequests},
-		{name: "forbidden token", status: http.StatusForbidden, want: http.StatusBadGateway},
+		{name: "too many requests", status: http.StatusTooManyRequests, want: http.StatusTooManyRequests, wantKey: "GitHub rate limit reached. Try again later."},
+		{name: "exhausted primary limit", status: http.StatusForbidden, header: limited, want: http.StatusTooManyRequests, wantKey: "GitHub rate limit reached. Try again later."},
+		{name: "forbidden token", status: http.StatusForbidden, want: http.StatusBadGateway, wantKey: "Failed to check for updates"},
+		{name: "release without tag", status: http.StatusOK, want: http.StatusBadGateway, wantKey: "Unexpected release payload"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			w := runUpdateCheckWithResponse(t, tt.status, tt.header, `{"message":"limited"}`)
 
 			assert.Equal(t, tt.want, w.Code)
+			var body struct {
+				Success    bool   `json:"success"`
+				MessageKey string `json:"message_key"`
+			}
+			require.NoError(t, common.Unmarshal(w.Body.Bytes(), &body))
+			assert.False(t, body.Success)
+			assert.Equal(t, tt.wantKey, body.MessageKey)
 		})
 	}
 }

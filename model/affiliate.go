@@ -24,15 +24,16 @@ const (
 )
 
 var (
-	affiliateCodePattern           = regexp.MustCompile(`^[a-z0-9_-]{4,32}$`)
-	ErrAffiliateAlreadyBound       = errors.New("邀请人已绑定，不能重复修改")
-	ErrAffiliateCodeNotFound       = errors.New("邀请码不存在")
-	ErrAffiliateCodeUnavailable    = errors.New("邀请码已被使用")
-	ErrAffiliateCodeAmbiguous      = errors.New("邀请码存在大小写歧义，请使用精确邀请码")
-	ErrAffiliateInviterUnavailable = errors.New("邀请人不可用")
-	ErrAffiliateRelationCycle      = errors.New("邀请关系不能形成循环")
-	ErrAffiliateSelfInvite         = errors.New("不能邀请自己")
-	ErrAffiliateRelationChanged    = errors.New("邀请关系已变化，请重试")
+	affiliateCodePattern = regexp.MustCompile(`^[a-z0-9_-]{4,32}$`)
+
+	ErrAffiliateAlreadyBound       error = common.NewMessage("An inviter is already bound and cannot be changed")
+	ErrAffiliateCodeNotFound       error = common.NewMessage("Invitation code does not exist")
+	ErrAffiliateCodeUnavailable    error = common.NewMessage("Invitation code is already in use")
+	ErrAffiliateCodeAmbiguous      error = common.NewMessage("Invitation code matches more than one code when letter case is ignored. Please enter the exact code")
+	ErrAffiliateInviterUnavailable error = common.NewMessage("Inviter is unavailable")
+	ErrAffiliateRelationCycle      error = common.NewMessage("Invitation relationships cannot form a cycle")
+	ErrAffiliateSelfInvite         error = common.NewMessage("You cannot invite yourself")
+	ErrAffiliateRelationChanged    error = common.NewMessage("Invitation relationship changed. Please try again")
 )
 
 type AffiliateCommission struct {
@@ -95,11 +96,11 @@ type AffiliateCommissionFilters struct {
 
 func ValidateAffiliateCommissionRate(rate float64) error {
 	if math.IsNaN(rate) || math.IsInf(rate, 0) || rate < 0 || rate > 100 {
-		return errors.New("返佣比例必须在 0.00 到 100.00 之间")
+		return common.NewMessage("Commission rate must be between 0 and 100.")
 	}
 	scaled := decimal.NewFromFloat(rate).Mul(decimal.NewFromInt(100))
 	if !scaled.Equal(scaled.Truncate(0)) {
-		return errors.New("返佣比例最多保留两位小数")
+		return common.NewMessage("Commission rate can have at most two decimal places")
 	}
 	return nil
 }
@@ -107,7 +108,7 @@ func ValidateAffiliateCommissionRate(rate float64) error {
 func NormalizeAffiliateCode(code string) (string, error) {
 	code = strings.ToLower(strings.TrimSpace(code))
 	if !affiliateCodePattern.MatchString(code) {
-		return "", errors.New("邀请码只能包含小写字母、数字、下划线或短横线，长度为 4 到 32 位")
+		return "", common.NewMessage("Invitation code must be 4 to 32 characters of lowercase letters, digits, underscores, or hyphens")
 	}
 	return code, nil
 }
@@ -199,7 +200,7 @@ func finishAffiliateInvite(inviteeId int, inviterId int) {
 		inviterReward = common.QuotaForInviter
 	}
 	if err := inviteUser(inviterId, inviterReward); err != nil {
-		common.SysError("failed to update inviter reward: " + err.Error())
+		common.SysError(common.LogText("failed to update inviter reward: %s", err.Error()))
 		return
 	}
 	if inviterReward > 0 {
@@ -253,7 +254,7 @@ func GetAffiliateUserDetail(userId int) (*AffiliateUserDetail, error) {
 
 func EnsureAffiliateCode(userId int) (string, error) {
 	if userId <= 0 {
-		return "", errors.New("无效的用户 ID")
+		return "", common.NewMessage("Invalid user ID")
 	}
 	var user User
 	if err := DB.Select("id", "aff_code").First(&user, userId).Error; err != nil {
@@ -293,7 +294,7 @@ func EnsureAffiliateCode(userId int) (string, error) {
 			return user.AffCode, nil
 		}
 	}
-	return "", errors.New("生成邀请码失败，请重试")
+	return "", common.NewMessage("Failed to generate an invitation code. Please try again")
 }
 
 func loadAffiliateRelationSnapshot(tx *gorm.DB, userId int, inviterId int) (map[int]int, []int, error) {
@@ -502,7 +503,7 @@ func BindAffiliateInviterByCode(userId int, code string) error {
 
 func SetAffiliateUserConfig(userId int, affCode string, customRate *float64, inviterId int) error {
 	if userId <= 0 || inviterId < 0 {
-		return errors.New("无效的用户 ID")
+		return common.NewMessage("Invalid user ID")
 	}
 	if customRate != nil {
 		if err := ValidateAffiliateCommissionRate(*customRate); err != nil {
@@ -632,7 +633,7 @@ func SettleAffiliateCommissionTx(tx *gorm.DB, inviteeId int, sourceType string, 
 	if sourceType != AffiliateCommissionSourceTopUp &&
 		sourceType != AffiliateCommissionSourceSubscription &&
 		sourceType != AffiliateCommissionSourceRedemption {
-		return nil, false, errors.New("无效的返佣来源")
+		return nil, false, errors.New("invalid affiliate commission source")
 	}
 	if inviteeId <= 0 || sourceId <= 0 || baseQuota <= 0 || !operation_setting.IsPaymentComplianceConfirmed() {
 		return nil, false, nil
@@ -682,14 +683,14 @@ func SettleAffiliateCommissionTx(tx *gorm.DB, inviteeId int, sourceType string, 
 		decimal.NewFromInt(int64(baseQuota)).Mul(decimal.NewFromFloat(rate)).Div(decimal.NewFromInt(100)),
 	)
 	if clamp != nil {
-		return nil, false, errors.New("返佣额度超出系统范围")
+		return nil, false, errors.New("affiliate commission quota out of range")
 	}
 	if commissionQuota <= 0 {
 		return nil, false, nil
 	}
 	if int64(inviter.AffQuota)+int64(commissionQuota) > math.MaxInt32 ||
 		int64(inviter.AffHistoryQuota)+int64(commissionQuota) > math.MaxInt32 {
-		common.SysError(fmt.Sprintf(
+		common.SysError(common.LogText(
 			"skip affiliate commission due to aff balance overflow inviter=%d invitee=%d source=%s/%d commission=%d aff_quota=%d aff_history=%d",
 			inviter.Id, invitee.Id, sourceType, sourceId, commissionQuota, inviter.AffQuota, inviter.AffHistoryQuota,
 		))

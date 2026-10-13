@@ -44,7 +44,7 @@ func GetSelfAffiliate(c *gin.Context) {
 func BindSelfAffiliate(c *gin.Context) {
 	var request bindAffiliateInviterRequest
 	if err := common.DecodeJson(c.Request.Body, &request); err != nil {
-		common.ApiErrorMsg(c, "无效的参数")
+		common.ApiErrorT(c, "Invalid parameters")
 		return
 	}
 	if err := model.BindAffiliateInviterByCode(c.GetInt("id"), request.AffCode); err != nil {
@@ -116,7 +116,7 @@ func SearchAffiliateUsers(c *gin.Context) {
 func GetAffiliateUser(c *gin.Context) {
 	userId, err := strconv.Atoi(c.Param("id"))
 	if err != nil || userId <= 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "无效的用户 ID"})
+		common.ApiErrorStatus(c, http.StatusBadRequest, common.NewMessage("Invalid user ID"))
 		return
 	}
 	user, err := model.GetUserById(userId, false)
@@ -125,7 +125,7 @@ func GetAffiliateUser(c *gin.Context) {
 		return
 	}
 	if !canManageTargetRole(c.GetInt("role"), user.Role) {
-		common.ApiErrorMsg(c, "无权查看同级或更高等级用户")
+		common.ApiErrorT(c, "No permission to access users of same or higher level")
 		return
 	}
 	detail, err := model.GetAffiliateUserDetail(userId)
@@ -139,7 +139,7 @@ func GetAffiliateUser(c *gin.Context) {
 func UpdateAffiliateUser(c *gin.Context) {
 	userId, err := strconv.Atoi(c.Param("id"))
 	if err != nil || userId <= 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "无效的用户 ID"})
+		common.ApiErrorStatus(c, http.StatusBadRequest, common.NewMessage("Invalid user ID"))
 		return
 	}
 	user, err := model.GetUserById(userId, false)
@@ -148,12 +148,12 @@ func UpdateAffiliateUser(c *gin.Context) {
 		return
 	}
 	if !canManageTargetRole(c.GetInt("role"), user.Role) {
-		common.ApiErrorMsg(c, "无权管理同级或更高等级用户")
+		common.ApiErrorT(c, "No permission to update users of same or higher permission level")
 		return
 	}
 	var request updateAffiliateUserRequest
 	if err := common.DecodeJson(c.Request.Body, &request); err != nil {
-		common.ApiErrorMsg(c, "无效的参数")
+		common.ApiErrorT(c, "Invalid parameters")
 		return
 	}
 	request.AffCode = strings.TrimSpace(request.AffCode)

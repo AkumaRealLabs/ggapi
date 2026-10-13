@@ -273,11 +273,11 @@ func UpdateOption(c *gin.Context) {
 	case "AffiliateCommissionRate":
 		rate, parseErr := strconv.ParseFloat(option.Value.(string), 64)
 		if parseErr != nil {
-			common.ApiErrorMsg(c, "返佣比例必须是数字")
+			common.ApiErrorT(c, "Commission rate must be between 0 and 100.")
 			return
 		}
 		if err := model.ValidateAffiliateCommissionRate(rate); err != nil {
-			common.ApiErrorMsg(c, err.Error())
+			common.ApiError(c, err)
 			return
 		}
 	case "gemini.safety_settings":
