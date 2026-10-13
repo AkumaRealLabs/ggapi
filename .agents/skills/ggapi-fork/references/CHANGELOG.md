@@ -2,6 +2,29 @@
 
 格式：`## version — YYYY-MM-DD` + 级别 + 摘要。最新在上。
 
+## 3.0.0 — 2026-10-13
+
+- **级别:** L3 / major（取消提交前审查门禁）
+- **原因:** 维护者要求删除提交前「新开终端审查」流程
+- **变更:**
+  - 删除 Mode C **C2-pre**：用户说「提交」后，本地验证与 C1b 检查完成即进入 C2，不再暂存并指纹化最终树、停下等待用户在新终端用自选 Agent 审查
+  - 移除审查结果回传、stale result、3 轮复审上限与跳过口令；C0 授权链与 C-continue 不再包含审查暂停
+  - merge pin 改为 C3 推送的提交，合并前仍核对远端 `headRefOid`
+  - troubleshooting §21 只保留「继续」误路由；checklists、self-upgrade 示例、`docs/fork/README.md`、SOP §3 与 GG-002 同步
+  - `skill_version` → **3.0.0**
+- **规则变更:** 只取消提交前的人工终端审查，不改由当前 Agent 代跑审查
+- **未改:** origin-only、禁直推 main、品牌与计费等 Hard rules；仍只在用户明确说提交时 commit，不自动 push/PR/merge
+
+## 2.0.1 — 2026-10-13
+
+- **级别:** L1 / patch（锚点对齐；**未**改 Hard rules 或流程）
+- **原因:** 同步上游 `v1.0.0-rc.44` 时维护者删除 GG-006，GG-008/009/011/012 改用上游实现，差异清单的 active 项变为 GG-001/002/003/004/007/010
+- **变更:**
+  - Fork inventory anchors 中 GG-006 标为 dropped，补 GG-010
+  - 前端与冲突解决指引中的 `GG-004/006/007` 改为 `GG-004/007`
+  - `skill_version` → **2.0.1**
+- **未改:** Modes、C2-pre 用户手动审查、origin-only、品牌与计费等 Hard rules
+
 ## 2.0.0 — 2026-07-27
 
 - **级别:** L3 / major（PR 审查与贡献政策变更）

@@ -2,19 +2,18 @@
 name: ggapi-fork
 description: >
   Maintain the ggapi fork of QuantumNous/new-api end to end: daily feature/fix
-  work, branches, push/PR decisions, pre-commit user-run terminal-Agent review
-  handoff, upstream sync and conflicts, diff inventory, releases, upstream
-  contributions, the official web frontend, GitHub-hosted runners, update-check PAT, and
+  work, branches, commit/push/PR decisions, upstream sync and conflicts, diff inventory,
+  releases, upstream contributions, the official web frontend, GitHub-hosted runners, update-check PAT, and
   controlled skill self-upgrade. Use for /ggapi-fork or questions/actions about
-  二开, fork 开发, 开分支, 提交/commit, push, PR, 合并, 提交前手动审查,
+  二开, fork 开发, 开分支, 提交/commit, push, PR, 合并,
   同步上游, merge upstream, 冲突, GG-xxx, diff-inventory, 发版, origin/upstream,
   官方前端, 单前端, web, GitHub-hosted, ubuntu-latest, runner, GitHub PAT,
   排障, 升级/改进/自检 ggapi-fork skill, or any long-term fork-maintenance
   task in this repository. Always load before fork workflow advice or actions,
-  including plain “提交/commit” (Mode C C2-pre). For skill changes, follow
+  including plain “提交/commit” (Mode C). For skill changes, follow
   Mode I/self-upgrade policy.
 metadata:
-  skill_version: "2.0.0"
+  skill_version: "3.0.0"
 ---
 
 # ggapi Fork Maintenance Playbook
@@ -67,20 +66,6 @@ git rev-parse --short upstream/main 2>/dev/null || true
 | Confirm before risk | Force-push, `reset --hard`, deploy, production DB, or anything shared: **ask user first**. |
 | Commit/PR policy | Only commit/push/open PR when the user explicitly asks. Follow repo commit/PR rules. |
 | Skill self-upgrade | May improve `.agents/skills/ggapi-fork/**` only per `references/self-upgrade.md`. **Never** silent L2/L3 rewrites; **never** auto-commit/push; **never** weaken Hard rules to “make it easier”. Prefer aligning skill → docs, not docs → bad skill. |
-
-### Ship quality gate (Mode C — not a Hard rule)
-
-Before the **final** commit of a ship unit (user said 提交 / commit / 最终提交 —
-even without `/ggapi-fork`), stop at the **C2-pre manual review handoff**.
-The current Agent prepares the combined final tree vs `origin/main`, asks the
-user to open a new terminal and review it with their preferred terminal Agent,
-then waits for the user to return the result. The current Agent **must not**
-invoke Codex, a companion, another review tool, or a review sub-agent. Findings
-are fixed here and handed back to the user for another manual review; no result
-means no final commit. Only clear user opt-out phrases count (workflows C2-pre /
-§21). Docs/skill are not auto-exempt. This does **not** auto-commit or replace
-Hard rules.
-Full procedure: Mode C **C2-pre**.
 
 ## Mode router
 
@@ -181,12 +166,13 @@ aligned with active rows (not replace them):
 | ID | Topic |
 |----|--------|
 | GG-001 | `docs/fork/` + `AGENTS.md` 二开入口 |
-| GG-002 | this skill (`/ggapi-fork`, v2.0.0+; Modes A–I + C2-pre user-run terminal review; C-continue; chained C→F ship; official single frontend; release tag `v<upstream>.N` → GHCR wait) |
+| GG-002 | this skill (`/ggapi-fork`, v3.0.0+; Modes A–I; C-continue; chained C→F ship; official single frontend; release tag `v<upstream>.N` → GHCR wait) |
 | GG-003 | GitHub-hosted `ubuntu-latest` Linux amd64; **tag → GHCR**; no Docker Hub `calciumion/new-api`; bare binary optional (manual) |
 | GG-004 | Server-side update check URL + GitHub PAT |
 | GG-005 | **Dropped:** former third frontend shell and multi-theme wiring; do not restore |
-| GG-006 | VIP membership-only plans and scheduled membership queue |
+| GG-006 | **Dropped (2026-10-13):** VIP membership-only plans; startup migration retires old data; do not restore |
 | GG-007 | Auditable first-level affiliate commissions |
+| GG-010 | Strip unsupported penalty fields for official OpenAI/Azure Responses routes |
 
 ## Official frontend placement
 
@@ -194,13 +180,12 @@ aligned with active rows (not replace them):
 |------|------|
 | `web/` | The only frontend source, dev server, build input, and embedded distribution |
 
-Rule of thumb (canonical: `docs/fork` SOP §3.5): keep upstream `web/` as the base and add only the smallest GG-004/006/007 capability delta. Do not recreate `web/ggapi`, classic, runtime theme selection, or fork-only visual redesigns. Local: `make dev` / `make dev-web` / `make build-web`.
+Rule of thumb (canonical: `docs/fork` SOP §3.5): keep upstream `web/` as the base and add only the smallest GG-004/007 capability delta. Do not recreate `web/ggapi`, classic, runtime theme selection, or fork-only visual redesigns. Local: `make dev` / `make dev-web` / `make build-web`.
 
 ## Related skills (hand off, do not reimplement)
 
 | Topic | Skill |
 |-------|--------|
-| Pre-commit / final-ship review | User opens a new terminal and uses any preferred terminal Agent; this skill only prepares the handoff, waits for the result, and owns the fix → manual re-review loop |
 | Frontend i18n keys (all locales incl. **zh-TW** under `web/src/i18n`) | `i18n-translate` |
 | shadcn/ui in the official frontend | `shadcn-ui` (run from `web/`) |
 | React performance | `vercel-react-best-practices` |

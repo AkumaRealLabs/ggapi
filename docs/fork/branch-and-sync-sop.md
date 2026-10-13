@@ -55,10 +55,8 @@ git checkout -b feat/your-topic
 ## 3. 日常开发闭环
 
 ```
-Issue/任务 → 分支 → 实现 → 本地验证 → 用户在新终端用自选 Agent 审查（有问题则修后重新手动审查）→ commit → push 分支 → PR → Review → 合入 main → 更新差异清单（如有）
+Issue/任务 → 分支 → 实现 → 本地验证 → commit → push 分支 → PR → Review → 合入 main → 更新差异清单（如有）
 ```
-
-提交前人工终端 Agent 门禁由 skill **ggapi-fork** Mode C（C2-pre）协调：当前 Agent 到达门禁后停止操作，请用户在新终端使用任意终端 Agent 审查完整最终改动，并等待用户把结果发回；当前 Agent 不代跑审查工具。用户回传无问题后再 commit；有 findings 则修复后再次等待手动复审。详见 skill `references/workflows.md` 与 `docs/fork/README.md` Agent 技能小节。
 
 ### 3.1 实现约束（摘要）
 
@@ -99,14 +97,14 @@ make dev-web         # 官方前端
 
 **日常开发：**
 
-1. GG-004/006/007 的前端能力直接落在 `web/src/features/...` 对应官方模块，优先新增独立 feature 文件或使用现有扩展点。
+1. GG-004/007 的前端能力直接落在 `web/src/features/...` 对应官方模块，优先新增独立 feature 文件或使用现有扩展点。
 2. 不复制整个前端树，不引入 fork-only 主题、视觉壳或运行时前端选择器。
 3. 修改上游热点组件时只保留实现功能所需的最小 diff；同步上游后以官方实现为底，再重放仍必要的功能补丁。
 4. 本地开发使用 `make dev-web`，构建使用 `make build-web`；Docker 与可选裸二进制均只构建 `web/`。
 
 **上游同步时前端注意：**
 
-1. `web/` 冲突先采纳上游结构与组件 API，再逐项重放 GG-004/006/007 的必要能力。
+1. `web/` 冲突先采纳上游结构与组件 API，再逐项重放 GG-004/007 的必要能力。
 2. 不恢复已退役的 `web/ggapi`、classic、多主题或独立视觉改动。
 3. 用 `git diff upstream/main...HEAD -- web` 复核最终前端差异只包含登记功能。
 ### 3.3 Review 要求

@@ -44,9 +44,7 @@ export async function getAdminPlans(): Promise<ApiResponse<PlanRecord[]>> {
 export async function createPlan(
   data: PlanPayload
 ): Promise<ApiResponse<PlanRecord>> {
-  const res = await api.post('/api/subscription/admin/plans', data, {
-    skipBusinessError: true,
-  })
+  const res = await api.post('/api/subscription/admin/plans', data)
   return res.data
 }
 
@@ -54,9 +52,7 @@ export async function updatePlan(
   id: number,
   data: PlanPayload
 ): Promise<ApiResponse<PlanRecord>> {
-  const res = await api.put(`/api/subscription/admin/plans/${id}`, data, {
-    skipBusinessError: true,
-  })
+  const res = await api.put(`/api/subscription/admin/plans/${id}`, data)
   return res.data
 }
 
@@ -64,15 +60,9 @@ export async function patchPlanStatus(
   id: number,
   enabled: boolean
 ): Promise<ApiResponse> {
-  const res = await api.patch(
-    `/api/subscription/admin/plans/${id}`,
-    {
-      enabled,
-    },
-    {
-      skipBusinessError: true,
-    }
-  )
+  const res = await api.patch(`/api/subscription/admin/plans/${id}`, {
+    enabled,
+  })
   return res.data
 }
 
@@ -95,29 +85,25 @@ export async function createUserSubscription(
 ): Promise<ApiResponse<{ message?: string }>> {
   const res = await api.post(
     `/api/subscription/admin/users/${userId}/subscriptions`,
-    data,
-    { skipBusinessError: true }
+    data
   )
   return res.data
 }
 
 export async function invalidateUserSubscription(
   subId: number
-): Promise<ApiResponse<{ message?: string; group?: string }>> {
+): Promise<ApiResponse<{ message?: string }>> {
   const res = await api.post(
-    `/api/subscription/admin/user_subscriptions/${subId}/invalidate`,
-    undefined,
-    { skipBusinessError: true }
+    `/api/subscription/admin/user_subscriptions/${subId}/invalidate`
   )
   return res.data
 }
 
 export async function deleteUserSubscription(
   subId: number
-): Promise<ApiResponse<{ message?: string; group?: string }>> {
+): Promise<ApiResponse> {
   const res = await api.delete(
-    `/api/subscription/admin/user_subscriptions/${subId}`,
-    { skipBusinessError: true }
+    `/api/subscription/admin/user_subscriptions/${subId}`
   )
   return res.data
 }
@@ -128,8 +114,7 @@ export async function resetUserSubscriptionsByPlan(
 ): Promise<ApiResponse<SubscriptionResetResult>> {
   const res = await api.post(
     `/api/subscription/admin/users/${userId}/subscriptions/reset`,
-    data,
-    { skipBusinessError: true }
+    data
   )
   return res.data
 }
@@ -140,8 +125,7 @@ export async function resetPlanSubscriptions(
 ): Promise<ApiResponse<SubscriptionResetResult>> {
   const res = await api.post(
     `/api/subscription/admin/plans/${planId}/subscriptions/reset`,
-    data,
-    { skipBusinessError: true }
+    data
   )
   return res.data
 }
@@ -153,36 +137,28 @@ export async function resetPlanSubscriptions(
 export async function paySubscriptionStripe(
   data: SubscriptionPayRequest
 ): Promise<SubscriptionPayResponse> {
-  const res = await api.post('/api/subscription/stripe/pay', data, {
-    skipBusinessError: true,
-  })
+  const res = await api.post('/api/subscription/stripe/pay', data)
   return res.data
 }
 
 export async function paySubscriptionCreem(
   data: SubscriptionPayRequest
 ): Promise<SubscriptionPayResponse> {
-  const res = await api.post('/api/subscription/creem/pay', data, {
-    skipBusinessError: true,
-  })
+  const res = await api.post('/api/subscription/creem/pay', data)
   return res.data
 }
 
 export async function paySubscriptionWaffoPancake(
   data: SubscriptionPayRequest
 ): Promise<SubscriptionPayResponse> {
-  const res = await api.post('/api/subscription/waffo-pancake/pay', data, {
-    skipBusinessError: true,
-  })
+  const res = await api.post('/api/subscription/waffo-pancake/pay', data)
   return res.data
 }
 
 export async function paySubscriptionBalance(
   data: SubscriptionPayRequest
 ): Promise<SubscriptionPayResponse> {
-  const res = await api.post('/api/subscription/balance/pay', data, {
-    skipBusinessError: true,
-  })
+  const res = await api.post('/api/subscription/balance/pay', data)
   return res.data
 }
 
@@ -218,9 +194,7 @@ export async function listWaffoPancakeSubscriptionProductOptions(): Promise<
 export async function paySubscriptionEpay(
   data: SubscriptionPayRequest & { payment_method: string }
 ): Promise<SubscriptionPayResponse & { url?: string }> {
-  const res = await api.post('/api/subscription/epay/pay', data, {
-    skipBusinessError: true,
-  })
+  const res = await api.post('/api/subscription/epay/pay', data)
   return {
     ...res.data,
     url: res.data.url || (res as unknown as { url?: string }).url,

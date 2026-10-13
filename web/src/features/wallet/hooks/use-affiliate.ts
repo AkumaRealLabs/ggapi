@@ -22,6 +22,11 @@ import { toast } from 'sonner'
 
 import type { AffiliateUserDetail } from '@/features/affiliate/types'
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
+import { handleServerError } from '@/lib/handle-server-error'
+import {
+  getServerMessage,
+  requireServerSuccess,
+} from '@/lib/server-error-message'
 
 import {
   bindAffiliateInviter,
@@ -47,7 +52,7 @@ export function useAffiliate() {
   const fetchAffiliateCode = useCallback(async () => {
     try {
       setLoading(true)
-      const response = await getAffiliateSelf()
+      const response = requireServerSuccess(await getAffiliateSelf())
 
       if (response.success && response.data) {
         setAffiliate(response.data)
@@ -56,8 +61,7 @@ export function useAffiliate() {
         setAffiliateLink(link)
       }
     } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error('Failed to fetch affiliate code:', error)
+      handleServerError(error)
     } finally {
       setLoading(false)
     }
@@ -69,14 +73,14 @@ export function useAffiliate() {
         setBinding(true)
         const response = await bindAffiliateInviter(affCode)
         if (!response.success) {
-          toast.error(response.message || i18next.t('Failed to bind inviter'))
+          handleServerError(response, i18next.t('Failed to bind inviter'))
           return false
         }
         toast.success(i18next.t('Inviter bound successfully'))
         await fetchAffiliateCode()
         return true
-      } catch {
-        toast.error(i18next.t('Failed to bind inviter'))
+      } catch (error) {
+        handleServerError(error, i18next.t('Failed to bind inviter'))
         return false
       } finally {
         setBinding(false)
@@ -98,15 +102,17 @@ export function useAffiliate() {
         const response = await transferAffiliateQuota({ quota })
 
         if (response.success) {
-          toast.success(response.message || i18next.t('Transfer successful'))
+          toast.success(
+            getServerMessage(response) || i18next.t('Transfer successful')
+          )
           await fetchAffiliateCode()
           return true
         }
 
-        toast.error(response.message || i18next.t('Transfer failed'))
+        handleServerError(response, i18next.t('Transfer failed'))
         return false
-      } catch {
-        toast.error(i18next.t('Transfer failed'))
+      } catch (error) {
+        handleServerError(error, i18next.t('Transfer failed'))
         return false
       } finally {
         setTransferring(false)

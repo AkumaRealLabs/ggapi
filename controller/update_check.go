@@ -1,7 +1,9 @@
 package controller
 
 import (
+	"cmp"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -17,17 +19,84 @@ import (
 )
 
 type githubReleaseResponse struct {
-	TagName          string `json:"tag_name"`
-	Name             string `json:"name"`
-	Body             string `json:"body"`
-	HTMLURL          string `json:"html_url"`
-	PublishedAt      string `json:"published_at"`
-	Message          string `json:"message"` // GitHub error payload
-	DocumentationURL string `json:"documentation_url"`
+	TagName     string `json:"tag_name"`
+	Name        string `json:"name"`
+	Body        string `json:"body"`
+	HTMLURL     string `json:"html_url"`
+	PublishedAt string `json:"published_at"`
+	Draft       bool   `json:"draft"`
+	Prerelease  bool   `json:"prerelease"`
+	Message     string `json:"message"` // GitHub error payload
+}
+
+// updateCheckRelease is the release shape consumed by the dashboard's system
+// update checker.
+type updateCheckRelease struct {
+	TagName     string  `json:"tag_name"`
+	Name        string  `json:"name"`
+	Body        string  `json:"body"`
+	HTMLURL     string  `json:"html_url"`
+	PublishedAt *string `json:"published_at"`
+	Draft       bool    `json:"draft"`
+	Prerelease  bool    `json:"prerelease"`
+}
+
+func newUpdateCheckRelease(release githubReleaseResponse) updateCheckRelease {
+	var publishedAt *string
+	if release.PublishedAt != "" {
+		publishedAt = &release.PublishedAt
+	}
+	return updateCheckRelease{
+		TagName:     release.TagName,
+		Name:        release.Name,
+		Body:        release.Body,
+		HTMLURL:     release.HTMLURL,
+		PublishedAt: publishedAt,
+		Draft:       release.Draft,
+		Prerelease:  release.Prerelease,
+	}
+}
+
+// parseUpdateCheckReleases accepts either a single release (…/releases/latest)
+// or a release list (…/releases) and always returns a non-nil list on success.
+// A nil list without error carries GitHub's error message, if any.
+func parseUpdateCheckReleases(body []byte) ([]updateCheckRelease, string, error) {
+	if strings.HasPrefix(strings.TrimSpace(string(body)), "[") {
+		var releases []githubReleaseResponse
+		if err := common.Unmarshal(body, &releases); err != nil {
+			return nil, "", err
+		}
+		result := make([]updateCheckRelease, 0, len(releases))
+		for _, release := range releases {
+			if release.TagName != "" {
+				result = append(result, newUpdateCheckRelease(release))
+			}
+		}
+		return result, "", nil
+	}
+	var release githubReleaseResponse
+	if err := common.Unmarshal(body, &release); err != nil {
+		return nil, "", err
+	}
+	if release.TagName == "" {
+		return nil, release.Message, nil
+	}
+	return []updateCheckRelease{newUpdateCheckRelease(release)}, "", nil
+}
+
+// updateCheckFailedMessage is the system update panel's text for a failed check.
+const updateCheckFailedMessage = "Failed to check for updates"
+
+func isGitHubRateLimited(resp *http.Response) bool {
+	if resp.StatusCode == http.StatusTooManyRequests {
+		return true
+	}
+	return resp.StatusCode == http.StatusForbidden && resp.Header.Get("X-RateLimit-Remaining") == "0"
 }
 
 // CheckUpdate fetches the configured release endpoint server-side so private
-// repos can use a PAT that never leaves the backend. Root-only.
+// repos can use a PAT that never leaves the backend. Any administrator can
+// check; only root can change the endpoint and PAT.
 func CheckUpdate(c *gin.Context) {
 	checkUpdate(c, nil)
 }
@@ -42,19 +111,12 @@ func checkUpdate(c *gin.Context, client *http.Client) {
 		apiURL = system_setting.DefaultUpdateCheckRepoAPIURL
 	}
 
-	parsed, err := url.Parse(apiURL)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"message": "invalid UpdateCheckRepoAPIURL",
-		})
-		return
-	}
+	// A URL that does not parse leaves parsed nil, which validateUpdateCheckURL
+	// rejects without echoing the URL and any credentials in it to the log.
+	parsed, _ := url.Parse(apiURL)
 	if err := validateUpdateCheckURL(parsed, token != ""); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"message": err.Error(),
-		})
+		failUpdateCheck(c, http.StatusBadRequest, updateCheckFailedMessage,
+			common.LogText("update check URL rejected: %s", err.Error()))
 		return
 	}
 
@@ -63,10 +125,8 @@ func checkUpdate(c *gin.Context, client *http.Client) {
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, nil)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"message": "failed to build update check request",
-		})
+		failUpdateCheck(c, http.StatusInternalServerError, updateCheckFailedMessage,
+			common.LogText("update check request could not be built: %s", err.Error()))
 		return
 	}
 	req.Header.Set("Accept", "application/vnd.github+json")
@@ -83,97 +143,70 @@ func checkUpdate(c *gin.Context, client *http.Client) {
 
 	resp, err := client.Do(req)
 	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{
-			"success": false,
-			"message": fmt.Sprintf("failed to contact release API: %v", err),
-		})
+		failUpdateCheck(c, http.StatusBadGateway, updateCheckFailedMessage,
+			common.LogText("update check could not reach the release API: %s", err.Error()))
 		return
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 2<<20)) // 2 MiB
 	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{
-			"success": false,
-			"message": "failed to read release API response",
-		})
+		failUpdateCheck(c, http.StatusBadGateway, updateCheckFailedMessage,
+			common.LogText("update check could not read the release API response: %s", err.Error()))
 		return
 	}
 
-	if resp.StatusCode == http.StatusNotFound {
-		c.JSON(http.StatusBadGateway, gin.H{
-			"success": false,
-			"message": "release not found (404). For private repos, set a PAT with Contents: Read, and confirm the API URL.",
-		})
+	switch {
+	case isGitHubRateLimited(resp):
+		failUpdateCheck(c, http.StatusTooManyRequests, "GitHub rate limit reached. Try again later.",
+			common.LogText("update check hit the release API rate limit"))
 		return
-	}
-	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
-		c.JSON(http.StatusBadGateway, gin.H{
-			"success": false,
-			"message": fmt.Sprintf("release API returned %d (auth). Check PAT scope and repository access.", resp.StatusCode),
-		})
+	case resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden:
+		failUpdateCheck(c, http.StatusBadGateway, updateCheckFailedMessage,
+			common.LogText("update check got HTTP %d from the release API; for a private repository, set a PAT with Contents read access and check the API URL", resp.StatusCode))
 		return
-	}
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		c.JSON(http.StatusBadGateway, gin.H{
-			"success": false,
-			"message": fmt.Sprintf("release API returned HTTP %d", resp.StatusCode),
-		})
+	case resp.StatusCode < 200 || resp.StatusCode >= 300:
+		failUpdateCheck(c, http.StatusBadGateway, updateCheckFailedMessage,
+			common.LogText("update check got HTTP %d from the release API", resp.StatusCode))
 		return
 	}
 
-	var release githubReleaseResponse
-	if err := common.Unmarshal(body, &release); err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{
-			"success": false,
-			"message": "release API returned non-JSON or unexpected payload",
-		})
-		return
+	releases, githubMessage, err := parseUpdateCheckReleases(body)
+	if err == nil && releases == nil {
+		err = errors.New(cmp.Or(githubMessage, "missing tag_name"))
 	}
-	if release.TagName == "" {
-		msg := release.Message
-		if msg == "" {
-			msg = "unexpected release payload (missing tag_name)"
-		}
-		c.JSON(http.StatusBadGateway, gin.H{
-			"success": false,
-			"message": msg,
-		})
+	if err != nil {
+		failUpdateCheck(c, http.StatusBadGateway, "Unexpected release payload",
+			common.LogText("update check got an unexpected release payload: %s", err.Error()))
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "",
-		"data": gin.H{
-			"tag_name":         release.TagName,
-			"name":             release.Name,
-			"body":             release.Body,
-			"html_url":         release.HTMLURL,
-			"published_at":     release.PublishedAt,
-			"current":          common.Version,
-			"is_latest":        release.TagName == common.Version,
-			"source_url":       apiURL,
-			"token_configured": token != "",
-		},
-	})
+	common.ApiSuccess(c, releases)
+}
+
+// failUpdateCheck logs why a check failed and answers with the message the
+// system update panel shows for that kind of failure; the panel tells only a
+// rate limit apart, so the detailed reason stays in the server log.
+func failUpdateCheck(c *gin.Context, status int, key string, logLine string) {
+	common.SysError(logLine)
+	common.ApiErrorStatus(c, status, common.NewMessage(key))
 }
 
 func validateUpdateCheckURL(parsed *url.URL, authenticated bool) error {
 	if parsed == nil || !parsed.IsAbs() || parsed.Host == "" || parsed.Hostname() == "" || parsed.User != nil {
-		return fmt.Errorf("invalid UpdateCheckRepoAPIURL")
+		return errors.New("invalid UpdateCheckRepoAPIURL")
 	}
 	if parsed.Scheme != "http" && parsed.Scheme != "https" {
-		return fmt.Errorf("UpdateCheckRepoAPIURL must use http or https")
+		return errors.New("UpdateCheckRepoAPIURL must use http or https")
 	}
 	if !authenticated {
 		return nil
 	}
 	if parsed.Scheme != "https" {
-		return fmt.Errorf("authenticated update checks require HTTPS")
+		return errors.New("authenticated update checks require HTTPS")
 	}
 	if !strings.EqualFold(parsed.Hostname(), "api.github.com") || (parsed.Port() != "" && parsed.Port() != "443") {
-		return fmt.Errorf("GitHub PAT may only be sent to https://api.github.com")
+		return errors.New("GitHub PAT may only be sent to https://api.github.com")
 	}
 	return nil
 }
@@ -181,7 +214,7 @@ func validateUpdateCheckURL(parsed *url.URL, authenticated bool) error {
 func updateCheckRedirectPolicy(authenticated bool) func(*http.Request, []*http.Request) error {
 	return func(req *http.Request, via []*http.Request) error {
 		if len(via) >= 10 {
-			return fmt.Errorf("stopped after 10 redirects")
+			return errors.New("stopped after 10 redirects")
 		}
 		if err := validateUpdateCheckURL(req.URL, authenticated); err != nil {
 			return fmt.Errorf("update check redirect blocked: %w", err)

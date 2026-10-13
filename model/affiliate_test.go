@@ -2,8 +2,10 @@ package model
 
 import (
 	"errors"
+	"fmt"
 	"math"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 
@@ -219,7 +221,8 @@ func TestAffiliateRelationRejectsCycleThroughDeletedUser(t *testing.T) {
 
 	var three User
 	require.NoError(t, DB.First(&three, 3).Error)
-	require.NoError(t, three.Delete())
+	_, err := three.Delete()
+	require.NoError(t, err)
 	require.ErrorIs(t, SetAffiliateUserConfig(1, "one1", nil, 2), ErrAffiliateRelationCycle)
 }
 
@@ -231,8 +234,10 @@ func TestHardDeleteAfterSoftDeleteDoesNotDecrementInviterTwice(t *testing.T) {
 
 	var invitee User
 	require.NoError(t, DB.First(&invitee, 2).Error)
-	require.NoError(t, invitee.Delete())
-	require.NoError(t, invitee.HardDelete())
+	_, err := invitee.Delete()
+	require.NoError(t, err)
+	_, err = invitee.HardDelete()
+	require.NoError(t, err)
 
 	var inviter User
 	require.NoError(t, DB.First(&inviter, 1).Error)
@@ -526,8 +531,33 @@ func TestCommissionSkipsUnavailableInviterAndUnconfirmedCompliance(t *testing.T)
 	}
 }
 
+// useMultiConnectionAffiliateDB swaps in a private SQLite database with several
+// connections: subscription completion reads the plan and database time through
+// the global DB while its transaction is open, which deadlocks the shared
+// single-connection test database.
+func useMultiConnectionAffiliateDB(t *testing.T) {
+	t.Helper()
+	previousDB, previousLogDB := DB, LOG_DB
+	previousMainDatabaseType, previousLogDatabaseType := common.MainDatabaseType(), common.LogDatabaseType()
+	common.SetDatabaseTypes(common.DatabaseTypeSQLite, common.DatabaseTypeSQLite)
+	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", strings.ReplaceAll(t.Name(), "/", "_"))
+	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&User{}, &SubscriptionPlan{}, &SubscriptionOrder{}, &UserSubscription{}, &TopUp{}, &AffiliateCommission{}, &Log{}))
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	sqlDB.SetMaxOpenConns(4)
+	DB, LOG_DB = db, db
+	t.Cleanup(func() {
+		DB, LOG_DB = previousDB, previousLogDB
+		common.SetDatabaseTypes(previousMainDatabaseType, previousLogDatabaseType)
+		_ = sqlDB.Close()
+	})
+}
+
 func TestExternalSubscriptionCreatesCommissionButBalancePurchaseDoesNot(t *testing.T) {
 	setupAffiliateTest(t)
+	useMultiConnectionAffiliateDB(t)
 	createAffiliateTestUser(t, 1, "inviter", "subrate", 0, nil)
 	createAffiliateTestUser(t, 2, "invitee", "invitee", 1, nil)
 	plan := &SubscriptionPlan{
@@ -541,9 +571,12 @@ func TestExternalSubscriptionCreatesCommissionButBalancePurchaseDoesNot(t *testi
 		TotalAmount:   1000,
 	}
 	require.NoError(t, DB.Create(plan).Error)
+	InvalidateSubscriptionPlanCache(plan.Id)
+	t.Cleanup(func() { InvalidateSubscriptionPlanCache(plan.Id) })
 	order := &SubscriptionOrder{
 		UserId:          2,
 		PlanId:          plan.Id,
+		Money:           plan.PriceAmount,
 		TradeNo:         "affiliate-subscription",
 		PaymentMethod:   PaymentMethodStripe,
 		PaymentProvider: PaymentProviderStripe,
@@ -558,8 +591,7 @@ func TestExternalSubscriptionCreatesCommissionButBalancePurchaseDoesNot(t *testi
 	assert.Equal(t, 2000, commission.CommissionQuota)
 
 	require.NoError(t, DB.Model(&User{}).Where("id = ?", 2).Update("quota", 100_000).Error)
-	_, err := PurchaseSubscriptionWithBalance(2, plan.Id)
-	require.NoError(t, err)
+	require.NoError(t, PurchaseSubscriptionWithBalance(2, plan.Id))
 	var count int64
 	require.NoError(t, DB.Model(&AffiliateCommission{}).Count(&count).Error)
 	assert.Equal(t, int64(1), count)

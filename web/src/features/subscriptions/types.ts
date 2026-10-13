@@ -37,7 +37,6 @@ export const subscriptionPlanSchema = z.object({
   sort_order: z.number(),
   allow_balance_pay: z.boolean().optional().default(true),
   allow_wallet_overflow: z.boolean().optional().default(true),
-  membership_only: z.boolean().optional().default(false),
   max_purchase_per_user: z.number(),
   total_amount: z.number(),
   upgrade_group: z.string().optional(),
@@ -67,7 +66,6 @@ export const userSubscriptionSchema = z.object({
   end_time: z.number(),
   amount_total: z.number(),
   amount_used: z.number(),
-  membership_only: z.boolean().optional().default(false),
   next_reset_time: z.number().optional(),
 })
 
@@ -100,7 +98,6 @@ export interface SubscriptionPayResponse {
   success: boolean
   message?: string
   data?: {
-    status?: 'active' | 'scheduled'
     // Stripe-style hosted checkout link.
     pay_link?: string
     // Waffo Pancake / Creem hosted checkout URL.
@@ -145,8 +142,6 @@ export interface SelfSubscriptionData {
   billing_preference: string
   subscriptions: UserSubscriptionRecord[]
   all_subscriptions: UserSubscriptionRecord[]
-  membership_queue_limit?: number
-  pending_membership_order_count?: number
 }
 
 // ============================================================================

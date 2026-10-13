@@ -27,7 +27,7 @@ func SubscriptionRequestWaffoPancakePay(c *gin.Context) {
 
 	var req SubscriptionWaffoPancakePayRequest
 	if err := c.ShouldBindJSON(&req); err != nil || req.PlanId <= 0 {
-		common.ApiErrorMsg(c, "Invalid parameters")
+		common.ApiErrorT(c, "Invalid parameters")
 		return
 	}
 
@@ -37,18 +37,18 @@ func SubscriptionRequestWaffoPancakePay(c *gin.Context) {
 		return
 	}
 	if !plan.Enabled {
-		common.ApiError(c, model.ErrSubscriptionPlanDisabled)
+		common.ApiErrorT(c, "Subscription plan is not enabled")
 		return
 	}
 	if strings.TrimSpace(plan.WaffoPancakeProductId) == "" {
-		common.ApiErrorMsg(c, "This plan is not configured for the selected payment provider.")
+		common.ApiErrorT(c, "WaffoPancakeProductId is not configured for this plan")
 		return
 	}
 	// Plan targets its own Pancake product, so we only require credentials
 	// here — not the gateway-level WaffoPancakeProductID.
 	if strings.TrimSpace(setting.WaffoPancakeMerchantID) == "" ||
 		strings.TrimSpace(setting.WaffoPancakePrivateKey) == "" {
-		common.ApiErrorMsg(c, "The selected payment provider is not configured correctly.")
+		common.ApiErrorT(c, "Waffo Pancake is not configured or key is invalid")
 		return
 	}
 
@@ -59,8 +59,20 @@ func SubscriptionRequestWaffoPancakePay(c *gin.Context) {
 		return
 	}
 	if user == nil {
-		common.ApiErrorMsg(c, "User not found.")
+		common.ApiErrorT(c, "User does not exist")
 		return
+	}
+
+	if plan.MaxPurchasePerUser > 0 {
+		count, err := model.CountUserSubscriptionsByPlan(userId, plan.Id)
+		if err != nil {
+			common.ApiError(c, err)
+			return
+		}
+		if count >= int64(plan.MaxPurchasePerUser) {
+			common.ApiErrorT(c, "Purchase limit for this plan has been reached")
+			return
+		}
 	}
 
 	// WAFFO_PANCAKE_SUB- prefix (vs. wallet's WAFFO_PANCAKE-) drives webhook
@@ -77,19 +89,18 @@ func SubscriptionRequestWaffoPancakePay(c *gin.Context) {
 		CreateTime:      time.Now().Unix(),
 		Status:          common.TopUpStatusPending,
 	}
-	lockedPlan, err := model.InsertPendingSubscriptionOrder(order)
-	if err != nil {
-		logger.LogError(c.Request.Context(), fmt.Sprintf("Waffo Pancake 订阅订单创建失败 user_id=%d plan_id=%d trade_no=%s error=%q", userId, plan.Id, tradeNo, err.Error()))
-		common.ApiError(c, err)
+	if err := order.Insert(); err != nil {
+		logger.LogError(c.Request.Context(), common.LogText("Waffo Pancake failed to create subscription order user_id=%d plan_id=%d trade_no=%s error=%q", userId, plan.Id, tradeNo, err.Error()))
+		paymentError(c, common.NewMessage("Failed to create order"))
 		return
 	}
 
 	expiresInSeconds := 45 * 60
 	session, err := service.CreateWaffoPancakeCheckoutSession(c.Request.Context(), &service.WaffoPancakeCreateSessionParams{
-		ProductID:     lockedPlan.WaffoPancakeProductId,
+		ProductID:     plan.WaffoPancakeProductId,
 		BuyerIdentity: service.WaffoPancakeBuyerIdentityFromUserID(user.Id),
 		PriceSnapshot: &service.WaffoPancakePriceSnapshot{
-			Amount:      decimal.NewFromFloat(lockedPlan.PriceAmount).StringFixed(2),
+			Amount:      decimal.NewFromFloat(plan.PriceAmount).StringFixed(2),
 			TaxCategory: "saas",
 		},
 		BuyerEmail:              getWaffoPancakeBuyerEmail(user),
@@ -97,12 +108,13 @@ func SubscriptionRequestWaffoPancakePay(c *gin.Context) {
 		OrderMerchantExternalID: tradeNo,
 	})
 	if err != nil {
-		logger.LogError(c.Request.Context(), fmt.Sprintf("Waffo Pancake 订阅结账会话创建失败 user_id=%d plan_id=%d trade_no=%s error=%q", userId, plan.Id, tradeNo, err.Error()))
-		_ = model.ExpireSubscriptionOrder(tradeNo, model.PaymentProviderWaffoPancake)
-		common.ApiErrorMsg(c, "Payment request failed")
+		logger.LogError(c.Request.Context(), common.LogText("Waffo Pancake failed to create subscription checkout session user_id=%d plan_id=%d trade_no=%s error=%q", userId, plan.Id, tradeNo, err.Error()))
+		order.Status = common.TopUpStatusFailed
+		_ = order.Update()
+		paymentError(c, common.NewMessage("Failed to start payment"))
 		return
 	}
-	logger.LogInfo(c.Request.Context(), fmt.Sprintf("Waffo Pancake 订阅订单创建成功 user_id=%d plan_id=%d trade_no=%s session_id=%s money=%.2f", userId, plan.Id, tradeNo, session.SessionID, lockedPlan.PriceAmount))
+	logger.LogInfo(c.Request.Context(), common.LogText("Waffo Pancake subscription order created user_id=%d plan_id=%d trade_no=%s session_id=%s money=%.2f", userId, plan.Id, tradeNo, session.SessionID, plan.PriceAmount))
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "success",

@@ -100,7 +100,7 @@ Never start work on a dirty `main` with unrelated files — stash or finish firs
 2. Prefer new files under own dirs.
 3. Follow `AGENTS.md` (JSON wrappers, 3 DBs, pointer optional DTO fields, billing math helpers).
 4. **Official frontend (`web/`, SOP §3.5):**
-   - Add GG-004/006/007 capabilities directly to the matching official feature modules (Bun, `t('English key')`, **i18n-translate**).
+   - Add GG-004/007 capabilities directly to the matching official feature modules (Bun, `t('English key')`, **i18n-translate**).
    - Prefer independent feature files and existing extension points; keep patches to upstream components minimal.
    - Do not recreate the dropped GG-005 third shell, classic frontend, runtime theme selector, or fork-only visual redesign.
 5. If permanent delta: draft inventory row mentally (ID, path, risk, regression).
@@ -137,7 +137,7 @@ make build-web
 **Ship lint rule:** every **new or modified** frontend file in the ship unit must be
 clean under the frontend linter (e.g. no nested ternary on touched files).
 Unrelated pre-existing tree errors are **not** a hard stop — record them if you
-ran full-tree and it failed. Fix findings on touched files before C2-pre.
+ran full-tree and it failed. Fix findings on touched files before C2.
 
 Manual smoke when behavior is user-visible: login/token, one chat path, admin page (`make dev` or `make dev-web` + API).
 
@@ -178,29 +178,24 @@ session without re-asking for each sub-step already listed.
 
 | User phrase (examples) | Authorized steps |
 |------------------------|------------------|
-| 提交 / commit / 最终提交 | C2-pre → C2 only |
-| 提交并 push / 提交并推上去 | C2-pre → C2 → C3 |
+| 提交 / commit / 最终提交 | C2 only |
+| 提交并 push / 提交并推上去 | C2 → C3 |
 | 推上去 / push（**无**提交词） | **C3 only** on **existing** commits not on `origin/main`. If worktree dirty → **stop**, ask for 提交 (do **not** invent C2) |
 | 开 PR / 提 PR（**无**提交词） | **C4** (push first if branch has unpushed commits). Dirty tree → **stop**, ask for 提交 |
 | 开 PR 并合并 / 合并清理 | → through C5 (still no silent C2 if dirty without 提交) |
-| 提交 → push → PR → merge | C2-pre → C2 → C3 → C4 → C5 |
+| 提交 → push → PR → merge | C2 → C3 → C4 → C5 |
 | …→ merge → **发版** / 合并后打 tag | Same as merge chain **plus** Mode F only after PR is **MERGED** (merge verb **required**) |
 | **发版** / tag / 打 tag / GHCR alone | Mode **F only** on already-landed `origin/main`. **Does not** authorize C5/merge |
 
 Rules:
 
 - **Missing verb = not authorized.** 「只提交」does **not** imply merge or 发版.
-- **Push/PR wording ≠ commit.** 「推上去」「开 PR」alone never run C2-pre/C2 on a dirty tree; only move **already committed** work.
+- **Push/PR wording ≠ commit.** 「推上去」「开 PR」alone never run C2 on a dirty tree; only move **already committed** work.
 - **发版 ≠ merge.** 「提交并发版」without 合并/merge does **not** open C5; either the change is already on `origin/main`, or stop and ask for merge authorization.
 - Still require a **topic branch** for routine ship (no routine commit/push to `main`).
 - Still **never** `git push upstream`.
 - Hard-risk ops (force-push, `reset --hard`, production deploy beyond tag/GHCR)
   still need their **own** explicit confirm even inside a chain.
-- C2-pre still runs before any **new** final commit; docs/skill not auto-exempt.
-- C2-pre is an intentional cross-turn pause. Record the remaining authorized
-  C0 chain before waiting. When the user returns the review result, resume that
-  exact chain after stale checks; the result does **not** add missing
-  commit/push/PR/merge/release verbs.
 - Mode F only when PR is **MERGED** and local `HEAD == origin/main` after fetch (never tag while PR still OPEN).
 
 Coach one-liner after parsing:
@@ -221,33 +216,21 @@ scope.
 **Resume rules:**
 
 1. **C0 still wins** — `继续` never invents missing verbs (提交 / push / 开 PR / 合并 / 发版).
-2. **If this unit ran C2-pre** (pass or recorded user skip): apply the matching
-   **stale-result check** before resumed C3/C4/C5. Before C2, compare the index
-   snapshot; after C2, compare `HEAD^{tree}` with the reviewed fingerprint and
-   require a clean index/worktree. Stale → re-run gate (or stop); do not
-   push/merge unreviewed content.
-3. **If this unit never needed C2-pre** (e.g. C0 was push-only on already-committed clean
-   tip, no new 提交): do **not** invent a gate on `继续`; resume authorized C3/C4/C5 only.
-4. **If C2-pre is waiting for the user:** `继续` alone is not a result. A returned
-   clean result or findings resumes the previously recorded C0 chain at the
-   review-result handler; it never broadens that chain.
-5. **C5 remote head:** after any push of the reviewed tree, record
-   `git rev-parse HEAD` / remote tip as the **merge pin**. Before merge, fetch and require
-   PR `headRefOid` == that pin (same rule as C5 table).
+2. **C5 remote head:** after C3 pushes the branch, record the pushed
+   `git rev-parse HEAD` as the **merge pin**. Before merge, fetch and require PR
+   `headRefOid` == that pin (same rule as C5 table).
 
 | Current stage | What 「继续」means | Do **not** |
 |---------------|-------------------|------------|
 | Mode B coding mid-feature, dirty or unfinished | Resume **B** (implement / verify) | Jump to commit without 提交 verb |
-| Ready to ship, dirty tree, no commit auth yet | Coach next Mode C step; **stop** for 提交 if dirty | Invent C2-pre/C2 |
-| C2-pre waiting for the user's terminal review result | Keep waiting; a returned clean result/findings resumes the recorded chain | Treat `继续` or silence as review pass |
-| Commits on branch, not pushed | **Coach only:** next is C3; push **only** if chain already has push auth **or** user says 推上去/push now. If unit had C2-pre, require non-stale. Prior **提交 alone** ≠ push | Silent C3; push stale gated unit |
-| Branch pushed, no PR | **Coach only:** next is C4; open PR **only** if chain has 开 PR **or** user says 开 PR now. Gated units: non-stale | Silent C4 from 继续 alone |
-| PR **OPEN**, gated unit still OK (clean pass **or** recorded skip for same tree; pin matches remote) | Report CI; if C0 already included 合并/merge → resume **C5**; else wait for **合并** | Invent merge; merge when pin ≠ remote head |
-| PR OPEN, gated unit **stale** | Re-run C2-pre (or stop) before claim clean / push / merge | Claim “审查已通过” for unreviewed content |
+| Ready to ship, dirty tree, no commit auth yet | Coach next Mode C step; **stop** for 提交 if dirty | Invent C2 |
+| Commits on branch, not pushed | **Coach only:** next is C3; push **only** if chain already has push auth **or** user says 推上去/push now. Prior **提交 alone** ≠ push | Silent C3 |
+| Branch pushed, no PR | **Coach only:** next is C4; open PR **only** if chain has 开 PR **or** user says 开 PR now | Silent C4 from 继续 alone |
+| PR **OPEN**, pin matches remote head | Report CI; if C0 already included 合并/merge → resume **C5**; else wait for **合并** | Invent merge; merge when pin ≠ remote head |
 | PR **MERGED**, local not cleaned | C5 hygiene if merge/cleanup authorized; else coach | Silent merge; 发版 without auth |
 | On `main`, 发版 intent | Mode **F** only if 发版 authorized; else ask | |
 
-**Lesson (PR #26):** after the user reports a clean review + PR open, `/ggapi-fork 继续` = Mode C
+**Lesson (PR #26):** after the PR is open, `/ggapi-fork 继续` = Mode C
 post-ship (CI / merge auth / cleanup), **not** more product code unless the user
 names a new defect.
 
@@ -272,7 +255,7 @@ Prefer safer alternative if unsure: ask user before any hard reset.
 
 ### C1b. Frontend / embed ship checks (when `web/`, Docker, makefile, or release wiring is touched)
 
-Run **before C2-pre** for frontend/embed/Docker/makefile/release changes. If checks force code edits, finish those edits **then** run C2-pre so the gate covers the complete final tree (re-run C2-pre after any post-check fix).
+Run **before C2** for frontend/embed/Docker/makefile/release changes. If checks force code edits, finish those edits and re-run the affected checks before committing.
 
 | Check | Why |
 |-------|-----|
@@ -284,156 +267,7 @@ Run **before C2-pre** for frontend/embed/Docker/makefile/release changes. If che
 
 Canonical policy: `docs/fork` SOP §3.5; inventory **GG-005** is dropped.
 
-### C2-pre. User-run terminal-agent review gate (required before C2)
-
-**When:** User asked to **commit / 提交 / 最终提交** (or “改完并提交…”, plain
-`/commit`, “提交这些改动”) for a ship unit on this repo. **Mode C applies even
-if the user did not say `/ggapi-fork`** — load this skill and stop at C2-pre
-before any final commit. There must be reviewable work (dirty tree and/or
-commits not on `origin/main`).
-
-**Responsibility boundary:** The current Agent prepares the final review tree,
-asks the user to open a new terminal and use any preferred terminal Agent, then
-waits for the user to return the result. The current Agent **must not** invoke
-Codex, a companion, another review command, or a review sub-agent. It owns only
-the preparation, fixes, stale-result checks, and repeated handoff.
-
-#### Prepare one combined target (base → final tree)
-
-**Base freshness:**
-
-```bash
-git fetch origin
-git rev-list --count HEAD..origin/main
-git rev-parse origin/main
-```
-
-| `HEAD..origin/main` | Action |
-|---------------------|--------|
-| `0` | Use the current `origin/main` SHA as `REVIEW_BASE` |
-| `> 0` | **Prefer** merge `origin/main` into the topic branch (or rebase only if the user allows), resolve, re-test, then restart preparation. If the user declines, set `REVIEW_BASE` to `git merge-base HEAD origin/main`; do not diff directly against latest `origin/main`, because main-only commits would appear as deletions |
-
-Always record the fetched `origin/main` SHA separately as `REVIEW_MAIN_TIP`,
-including when a declined update makes `REVIEW_BASE` the merge base. This tip is
-the freshness anchor checked when the result returns.
-
-After the user has authorized commit, stage **only** intentional ship paths,
-including intended untracked files. Never stage secrets. The index is the final
-tree handed to the user's reviewer, so one comparison covers existing branch
-commits plus staged fixes:
-
-```bash
-git add <intentional-paths…>
-git diff --cached --stat <REVIEW_BASE>
-git diff --cached --check <REVIEW_BASE>
-git diff --quiet                            # must exit 0: no unstaged tracked changes
-git ls-files --others --exclude-standard   # must print nothing: no untracked files
-git status -sb
-git status --porcelain=v1
-git write-tree
-git rev-parse origin/main                  # REVIEW_MAIN_TIP
-```
-
-Record the `git write-tree` value as the review-tree fingerprint and the
-chosen `REVIEW_BASE`, fetched `REVIEW_MAIN_TIP`, and porcelain status. Do not
-hand off while either unstaged tracked changes or untracked files exist: stage
-intentional content first and leave unrelated work for a separate ship unit.
-This makes any later workspace edit change the clean-workspace checks instead
-of relying on porcelain path states to fingerprint file contents. Do **not**
-create a temporary review commit. Empty tree and no commits to land may skip
-with a one-line reason.
-
-#### Stop and hand off to the user
-
-Use this direct message, adapted only for paths or a non-latest base:
-
-```text
-提交前审查已就绪。请在新终端打开当前仓库，使用你选择的终端 Agent
-以 `git diff --cached <recorded-review-base-sha>` 为入口只审查完整最终改动，
-不要修改文件。交接时请把占位符换成已记录的 REVIEW_BASE SHA。
-完成后请把审查结果发回；收到结果前我不会继续提交。
-```
-
-Then **stop**. Do not run a reviewer while waiting, do not select an Agent for
-the user, and do not interpret silence as approval.
-
-#### Handle the returned result
-
-| User result | Action |
-|-------------|--------|
-| Explicitly reports no actionable issues / review passed | Fetch `origin` again, then recheck the tree fingerprint, clean workspace, review base, and recorded main tip; if unchanged, proceed to C2 |
-| Returns findings | Assess and fix them, re-run relevant tests, stage the intended final tree again, record a new fingerprint/base, and stop for another user-run terminal review |
-| Result is ambiguous | Ask whether the external review found any actionable issue; do not infer pass |
-| No result yet | Remain at C2-pre; do not commit |
-| User explicitly skips review | Record the skip and proceed only within the already-authorized ship chain |
-
-After **any** content change, even a review-driven fix, the old result is stale
-and the user must manually review again. Default maximum is **3**
-review → fix → handoff cycles; after that, stop and show the remaining findings
-instead of committing with known issues.
-
-#### Stale-result and merge-pin rules
-
-- Immediately before accepting the returned result, run `git fetch origin`.
-  Require the fetched `origin/main` SHA to equal recorded `REVIEW_MAIN_TIP`;
-  otherwise the result is stale even if the merge base did not move.
-- **Before C2**, require `git write-tree`, the chosen `REVIEW_BASE`, and
-  `git status --porcelain=v1` to match their recorded values. Also require
-  `git diff --quiet` to succeed and
-  `git ls-files --others --exclude-standard` to print nothing.
-- **After C2**, the staged porcelain snapshot normally becomes clean; this is
-  valid. Before C3/C4/C5 (including a later `继续`), fetch `origin`, require
-  the fetched `origin/main` to equal recorded `REVIEW_MAIN_TIP`, require
-  `git rev-parse 'HEAD^{tree}'` to equal the reviewed tree fingerprint, and
-  require `git diff --cached --quiet`, `git diff --quiet`, and an empty
-  `git ls-files --others --exclude-standard`. A same-tree C2 commit or
-  message-only amend does not stale the result.
-- After C2/C3, set the merge pin to the pushed tip whose tree matches the
-  reviewed fingerprint.
-- Before C5, fetch and require PR `headRefOid` to match that merge pin. A moved
-  remote head requires another user-run review; never merge an unreviewed tip.
-- If the user declined updating a behind branch, review from its recorded merge
-  base. Do not mark the result stale from the behind count alone, but do stale
-  it when the separately recorded `REVIEW_MAIN_TIP` moves.
-
-#### Allowed skip (must state reason)
-
-| Case | Skip? |
-|------|--------|
-| Empty tree and nothing to land | Yes — nothing to review |
-| User has not returned a result | No — wait, or let the user explicitly skip |
-| User explicitly:「跳过审查 / 不审了直接提交 / skip review」 | Yes — record it; still enforce git hygiene and Hard rules |
-
-Gate is a **Mode C quality step** (user-confirmed L2 playbook), not a Hard-rule
-rewrite. Pure docs, skill-only changes, small wording, or time pressure are not
-automatic exemptions. The current Agent never self-skips.
-
-#### Coach frames
-
-Waiting for the user:
-
-```text
-当前模式: C（提交前人工审查）
-状态: 等待用户在新终端使用自选 Agent 审查并返回结果
-范围: recorded REVIEW_BASE → staged final tree
-下一步: 用户返回审查结果；当前 Agent 暂停提交
-```
-
-After the result:
-
-```text
-当前模式: C（发车）
-人工终端 Agent 审查: 通过 / 已修 N 轮后通过 / 跳过（原因）/ 等待复审
-下一步: commit（C2）或按 findings 继续修复
-```
-
-If C1b (or any other check) still finds work after the user reports a pass and
-you edit files, the result is stale: return to C2-pre and wait for another
-user-run review before C2.
-
 ### C2. Commit (only if user asked)
-
-**Only after C2-pre** (user returned a passing result, allowed skip, or user override).
 
 Follow repo commit rules:
 
@@ -482,7 +316,7 @@ or AI-assisted.
 Always start from `.github/PULL_REQUEST_TEMPLATE.md`, preserve its headings and
 fill the relevant sections. For **AkumaRealLabs/ggapi**, AI-generated and
 AI-assisted content is allowed and the template's verification record is
-optional; this does not waive C1/C2-pre implementation checks. Complete exactly
+optional; this does not waive C1/C1b implementation checks. Complete exactly
 one `Fork Diff Inventory` choice: either no permanent upstream delta, or the
 updated `docs/fork/diff-inventory.md` GG ID.
 
@@ -541,7 +375,7 @@ gh pr view <N> --repo AkumaRealLabs/ggapi \
 |-------------------|--------|
 | `MERGED` / REST `merged: true` | Success → clean-up (do **not** re-merge) |
 | `OPEN` + `autoMergeRequest` set / merge queue pending / `mergeStateStatus` waiting on checks | **Wait** (poll view or REST). Do **not** REST-force merge; do **not** enter Mode F or tag old `main` |
-| `OPEN` + no auto-merge, CLI was transport flake | Retry `gh pr merge` once. REST only if user still wants immediate merge, and **pin the reviewed head**: `gh api -X PUT repos/AkumaRealLabs/ggapi/pulls/<N>/merge -f merge_method=merge -f sha='<mergePin>'` (or `gh pr merge --match-head-commit <oid>`). Before any merge: fetch and compare remote `headRefOid` to the **merge pin** (pushed tip whose tree matches the C2-pre fingerprint); if moved → **stop** and ask the user to run another terminal review; do not land an unreviewed tip |
+| `OPEN` + no auto-merge, CLI was transport flake | Retry `gh pr merge` once. REST only if user still wants immediate merge, and **pin the pushed head**: `gh api -X PUT repos/AkumaRealLabs/ggapi/pulls/<N>/merge -f merge_method=merge -f sha='<mergePin>'` (or `gh pr merge --match-head-commit <oid>`). Before any merge: fetch and compare remote `headRefOid` to the **merge pin** (the tip pushed in C3); if moved → **stop** and ask the user; do not land a tip you did not push |
 | `CLOSED` unmerged | Stop — not landed |
 | Both GraphQL view and REST fail | Stop; do not guess MERGED; do not Mode F |
 
@@ -676,7 +510,7 @@ inventory rows without code removal, `reset --hard` without backup/consent.
 | Fork-only path (`docs/fork/`, own `pkg/`, own channel) | Keep fork |
 | Both changed same logic | Read upstream commit message; minimal merge; never whole-file blind pick |
 | `AGENTS.md` | Keep ggapi 「二开维护」 section; merge upstream engineering rule edits |
-| `web/**` | Prefer upstream structure/component APIs, then replay only required GG-004/006/007 capability deltas |
+| `web/**` | Prefer upstream structure/component APIs, then replay only required GG-004/007 capability deltas |
 | Removed frontend paths (`web/ggapi`, `web/classic`) | Keep removed; do not restore GG-005 or fork-only visual work |
 
 3. Build/test.

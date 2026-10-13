@@ -32,6 +32,7 @@ import type {
   AffiliateUserSummary,
 } from '@/features/affiliate/types'
 import { formatQuota } from '@/lib/format'
+import { handleServerError } from '@/lib/handle-server-error'
 
 import {
   getAffiliateCommissionRecords,
@@ -76,8 +77,9 @@ export function AffiliateSettingsDialog(props: AffiliateSettingsDialogProps) {
         }),
       ])
       if (!detailResponse.success || !detailResponse.data) {
-        toast.error(
-          detailResponse.message || t('Failed to load invitation settings')
+        handleServerError(
+          detailResponse,
+          t('Failed to load invitation settings')
         )
         return
       }
@@ -95,8 +97,8 @@ export function AffiliateSettingsDialog(props: AffiliateSettingsDialogProps) {
       setInviterId(nextDetail.inviter?.id ?? 0)
       setCandidates(nextDetail.inviter ? [nextDetail.inviter] : [])
       setRecords(recordsResponse.data?.items ?? [])
-    } catch {
-      toast.error(t('Failed to load invitation settings'))
+    } catch (error) {
+      handleServerError(error, t('Failed to load invitation settings'))
     } finally {
       setLoading(false)
     }
@@ -111,7 +113,7 @@ export function AffiliateSettingsDialog(props: AffiliateSettingsDialogProps) {
     try {
       const response = await searchAffiliateUsers(searchValue.trim())
       if (!response.success) {
-        toast.error(response.message || t('Failed to search users'))
+        handleServerError(response, t('Failed to search users'))
         return
       }
       const results = (response.data ?? []).filter(
@@ -124,8 +126,8 @@ export function AffiliateSettingsDialog(props: AffiliateSettingsDialogProps) {
         results.unshift(detail.inviter)
       }
       setCandidates(results)
-    } catch {
-      toast.error(t('Failed to search users'))
+    } catch (error) {
+      handleServerError(error, t('Failed to search users'))
     } finally {
       setSearching(false)
     }
@@ -152,14 +154,14 @@ export function AffiliateSettingsDialog(props: AffiliateSettingsDialogProps) {
         inviter_id: inviterId,
       })
       if (!response.success) {
-        toast.error(response.message || t('Failed to save invitation settings'))
+        handleServerError(response, t('Failed to save invitation settings'))
         return
       }
       toast.success(t('Invitation settings saved'))
       props.onSuccess()
       props.onOpenChange(false)
-    } catch {
-      toast.error(t('Failed to save invitation settings'))
+    } catch (error) {
+      handleServerError(error, t('Failed to save invitation settings'))
     } finally {
       setSaving(false)
       setConfirmOpen(false)

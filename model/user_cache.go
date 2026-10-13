@@ -1,7 +1,6 @@
 package model
 
 import (
-	"context"
 	"errors"
 	"fmt"
 
@@ -41,7 +40,7 @@ func (user *UserBase) GetSetting() dto.UserSetting {
 	if user.Setting != "" {
 		err := common.Unmarshal([]byte(user.Setting), &setting)
 		if err != nil {
-			common.SysLog("failed to unmarshal setting: " + err.Error())
+			common.SysLog(common.LogText("failed to unmarshal setting: %s", err.Error()))
 		}
 	}
 	return setting
@@ -51,16 +50,6 @@ func (user *UserBase) GetSetting() dto.UserSetting {
 func getUserCacheKey(userId int) string {
 	return fmt.Sprintf("user:%d", userId)
 }
-
-func getUserQuotaCacheFenceKey(userId int) string {
-	return fmt.Sprintf("user:quota:fence:%d", userId)
-}
-
-func getUserQuotaCacheDirtyKey(userId int) string {
-	return fmt.Sprintf("user:quota:dirty:%d", userId)
-}
-
-const userQuotaCacheFenceSeconds = 10
 
 func userCacheTTLSeconds() int {
 	ttl := common.RedisKeyCacheSeconds()
@@ -76,51 +65,6 @@ func invalidateUserCache(userId int) error {
 		return nil
 	}
 	return common.RedisDelKey(getUserCacheKey(userId))
-}
-
-func invalidateUserQuotaCacheForMutation(userId int) error {
-	if !common.RedisEnabled {
-		return nil
-	}
-	if userId <= 0 {
-		return fmt.Errorf("invalid user id")
-	}
-	const script = `
-redis.call('SET', KEYS[1], 1, 'EX', ARGV[1])
-redis.call('DEL', KEYS[2])
-return 1`
-	return common.RDB.Eval(context.Background(), script, []string{
-		getUserQuotaCacheFenceKey(userId), getUserCacheKey(userId),
-	}, userQuotaCacheFenceSeconds).Err()
-}
-
-func finalizeUserQuotaReservation(userId int, committed bool) error {
-	if !common.RedisEnabled {
-		return nil
-	}
-	committedValue := 0
-	if committed {
-		committedValue = 1
-	}
-	const script = `
-local pending = tonumber(redis.call('GET', KEYS[3]) or '0')
-if pending > 1 then
-  redis.call('DECR', KEYS[3])
-else
-  redis.call('DEL', KEYS[3])
-end
-if ARGV[1] == '1' then
-  if redis.call('EXISTS', KEYS[1]) == 1 then
-    redis.call('DEL', KEYS[2])
-  end
-  return 1
-end
-redis.call('SET', KEYS[1], 1, 'EX', ARGV[2])
-redis.call('DEL', KEYS[2])
-return 1`
-	return common.RDB.Eval(context.Background(), script, []string{
-		getUserQuotaCacheFenceKey(userId), getUserCacheKey(userId), getUserQuotaCacheDirtyKey(userId),
-	}, committedValue, userQuotaCacheFenceSeconds).Err()
 }
 
 func populateUserCache(user User) error {
@@ -164,9 +108,7 @@ func GetUserCache(userId int) (*UserBase, error) {
 			if errors.Is(err, ErrUserAuthCachePending) {
 				return nil, err
 			}
-			if !errors.Is(err, ErrUserQuotaCachePending) {
-				common.SysLog("failed to synchronously populate user cache: " + err.Error())
-			}
+			common.SysLog(common.LogText("failed to synchronously populate user cache: %s", err.Error()))
 		}
 	}
 	return user.ToBaseUser(), nil
@@ -192,24 +134,33 @@ func cacheGetUserBase(userId int) (*UserBase, error) {
 	if floor > userCache.AuthVersion {
 		return nil, ErrUserAuthCachePending
 	}
-	fenced, err := common.RDB.Exists(context.Background(), getUserQuotaCacheFenceKey(userId)).Result()
-	if err != nil {
-		return nil, err
-	}
-	if fenced > 0 {
-		return nil, ErrUserQuotaCachePending
-	}
 	return &userCache, nil
 }
 
-// syncCreditUserQuotaCache 在授信事务（充值/兑换等）提交后同步失效旧余额。
-// 数据库是唯一账本，由下次读取水合已提交余额。
+// Add atomic quota operations using hash fields.
+// 通过守卫式 Lua 脚本执行：哈希不存在时直接跳过（下次读取会从数据库水合），
+// 不会像裸 HINCRBY 那样创建只含 Quota 字段的残缺哈希。
+func cacheIncrUserQuota(userId int, delta int64) error {
+	if !common.RedisEnabled {
+		return nil
+	}
+	_, err := cacheApplyUserQuotaDelta(userId, delta)
+	return err
+}
+
+func cacheDecrUserQuota(userId int, delta int64) error {
+	return cacheIncrUserQuota(userId, -delta)
+}
+
+// syncCreditUserQuotaCache 在授信事务（充值/兑换等）提交后同步把增量补进缓存
+// 余额。预扣以缓存值为准（存在期间），授信不能绕过它，否则新到账的额度在
+// 缓存过期前不可用；缓存未命中无需处理，下次读取会从已提交的数据库余额水合。
 func syncCreditUserQuotaCache(userId int, quota int, operation string) {
 	if quota <= 0 {
 		return
 	}
-	if err := invalidateUserQuotaCacheForMutation(userId); err != nil {
-		common.SysLog(fmt.Sprintf("failed to sync %s credit to user quota cache: %s", operation, err.Error()))
+	if err := cacheIncrUserQuota(userId, int64(quota)); err != nil {
+		common.SysLog(common.LogText("failed to sync %s credit to user quota cache: %s", operation, err.Error()))
 	}
 }
 
@@ -302,7 +253,7 @@ func updateUserSettingCache(userId int, setting string) error {
 // updateUserCacheField prevents individual cache refreshes from bypassing the
 // auth-version fence. It intentionally does nothing when the complete hash is
 // absent; the next GetUserCache call will repopulate it from the database.
-func updateUserCacheField(userId int, field string, value interface{}) error {
+func updateUserCacheField(userId int, field string, value any) error {
 	if !common.RedisEnabled {
 		return nil
 	}

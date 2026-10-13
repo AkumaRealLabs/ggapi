@@ -21,7 +21,7 @@ Copy into PR bodies or walk verbally with the user. Keep items checkable.
 - [ ] Billing changes: read `pkg/billingexpr/expr.md`; full pre-consume→settle path checked
 - [ ] DB changes: SQLite + MySQL + PostgreSQL considered
 - [ ] JSON via `common.Marshal/Unmarshal*` (not raw `encoding/json` calls)
-- [ ] Frontend work stays in official **`web/`** and is limited to the smallest active GG-004/006/007 capability delta; **lint ship-unit paths** (not full-tree baseline)
+- [ ] Frontend work stays in official **`web/`** and is limited to the smallest active GG-004/007 capability delta; **lint ship-unit paths** (not full-tree baseline)
 - [ ] Frontend: i18n keys via **i18n-translate** skill; keys under `translation`; all locales incl. **zh-TW**
 
 ### Verification
@@ -29,13 +29,7 @@ Copy into PR bodies or walk verbally with the user. Keep items checkable.
 - [ ] Scoped `go test` for touched packages
 - [ ] Frontend: from `web/`, run `bun run typecheck` + path-scoped oxlint on **changed files**; full-tree lint optional if baseline-noisy
 - [ ] Manual smoke for user-visible behavior
-- [ ] **C1b** frontend/embed checks (incl. path-scoped lint on touched UI) done **before** C2-pre; any resulting edits require another user-run review
-- [ ] **User-run terminal-agent gate (C2-pre):** current Agent staged/fingerprinted the combined final tree, required no unstaged/untracked content, stopped, and asked the user to review it in a new terminal with their preferred Agent
-- [ ] User explicitly returned a clean result, or an explicit skip/override is recorded; the current Agent did not invoke any reviewer or infer pass from silence
-- [ ] Findings were fixed and handed back for another user-run review after every content-changing fix batch
-- [ ] Behind-main branch: update preferred; if declined, review diff uses recorded `git merge-base HEAD origin/main`, never latest main directly
-- [ ] Gate not **stale before C2**: immediately fetched `origin`; `git write-tree`, clean workspace, porcelain snapshot, `REVIEW_BASE`, and recorded `REVIEW_MAIN_TIP` still match
-- [ ] Gate not **stale after C2**: fetched `origin`; current `origin/main` equals recorded `REVIEW_MAIN_TIP`; `HEAD^{tree}` equals the reviewed fingerprint; index/worktree/untracked state is clean. Normal staged → clean porcelain transition and message-only amend of the same tree remain valid
+- [ ] **C1b** frontend/embed checks (incl. path-scoped lint on touched UI) done **before** C2; re-run affected checks after any resulting edits
 - [ ] Ambiguous `继续`: stage detected (C-continue) — post-PR open → CI/merge coach; never invent push/PR/merge verbs; not silent Mode B
 
 ### Fork governance
@@ -162,7 +156,6 @@ Risk cheat sheet:
 - [ ] Mode router still matches workflows
 - [ ] Chinese coaching defaults intact
 - [ ] No auto-commit / auto-push language introduced
-- [ ] User-run terminal-agent gate (C2-pre) still documented if ship-path changed; current Agent never runs the reviewer
 - [ ] User shown summary; commit only if they asked
 
 ### Skill PR

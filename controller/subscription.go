@@ -1,8 +1,6 @@
 package controller
 
 import (
-	"encoding/json"
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -11,6 +9,7 @@ import (
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // ---- Shared types ----
@@ -66,17 +65,11 @@ func GetSubscriptionSelf(c *gin.Context) {
 	if err != nil {
 		activeSubscriptions = []model.SubscriptionSummary{}
 	}
-	pendingMembershipOrderCount, err := model.CountPendingMembershipOrdersByUser(userId)
-	if err != nil {
-		pendingMembershipOrderCount = 0
-	}
 
 	common.ApiSuccess(c, gin.H{
-		"billing_preference":             pref,
-		"subscriptions":                  activeSubscriptions, // all active subscriptions
-		"all_subscriptions":              allSubscriptions,    // all subscriptions including expired
-		"membership_queue_limit":         model.MaxScheduledMembershipsPerUser,
-		"pending_membership_order_count": pendingMembershipOrderCount,
+		"billing_preference": pref,
+		"subscriptions":      activeSubscriptions, // all active subscriptions
+		"all_subscriptions":  allSubscriptions,    // all subscriptions including expired
 	})
 }
 
@@ -84,7 +77,7 @@ func UpdateSubscriptionPreference(c *gin.Context) {
 	userId := c.GetInt("id")
 	var req BillingPreferenceRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		common.ApiErrorMsg(c, "Invalid parameters")
+		common.ApiErrorT(c, "Invalid parameters")
 		return
 	}
 	pref := common.NormalizeBillingPreference(req.BillingPreference)
@@ -111,16 +104,15 @@ func SubscriptionRequestBalancePay(c *gin.Context) {
 	userId := c.GetInt("id")
 	var req SubscriptionBalancePayRequest
 	if err := c.ShouldBindJSON(&req); err != nil || req.PlanId <= 0 {
-		common.ApiErrorMsg(c, "Invalid parameters")
+		common.ApiErrorT(c, "Invalid parameters")
 		return
 	}
 
-	status, err := model.PurchaseSubscriptionWithBalance(userId, req.PlanId)
-	if err != nil {
+	if err := model.PurchaseSubscriptionWithBalance(userId, req.PlanId); err != nil {
 		common.ApiError(c, err)
 		return
 	}
-	common.ApiSuccess(c, gin.H{"status": status})
+	common.ApiSuccess(c, nil)
 }
 
 // ---- Admin APIs ----
@@ -152,20 +144,20 @@ func AdminCreateSubscriptionPlan(c *gin.Context) {
 
 	var req AdminUpsertSubscriptionPlanRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		common.ApiErrorMsg(c, "Invalid parameters")
+		common.ApiErrorT(c, "Invalid parameters")
 		return
 	}
 	req.Plan.Id = 0
 	if strings.TrimSpace(req.Plan.Title) == "" {
-		common.ApiErrorMsg(c, "Subscription plan title is required.")
+		common.ApiErrorT(c, "Subscription plan title cannot be empty")
 		return
 	}
 	if req.Plan.PriceAmount < 0 {
-		common.ApiErrorMsg(c, "Subscription plan price cannot be negative.")
+		common.ApiErrorT(c, "Price cannot be negative")
 		return
 	}
 	if req.Plan.PriceAmount > 9999 {
-		common.ApiErrorMsg(c, "Subscription plan price cannot exceed 9999.")
+		common.ApiErrorT(c, "Price cannot exceed 9999")
 		return
 	}
 	if req.Plan.Currency == "" {
@@ -178,7 +170,6 @@ func AdminCreateSubscriptionPlan(c *gin.Context) {
 	if req.Plan.AllowWalletOverflow == nil {
 		req.Plan.AllowWalletOverflow = common.GetPointer(true)
 	}
-	req.Plan.NormalizeDefaults()
 	if req.Plan.DurationUnit == "" {
 		req.Plan.DurationUnit = model.SubscriptionDurationMonth
 	}
@@ -186,34 +177,30 @@ func AdminCreateSubscriptionPlan(c *gin.Context) {
 		req.Plan.DurationValue = 1
 	}
 	if req.Plan.MaxPurchasePerUser < 0 {
-		common.ApiErrorMsg(c, "Purchase limit cannot be negative.")
+		common.ApiErrorT(c, "Purchase limit cannot be negative")
 		return
 	}
 	if req.Plan.TotalAmount < 0 {
-		common.ApiErrorMsg(c, "Total quota cannot be negative.")
+		common.ApiErrorT(c, "Total quota cannot be negative")
 		return
 	}
 	req.Plan.UpgradeGroup = strings.TrimSpace(req.Plan.UpgradeGroup)
-	if req.Plan.MembershipOnly && req.Plan.UpgradeGroup == "" {
-		common.ApiError(c, model.ErrMembershipUpgradeGroupRequired)
-		return
-	}
 	if req.Plan.UpgradeGroup != "" {
 		if _, ok := ratio_setting.GetGroupRatioCopy()[req.Plan.UpgradeGroup]; !ok {
-			common.ApiErrorMsg(c, "Upgrade group does not exist.")
+			common.ApiErrorT(c, "Upgrade group does not exist")
 			return
 		}
 	}
 	req.Plan.DowngradeGroup = strings.TrimSpace(req.Plan.DowngradeGroup)
 	if req.Plan.DowngradeGroup != "" {
 		if _, ok := ratio_setting.GetGroupRatioCopy()[req.Plan.DowngradeGroup]; !ok {
-			common.ApiErrorMsg(c, "Downgrade group does not exist.")
+			common.ApiErrorT(c, "Downgrade group does not exist")
 			return
 		}
 	}
 	req.Plan.QuotaResetPeriod = model.NormalizeResetPeriod(req.Plan.QuotaResetPeriod)
 	if req.Plan.QuotaResetPeriod == model.SubscriptionResetCustom && req.Plan.QuotaResetCustomSeconds <= 0 {
-		common.ApiErrorMsg(c, "Custom reset period must be greater than 0 seconds.")
+		common.ApiErrorT(c, "Custom reset cycle must be greater than 0 seconds")
 		return
 	}
 	err := model.DB.Create(&req.Plan).Error
@@ -232,44 +219,24 @@ func AdminUpdateSubscriptionPlan(c *gin.Context) {
 
 	id, _ := strconv.Atoi(c.Param("id"))
 	if id <= 0 {
-		common.ApiErrorMsg(c, "Invalid ID.")
+		common.ApiErrorT(c, "Invalid ID")
 		return
 	}
-	// Detect optional bool presence before binding zeros them out.
-	// Older / web-default clients may omit membership_only entirely.
-	var rawPresence struct {
-		Plan map[string]json.RawMessage `json:"plan"`
-	}
-	if err := common.UnmarshalBodyReusable(c, &rawPresence); err != nil {
-		common.ApiErrorMsg(c, "Invalid parameters")
-		return
-	}
-	membershipOnlyProvided := false
-	if rawPresence.Plan != nil {
-		if raw, ok := rawPresence.Plan["membership_only"]; ok {
-			// Treat JSON null / empty as omitted so we never silently demote via false zero.
-			trimmed := strings.TrimSpace(string(raw))
-			if trimmed != "" && trimmed != "null" {
-				membershipOnlyProvided = true
-			}
-		}
-	}
-
 	var req AdminUpsertSubscriptionPlanRequest
-	if err := common.UnmarshalBodyReusable(c, &req); err != nil {
-		common.ApiErrorMsg(c, "Invalid parameters")
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.ApiErrorT(c, "Invalid parameters")
 		return
 	}
 	if strings.TrimSpace(req.Plan.Title) == "" {
-		common.ApiErrorMsg(c, "Subscription plan title is required.")
+		common.ApiErrorT(c, "Subscription plan title cannot be empty")
 		return
 	}
 	if req.Plan.PriceAmount < 0 {
-		common.ApiErrorMsg(c, "Subscription plan price cannot be negative.")
+		common.ApiErrorT(c, "Price cannot be negative")
 		return
 	}
 	if req.Plan.PriceAmount > 9999 {
-		common.ApiErrorMsg(c, "Subscription plan price cannot exceed 9999.")
+		common.ApiErrorT(c, "Price cannot exceed 9999")
 		return
 	}
 	req.Plan.Id = id
@@ -277,33 +244,6 @@ func AdminUpdateSubscriptionPlan(c *gin.Context) {
 		req.Plan.Currency = "USD"
 	}
 	req.Plan.Currency = "USD"
-
-	existing, err := model.GetSubscriptionPlanById(id)
-	if err != nil || existing == nil {
-		common.ApiErrorMsg(c, "Subscription plan not found.")
-		return
-	}
-	// Effective type for request validation only. When the client omits
-	// membership_only, do NOT copy it into the update map — the locked row
-	// inside AdminUpdateSubscriptionPlanFields is the source of truth.
-	effectiveMembershipOnly := req.Plan.MembershipOnly
-	if !membershipOnlyProvided {
-		effectiveMembershipOnly = existing.MembershipOnly
-	}
-	allowBalancePayProvided := req.Plan.AllowBalancePay != nil
-	allowWalletOverflowProvided := req.Plan.AllowWalletOverflow != nil
-	if req.Plan.AllowBalancePay == nil {
-		req.Plan.AllowBalancePay = common.GetPointer(true)
-	}
-	if req.Plan.AllowWalletOverflow == nil {
-		req.Plan.AllowWalletOverflow = common.GetPointer(true)
-	}
-	if membershipOnlyProvided && req.Plan.MembershipOnly {
-		req.Plan.TotalAmount = 0
-		req.Plan.QuotaResetPeriod = model.SubscriptionResetNever
-		req.Plan.QuotaResetCustomSeconds = 0
-		req.Plan.AllowWalletOverflow = common.GetPointer(true)
-	}
 	if req.Plan.DurationUnit == "" {
 		req.Plan.DurationUnit = model.SubscriptionDurationMonth
 	}
@@ -311,74 +251,72 @@ func AdminUpdateSubscriptionPlan(c *gin.Context) {
 		req.Plan.DurationValue = 1
 	}
 	if req.Plan.MaxPurchasePerUser < 0 {
-		common.ApiErrorMsg(c, "Purchase limit cannot be negative.")
+		common.ApiErrorT(c, "Purchase limit cannot be negative")
 		return
 	}
 	if req.Plan.TotalAmount < 0 {
-		common.ApiErrorMsg(c, "Total quota cannot be negative.")
+		common.ApiErrorT(c, "Total quota cannot be negative")
 		return
 	}
 	req.Plan.UpgradeGroup = strings.TrimSpace(req.Plan.UpgradeGroup)
-	if effectiveMembershipOnly && req.Plan.UpgradeGroup == "" {
-		common.ApiError(c, model.ErrMembershipUpgradeGroupRequired)
-		return
-	}
 	if req.Plan.UpgradeGroup != "" {
 		if _, ok := ratio_setting.GetGroupRatioCopy()[req.Plan.UpgradeGroup]; !ok {
-			common.ApiErrorMsg(c, "Upgrade group does not exist.")
+			common.ApiErrorT(c, "Upgrade group does not exist")
 			return
 		}
 	}
 	req.Plan.DowngradeGroup = strings.TrimSpace(req.Plan.DowngradeGroup)
 	if req.Plan.DowngradeGroup != "" {
 		if _, ok := ratio_setting.GetGroupRatioCopy()[req.Plan.DowngradeGroup]; !ok {
-			common.ApiErrorMsg(c, "Downgrade group does not exist.")
+			common.ApiErrorT(c, "Downgrade group does not exist")
 			return
 		}
 	}
 	req.Plan.QuotaResetPeriod = model.NormalizeResetPeriod(req.Plan.QuotaResetPeriod)
 	if req.Plan.QuotaResetPeriod == model.SubscriptionResetCustom && req.Plan.QuotaResetCustomSeconds <= 0 {
-		common.ApiErrorMsg(c, "Custom reset period must be greater than 0 seconds.")
+		common.ApiErrorT(c, "Custom reset cycle must be greater than 0 seconds")
 		return
 	}
 
-	updateMap := map[string]interface{}{
-		"title":                      req.Plan.Title,
-		"subtitle":                   req.Plan.Subtitle,
-		"price_amount":               req.Plan.PriceAmount,
-		"currency":                   req.Plan.Currency,
-		"duration_unit":              req.Plan.DurationUnit,
-		"duration_value":             req.Plan.DurationValue,
-		"custom_seconds":             req.Plan.CustomSeconds,
-		"enabled":                    req.Plan.Enabled,
-		"sort_order":                 req.Plan.SortOrder,
-		"stripe_price_id":            req.Plan.StripePriceId,
-		"creem_product_id":           req.Plan.CreemProductId,
-		"waffo_pancake_product_id":   req.Plan.WaffoPancakeProductId,
-		"max_purchase_per_user":      req.Plan.MaxPurchasePerUser,
-		"total_amount":               req.Plan.TotalAmount,
-		"upgrade_group":              req.Plan.UpgradeGroup,
-		"downgrade_group":            req.Plan.DowngradeGroup,
-		"quota_reset_period":         req.Plan.QuotaResetPeriod,
-		"quota_reset_custom_seconds": req.Plan.QuotaResetCustomSeconds,
-		"updated_at":                 common.GetTimestamp(),
-	}
-	if allowBalancePayProvided {
-		updateMap["allow_balance_pay"] = *req.Plan.AllowBalancePay
-	}
-	if (membershipOnlyProvided && req.Plan.MembershipOnly) || allowWalletOverflowProvided {
-		updateMap["allow_wallet_overflow"] = *req.Plan.AllowWalletOverflow
-	}
-
-	var membershipOnlyPtr *bool
-	if membershipOnlyProvided {
-		mo := req.Plan.MembershipOnly
-		membershipOnlyPtr = &mo
-	}
-	if err := model.AdminUpdateSubscriptionPlanFields(id, updateMap, membershipOnlyPtr); err != nil {
+	err := model.DB.Transaction(func(tx *gorm.DB) error {
+		// update plan (allow zero values updates with map)
+		updateMap := map[string]any{
+			"title":                      req.Plan.Title,
+			"subtitle":                   req.Plan.Subtitle,
+			"price_amount":               req.Plan.PriceAmount,
+			"currency":                   req.Plan.Currency,
+			"duration_unit":              req.Plan.DurationUnit,
+			"duration_value":             req.Plan.DurationValue,
+			"custom_seconds":             req.Plan.CustomSeconds,
+			"enabled":                    req.Plan.Enabled,
+			"sort_order":                 req.Plan.SortOrder,
+			"stripe_price_id":            req.Plan.StripePriceId,
+			"creem_product_id":           req.Plan.CreemProductId,
+			"waffo_pancake_product_id":   req.Plan.WaffoPancakeProductId,
+			"max_purchase_per_user":      req.Plan.MaxPurchasePerUser,
+			"total_amount":               req.Plan.TotalAmount,
+			"upgrade_group":              req.Plan.UpgradeGroup,
+			"downgrade_group":            req.Plan.DowngradeGroup,
+			"quota_reset_period":         req.Plan.QuotaResetPeriod,
+			"quota_reset_custom_seconds": req.Plan.QuotaResetCustomSeconds,
+			"updated_at":                 common.GetTimestamp(),
+		}
+		if req.Plan.AllowBalancePay != nil {
+			updateMap["allow_balance_pay"] = *req.Plan.AllowBalancePay
+		}
+		if req.Plan.AllowWalletOverflow != nil {
+			updateMap["allow_wallet_overflow"] = *req.Plan.AllowWalletOverflow
+		}
+		if err := tx.Model(&model.SubscriptionPlan{}).Where("id = ?", id).Updates(updateMap).Error; err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
 		common.ApiError(c, err)
 		return
 	}
+	model.InvalidateSubscriptionPlanCache(id)
 	common.ApiSuccess(c, nil)
 }
 
@@ -393,12 +331,12 @@ func AdminUpdateSubscriptionPlanStatus(c *gin.Context) {
 
 	id, _ := strconv.Atoi(c.Param("id"))
 	if id <= 0 {
-		common.ApiErrorMsg(c, "Invalid ID.")
+		common.ApiErrorT(c, "Invalid ID")
 		return
 	}
 	var req AdminUpdateSubscriptionPlanStatusRequest
 	if err := c.ShouldBindJSON(&req); err != nil || req.Enabled == nil {
-		common.ApiErrorMsg(c, "Invalid parameters")
+		common.ApiErrorT(c, "Invalid parameters")
 		return
 	}
 	if err := model.DB.Model(&model.SubscriptionPlan{}).Where("id = ?", id).Update("enabled", *req.Enabled).Error; err != nil {
@@ -421,7 +359,7 @@ func AdminBindSubscription(c *gin.Context) {
 
 	var req AdminBindSubscriptionRequest
 	if err := c.ShouldBindJSON(&req); err != nil || req.UserId <= 0 || req.PlanId <= 0 {
-		common.ApiErrorMsg(c, "Invalid parameters")
+		common.ApiErrorT(c, "Invalid parameters")
 		return
 	}
 	msg, err := model.AdminBindSubscription(req.UserId, req.PlanId, "")
@@ -429,11 +367,19 @@ func AdminBindSubscription(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	if msg != "" {
-		common.ApiSuccess(c, gin.H{"message": msg})
+	subscriptionChangeSuccess(c, msg)
+}
+
+// subscriptionChangeSuccess replies to an admin subscription change. notice
+// tells the admin how the user's group changes, when it does.
+func subscriptionChangeSuccess(c *gin.Context, notice *common.Message) {
+	if notice == nil {
+		common.ApiSuccess(c, nil)
 		return
 	}
-	common.ApiSuccess(c, nil)
+	data := notice.Fields()
+	data["message"] = notice.Error()
+	common.ApiSuccess(c, data)
 }
 
 // ---- Admin: user subscription management ----
@@ -441,7 +387,7 @@ func AdminBindSubscription(c *gin.Context) {
 func AdminListUserSubscriptions(c *gin.Context) {
 	userId, _ := strconv.Atoi(c.Param("id"))
 	if userId <= 0 {
-		common.ApiErrorMsg(c, "Invalid user ID.")
+		common.ApiErrorT(c, "Invalid user ID")
 		return
 	}
 	subs, err := model.GetAllUserSubscriptions(userId)
@@ -468,13 +414,16 @@ func resolveAdvanceResetTime(value *bool) bool {
 	return *value
 }
 
-func recordSubscriptionResetUserLogs(result *model.SubscriptionResetResult, adminInfo map[string]interface{}) {
+func recordSubscriptionResetUserLogs(c *gin.Context, result *model.SubscriptionResetResult, adminInfo *model.AuditAdminInfo) {
 	if result == nil || result.ResetCount == 0 {
 		return
 	}
-	content := fmt.Sprintf("管理员重置订阅套餐 %s（ID: %d）额度", result.PlanTitle, result.PlanId)
+	const action = "subscription.user_quota_reset"
+	params := map[string]any{"plan_id": result.PlanId, "plan_title": result.PlanTitle}
+	operation := model.AuditOperation{Action: action, Params: params}
+	content := auditContentEN(action, params)
 	for _, userId := range result.AffectedUserIds {
-		model.RecordLogWithAdminInfo(userId, model.LogTypeManage, content, adminInfo)
+		model.RecordLogWithAdminInfo(userId, model.LogTypeManage, content, adminInfo, &operation, c)
 	}
 }
 
@@ -486,12 +435,12 @@ func AdminCreateUserSubscription(c *gin.Context) {
 
 	userId, _ := strconv.Atoi(c.Param("id"))
 	if userId <= 0 {
-		common.ApiErrorMsg(c, "Invalid user ID.")
+		common.ApiErrorT(c, "Invalid user ID")
 		return
 	}
 	var req AdminCreateUserSubscriptionRequest
 	if err := c.ShouldBindJSON(&req); err != nil || req.PlanId <= 0 {
-		common.ApiErrorMsg(c, "Invalid parameters")
+		common.ApiErrorT(c, "Invalid parameters")
 		return
 	}
 	msg, err := model.AdminBindSubscription(userId, req.PlanId, "")
@@ -499,26 +448,22 @@ func AdminCreateUserSubscription(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	if msg != "" {
-		common.ApiSuccess(c, gin.H{"message": msg})
-		return
-	}
-	common.ApiSuccess(c, nil)
+	subscriptionChangeSuccess(c, msg)
 }
 
 func AdminResetUserSubscriptionsByPlan(c *gin.Context) {
 	userId, _ := strconv.Atoi(c.Param("id"))
 	if userId <= 0 {
-		common.ApiErrorMsg(c, "Invalid user ID.")
+		common.ApiErrorT(c, "Invalid user ID")
 		return
 	}
 	var req AdminResetSubscriptionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		common.ApiErrorMsg(c, "Invalid parameters")
+		common.ApiErrorT(c, "Invalid parameters")
 		return
 	}
 	if req.PlanId <= 0 {
-		common.ApiErrorMsg(c, "Invalid parameters")
+		common.ApiErrorT(c, "Invalid parameters")
 		return
 	}
 	advanceResetTime := resolveAdvanceResetTime(req.AdvanceResetTime)
@@ -527,8 +472,8 @@ func AdminResetUserSubscriptionsByPlan(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	recordSubscriptionResetUserLogs(result, auditOperatorInfo(c))
-	recordManageAuditFor(c, userId, "subscription.user_plan_reset", map[string]interface{}{
+	recordSubscriptionResetUserLogs(c, result, auditOperatorInfo(c))
+	recordManageAuditFor(c, userId, "subscription.user_plan_reset", map[string]any{
 		"target_user_id":     userId,
 		"plan_id":            result.PlanId,
 		"plan_title":         result.PlanTitle,
@@ -542,12 +487,12 @@ func AdminResetUserSubscriptionsByPlan(c *gin.Context) {
 func AdminResetPlanSubscriptions(c *gin.Context) {
 	planId, _ := strconv.Atoi(c.Param("id"))
 	if planId <= 0 {
-		common.ApiErrorMsg(c, "Invalid ID.")
+		common.ApiErrorT(c, "Invalid ID")
 		return
 	}
 	var req AdminResetSubscriptionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		common.ApiErrorMsg(c, "Invalid parameters")
+		common.ApiErrorT(c, "Invalid parameters")
 		return
 	}
 	advanceResetTime := resolveAdvanceResetTime(req.AdvanceResetTime)
@@ -556,10 +501,10 @@ func AdminResetPlanSubscriptions(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	recordSubscriptionResetUserLogs(result, auditOperatorInfo(c))
-	common.SysLog(fmt.Sprintf("admin reset subscription plan %d quota: reset_count=%d user_count=%d advance_reset_time=%t",
+	recordSubscriptionResetUserLogs(c, result, auditOperatorInfo(c))
+	common.SysLog(common.LogText("admin reset subscription plan %d quota: reset_count=%d user_count=%d advance_reset_time=%t",
 		result.PlanId, result.ResetCount, result.UserCount, result.AdvanceResetTime))
-	recordManageAudit(c, "subscription.plan_reset", map[string]interface{}{
+	recordManageAudit(c, "subscription.plan_reset", map[string]any{
 		"plan_id":            result.PlanId,
 		"plan_title":         result.PlanTitle,
 		"reset_count":        result.ResetCount,
@@ -573,42 +518,28 @@ func AdminResetPlanSubscriptions(c *gin.Context) {
 func AdminInvalidateUserSubscription(c *gin.Context) {
 	subId, _ := strconv.Atoi(c.Param("id"))
 	if subId <= 0 {
-		common.ApiErrorMsg(c, "Invalid subscription ID.")
+		common.ApiErrorT(c, "Invalid subscription ID")
 		return
 	}
-	group, err := model.AdminInvalidateUserSubscription(subId)
+	msg, err := model.AdminInvalidateUserSubscription(subId)
 	if err != nil {
 		common.ApiError(c, err)
 		return
 	}
-	if group != "" {
-		common.ApiSuccess(c, gin.H{
-			"message": "User group switched to {{group}}.",
-			"group":   group,
-		})
-		return
-	}
-	common.ApiSuccess(c, nil)
+	subscriptionChangeSuccess(c, msg)
 }
 
 // AdminDeleteUserSubscription hard-deletes a user subscription.
 func AdminDeleteUserSubscription(c *gin.Context) {
 	subId, _ := strconv.Atoi(c.Param("id"))
 	if subId <= 0 {
-		common.ApiErrorMsg(c, "Invalid subscription ID.")
+		common.ApiErrorT(c, "Invalid subscription ID")
 		return
 	}
-	group, err := model.AdminDeleteUserSubscription(subId)
+	msg, err := model.AdminDeleteUserSubscription(subId)
 	if err != nil {
 		common.ApiError(c, err)
 		return
 	}
-	if group != "" {
-		common.ApiSuccess(c, gin.H{
-			"message": "User group switched to {{group}}.",
-			"group":   group,
-		})
-		return
-	}
-	common.ApiSuccess(c, nil)
+	subscriptionChangeSuccess(c, msg)
 }

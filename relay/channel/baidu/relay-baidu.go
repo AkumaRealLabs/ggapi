@@ -119,7 +119,7 @@ func baiduStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.
 	helper.StreamScannerHandler(c, resp, info, func(data string, sr *helper.StreamResult) {
 		var baiduResponse BaiduChatStreamResponse
 		if err := common.Unmarshal([]byte(data), &baiduResponse); err != nil {
-			common.SysLog("error unmarshalling stream response: " + err.Error())
+			common.SysLog(common.LogText("error unmarshalling stream response: %s", err.Error()))
 			sr.Error(err)
 			return
 		}
@@ -130,7 +130,7 @@ func baiduStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.
 		}
 		response := streamResponseBaidu2OpenAI(&baiduResponse)
 		if err := helper.ObjectData(c, response); err != nil {
-			common.SysLog("error sending stream response: " + err.Error())
+			common.SysLog(common.LogText("error sending stream response: %s", err.Error()))
 			sr.Error(err)
 		}
 	})
@@ -188,20 +188,20 @@ func baiduEmbeddingHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *ht
 	return nil, &fullTextResponse.Usage
 }
 
-func getBaiduAccessToken(apiKey string, settings dto.ChannelSettings) (string, error) {
+func getBaiduAccessToken(apiKey string) (string, error) {
 	if val, ok := baiduTokenStore.Load(apiKey); ok {
 		var accessToken BaiduAccessToken
 		if accessToken, ok = val.(BaiduAccessToken); ok {
 			// soon this will expire
 			if time.Now().Add(time.Hour).After(accessToken.ExpiresAt) {
 				go func() {
-					_, _ = getBaiduAccessTokenHelper(apiKey, settings)
+					_, _ = getBaiduAccessTokenHelper(apiKey)
 				}()
 			}
 			return accessToken.AccessToken, nil
 		}
 	}
-	accessToken, err := getBaiduAccessTokenHelper(apiKey, settings)
+	accessToken, err := getBaiduAccessTokenHelper(apiKey)
 	if err != nil {
 		return "", err
 	}
@@ -211,7 +211,7 @@ func getBaiduAccessToken(apiKey string, settings dto.ChannelSettings) (string, e
 	return (*accessToken).AccessToken, nil
 }
 
-func getBaiduAccessTokenHelper(apiKey string, settings dto.ChannelSettings) (*BaiduAccessToken, error) {
+func getBaiduAccessTokenHelper(apiKey string) (*BaiduAccessToken, error) {
 	parts := strings.Split(apiKey, "|")
 	if len(parts) != 2 {
 		return nil, errors.New("invalid baidu apikey")
@@ -223,11 +223,7 @@ func getBaiduAccessTokenHelper(apiKey string, settings dto.ChannelSettings) (*Ba
 	}
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("Accept", "application/json")
-	client, err := service.GetHttpClientWithProxySettings(settings.Proxy, settings)
-	if err != nil {
-		return nil, err
-	}
-	res, err := client.Do(req)
+	res, err := service.GetHttpClient().Do(req)
 	if err != nil {
 		return nil, err
 	}

@@ -1,6 +1,7 @@
 package common
 
 import (
+	"fmt"
 	"math"
 	"testing"
 
@@ -21,6 +22,7 @@ func TestQuotaFromFloat(t *testing.T) {
 	assert.Equal(t, 42, QuotaFromFloat(42.4))
 	assert.Equal(t, 42, QuotaFromFloat(42.9))
 	assert.Equal(t, -42, QuotaFromFloat(-42.9))
+	assert.Equal(t, MaxQuota, QuotaFromFloat(float64(math.MaxInt32)+42))
 	assert.Equal(t, MaxQuota, QuotaFromFloat(overflowingProduct))
 	assert.Equal(t, MinQuota, QuotaFromFloat(-overflowingProduct))
 	assert.Equal(t, MaxQuota, QuotaFromFloat(math.Inf(1)))
@@ -34,6 +36,7 @@ func TestQuotaRound(t *testing.T) {
 	assert.Equal(t, 42, QuotaRound(41.5))
 	assert.Equal(t, 43, QuotaRound(42.5))
 	assert.Equal(t, -43, QuotaRound(-42.5))
+	assert.Equal(t, MaxQuota, QuotaRound(float64(math.MaxInt32)+0.5))
 	assert.Equal(t, MaxQuota, QuotaRound(overflowingProduct))
 	assert.Equal(t, MinQuota, QuotaRound(-overflowingProduct))
 	assert.Equal(t, 0, QuotaRound(math.NaN()))
@@ -93,7 +96,7 @@ func TestQuotaFromFloatStrictReturnsTypedClampError(t *testing.T) {
 	assert.ErrorContains(t, err, "QuotaFromFloat")
 	assert.ErrorContains(t, err, "overflow")
 	assert.ErrorContains(t, err, "original=")
-	assert.ErrorContains(t, err, "clamped=2147483647")
+	assert.ErrorContains(t, err, fmt.Sprintf("clamped=%d", MaxQuota))
 }
 
 // TestQuotaRoundChecked verifies the rounding entry point reports clamps the
@@ -125,36 +128,19 @@ func TestQuotaFromDecimalChecked(t *testing.T) {
 	}
 }
 
-func TestQuotaFromMoney(t *testing.T) {
-	oldQuotaPerUnit := QuotaPerUnit
-	QuotaPerUnit = 1000
-	t.Cleanup(func() {
-		QuotaPerUnit = oldQuotaPerUnit
-	})
-
-	quota, err := QuotaFromMoney(1.25)
+func TestWalletQuotaFromDecimalStrict(t *testing.T) {
+	quota, err := WalletQuotaFromDecimalStrict(decimal.NewFromInt(4_294_500_000))
 	require.NoError(t, err)
-	assert.Equal(t, 1250, quota)
+	assert.Equal(t, 4_294_500_000, quota)
 
-	quota, err = QuotaFromMoney(0)
+	quota, err = WalletQuotaFromDecimalStrict(decimal.NewFromInt(MaxWalletQuota))
 	require.NoError(t, err)
+	assert.Equal(t, MaxWalletQuota, quota)
+
+	quota, err = WalletQuotaFromDecimalStrict(decimal.NewFromInt(MaxWalletQuota + 1))
 	assert.Zero(t, quota)
-
-	// Fractional products truncate toward zero (legacy top-up IntPart semantics).
-	QuotaPerUnit = 1.5
-	quota, err = QuotaFromMoney(1)
-	require.NoError(t, err)
-	assert.Equal(t, 1, quota)
-
-	for _, money := range []float64{-1, math.NaN(), math.Inf(1)} {
-		QuotaPerUnit = 1000
-		quota, err = QuotaFromMoney(money)
-		assert.Error(t, err)
-		assert.Zero(t, quota)
-	}
-
-	QuotaPerUnit = 0
-	quota, err = QuotaFromMoney(1)
-	assert.Error(t, err)
-	assert.Zero(t, quota)
+	var clamp *QuotaClamp
+	require.ErrorAs(t, err, &clamp)
+	assert.Equal(t, "WalletQuotaFromDecimal", clamp.Op)
+	assert.Equal(t, QuotaClampOverflow, clamp.Kind)
 }
