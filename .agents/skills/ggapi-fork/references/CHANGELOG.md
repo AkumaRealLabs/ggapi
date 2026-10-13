@@ -2,6 +2,20 @@
 
 格式：`## version — YYYY-MM-DD` + 级别 + 摘要。最新在上。
 
+## 4.0.0 — 2026-10-13
+
+- **级别:** L3 / major（改 Hard rules：`main` 合入方式）
+- **原因:** 仓库只有一名维护者，维护者要求日常改动不走 PR，直接合并到 `main`
+- **变更:**
+  - Hard rules：`main` 只接受功能分支在本地 `git merge --no-ff` 后 `git push origin main`，且须用户说「合并/推送」；禁止在 `main` 上直接写提交、禁止强推
+  - Mode C 改为 C3 合并前检查（合入最新 `origin/main` 并复测）→ C4 本地合并并推送 → C5 删分支并等 `main` 的 CI；新增 C-backup（「推分支」只备份）与 C6（Dependabot PR）；删除开 PR、PR 模板与身份核对、merge pin 等步骤
+  - C0 授权词：「合并 / 推送」= C3 → C5；「推分支」只推功能分支
+  - D7 同步上游同样本地合并落地；checklists §Pre-PR → §Pre-merge；troubleshooting §2/§3/§4/§7/§9/§17/§21/§23 与紧急表对齐
+  - `ci.yml` 增加推送 `main` 触发（GG-003），弥补不走 PR 后没有 CI 的缺口
+  - `skill_version` → **4.0.0**
+- **规则变更:** 「禁直推 main、必须经 PR」改为「只经本地 `--no-ff` 合并推送 main、禁强推」
+- **未改:** origin-only、禁推 upstream、品牌与计费等 Hard rules；仍只在用户明确说提交/合并时操作；发版与 tag 规则不变
+
 ## 3.0.0 — 2026-10-13
 
 - **级别:** L3 / major（取消提交前审查门禁）

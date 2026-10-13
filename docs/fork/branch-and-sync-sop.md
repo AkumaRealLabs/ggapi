@@ -12,7 +12,7 @@
 |------|------|
 | `origin` | 团队仓 `AkumaRealLabs/ggapi`，唯一推送目标 |
 | `upstream` | `QuantumNous/new-api`，只读拉取 |
-| `main` | 可部署主干；**禁止直推**（经 PR 合入） |
+| `main` | 可部署主干；只接受功能分支在本地 `--no-ff` 合并后推送；**禁止**直接在 `main` 上提交、禁止强推 |
 | 功能/修复分支 | 短生命周期，合入后删除 |
 | `sync/upstream-YYYYMMDD` | 仅用于合并上游，**禁止夹带业务功能** |
 
@@ -55,7 +55,19 @@ git checkout -b feat/your-topic
 ## 3. 日常开发闭环
 
 ```
-Issue/任务 → 分支 → 实现 → 本地验证 → commit → push 分支 → PR → Review → 合入 main → 更新差异清单（如有）
+任务 → 分支 → 实现 → 本地验证 → commit → 合入最新 origin/main 并复测 → 本地合并到 main → 推送 origin/main → 看 main 的 CI → 删分支 → 更新差异清单（如有）
+```
+
+本仓只有一名维护者，日常改动不走 PR。推送 `main` 会触发 `ci.yml`；CI 失败时开修复分支补提交，不改写 `main` 的历史。
+
+```bash
+git fetch origin
+git merge origin/main                 # 分支落后时，合入后复测
+git checkout main
+git pull --ff-only origin main
+git merge --no-ff --no-edit feat/your-topic
+git push origin main                  # 禁止 --force
+git branch -d feat/your-topic
 ```
 
 ### 3.1 实现约束（摘要）
@@ -118,12 +130,12 @@ make dev-web         # 官方前端
 | `model/` 迁移、行锁、事务 | 二审；说明三库行为 |
 | 相对 upstream 的新 `patch` | 必须同步更新 [差异清单](./diff-inventory.md) |
 
-### 3.4 PR 说明
+### 3.4 提交说明与 PR
 
-- 本仓 PR 写清：做了什么、为什么；验证记录可选
-- 若改动是相对上游的永久差异，PR 中注明「已更新 / 将更新 diff-inventory」
-- 向 `AkumaRealLabs/ggapi` 提 PR 时，使用并保留本仓 `.github/PULL_REQUEST_TEMPLATE.md` 结构；本仓允许 AI-generated / AI-assisted 内容，验证记录可选
-- 开 PR 前对比当前 git 用户与 `origin/main` 历史核心开发者；非核心用户须按 `AGENTS.md` 在 PR 中披露 AI-generated / AI-assisted 情况，不修改 git config
+- 提交说明写清：做了什么、为什么
+- 若改动是相对上游的永久差异，在同一分支更新 diff-inventory，随代码一起合入
+- 日常改动不开 PR；Dependabot 的 PR 由维护者点名后合并或关闭
+- 若确需在 `AkumaRealLabs/ggapi` 开 PR，使用并保留本仓 `.github/PULL_REQUEST_TEMPLATE.md` 结构（本仓允许 AI-generated / AI-assisted 内容，验证记录可选）；开 PR 前对比当前 git 用户与 `origin/main` 历史核心开发者，非核心用户须按 `AGENTS.md` 在 PR 中披露 AI-generated / AI-assisted 情况，不修改 git config
 - 向**官方** `QuantumNous/new-api` 提 PR 时，先 `git fetch upstream`，读取上游当时的 PR 模板、`AGENTS.md` / `CONTRIBUTING*` 与 workflow 定义，并通过 GitHub API 查询运行态检查和保护规则（见 §6）；**不得**套用本仓的宽松 AI 政策
 
 ---
@@ -166,11 +178,14 @@ git merge upstream/main
    - **两边都改同一逻辑** → 先理解上游意图，再最小 diff 合并，禁止「整文件选一边」糊弄
 3. 编译与测试（见下节）。
 4. 更新差异清单元信息（基准 commit/版本）及各项状态。
-5. 开 PR → 合入 `origin/main`（同步 PR 标题建议：`sync: merge upstream/main @ <short-sha>`）。
+5. 按 §3 在本地合入 `main` 并推送（同步分支上合并上游的提交说明建议：`chore(sync): merge upstream/main @ <short-sha>`）。
 
 ```bash
-# 4. 推送并开 PR（仅 origin）
-git push -u origin HEAD
+# 4. 合入 main 并推送（仅 origin）
+git checkout main
+git pull --ff-only origin main
+git merge --no-ff --no-edit sync/upstream-YYYYMMDD
+git push origin main
 ```
 
 ### 4.3 同步分支禁止事项
@@ -182,7 +197,7 @@ git push -u origin HEAD
 
 ### 4.4 同步后最小验证
 
-在合并同步 PR 前至少完成：
+在把同步分支合入 `main` 前至少完成：
 
 ```bash
 # 与冲突相关的包测试

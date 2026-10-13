@@ -24,13 +24,13 @@ git fetch upstream 2>&1
 |---------|---------|
 | `upstream` missing / fetch fails | §1 |
 | Accidentally committed on `main` | §2 |
-| "Should I push or PR?" confusion | §3 |
-| Push rejected / non-fast-forward | §4 |
+| Unsure how work reaches `main` | §3 |
+| Push rejected / non-fast-forward (branch or `main`) | §4 |
 | Merge conflicts during sync | §5 |
 | Lost fork customization after sync | §6 |
 | Diverged badly from upstream | §7 |
 | Dirty tree blocks branch switch | §8 |
-| `gh` / PR creation fails | §9 |
+| Dependabot PR will not merge | §9 |
 | Tests fail after sync | §10 |
 | Billing / quota weirdness after custom patch | §11 |
 | Afraid of breaking protected branding | §12 |
@@ -38,13 +38,13 @@ git fetch upstream 2>&1
 | Working on wrong remote or fork | §14 |
 | Skill keeps rewriting itself / user fears chaotic upgrades | §15 |
 | Skill out of date vs docs/fork | §16 |
-| `gh pr create` says no commits / wrong repo | §17 |
+| `gh` shows upstream data / wrong repo | §17 |
 | CI jobs stuck / not on GitHub-hosted runner | §18 |
 | Update check 401/404 on private repo | §19 |
 | i18n sync report missingCount on zh-TW | §20 |
-| `继续` after PR open re-codes instead of CI/merge | §21 + workflows **C-continue** |
+| `继续` after commit or landing re-codes instead of merge/CI | §21 + workflows **C-continue** |
 | Official frontend / retired theme compatibility / embed | §22 |
-| `gh pr merge` EOF / timeout but PR might be merged | §23 |
+| `gh pr merge` (Dependabot PR) EOF / timeout but PR might be merged | §23 |
 | Tag pushed but GHCR / docker-build not “done” | §24 |
 
 ---
@@ -86,21 +86,22 @@ git reset --hard origin/main      # local main matches remote
 git checkout docs-or-feat/<topic>
 ```
 
-Then Mode C: push branch + PR.
+Then Mode C: 提交/合并 per C0 (C3 → C5).
 
 **If already pushed commits to `origin/main`**
-Do **not** force-push `main` unless the user explicitly owns that decision and
-team policy allows. Prefer revert PR or forward-fix PR.
+Do **not** force-push `main`. Prefer a revert or forward-fix branch landed via
+Mode C.
 
 ---
 
-## §3 Push vs PR (stuck in decision)
+## §3 How work reaches `main` (stuck in decision)
 
 Teach this one-liner:
 
-> Push the **branch** so GitHub has your commits; open a **PR** so they can enter **main**.
+> 「提交」saves work on the topic branch; 「合并」merges it into local `main` and pushes `origin/main`; 「推分支」only backs the branch up.
 
-Never present "only push" or "only PR" as complete landing paths.
+No PR is needed for routine work (skill 4.0.0+). A pushed topic branch alone
+has not landed.
 
 ---
 
@@ -117,8 +118,10 @@ git pull --rebase origin <branch>   # only on private topic branch if team ok wi
 git pull origin <branch>
 ```
 
-**Rejected push to main**
-Good — main is protected. Move work to a branch (§2) and PR.
+**Rejected push to `main`** (non-fast-forward after C4)
+`origin/main` moved after C3. On `main`: `git pull --no-rebase origin main`,
+re-run the affected checks, push again. **Never** force. If GitHub rejects the
+push for permissions or a protection rule, stop and ask the user.
 
 **Permission denied to origin**
 User/token lacks write access to `AkumaRealLabs/ggapi` — escalate to human, do not switch remotes silently.
@@ -166,7 +169,7 @@ Plan:
 
 1. Inventory `high` items first
 2. Prefer smaller intermediate syncs if behind many months
-3. Still use `sync/upstream-YYYYMMDD` + merge + PR
+3. Still use `sync/upstream-YYYYMMDD` + merge, then land via Mode C (C3 → C5)
 4. Do not rewrite shared history with rebase of `main` onto upstream
 
 ---
@@ -187,17 +190,15 @@ Never `git clean -fdx` without explicit approval.
 
 ---
 
-## §9 Cannot open PR
+## §9 Dependabot PR will not merge
 
 | Cause | Fix |
 |-------|-----|
-| Branch not pushed | `git push -u origin HEAD` |
 | `gh` not auth | `gh auth status`; user logs in |
-| Wrong base | `--base main` |
-| No commits vs main | Ensure commits exist: `git log origin/main..HEAD` |
-| Already has PR | `gh pr view` / use existing |
-
-Manual fallback: GitHub UI compare `main`...`<branch>` after push.
+| Wrong repo | Pass `--repo AkumaRealLabs/ggapi` (§17) |
+| Checks failing | `gh pr checks <N>`; tell the user; merge only if they still want it |
+| Conflicts / outdated branch | Ask the user whether to comment `@dependabot rebase` or close the PR |
+| `--match-head-commit` rejected | Head moved; re-read `headRefOid` and checks before retrying |
 
 ---
 
@@ -273,9 +274,9 @@ If `origin` is not `AkumaRealLabs/ggapi`:
 
 1. Open `references/self-upgrade.md` and `references/CHANGELOG.md`.
 2. Check last entries: were they L1 noise or L3 without consent?
-3. Recovery: `git log -- .agents/skills/ggapi-fork` / revert the skill-only PR.
+3. Recovery: `git log -- .agents/skills/ggapi-fork` / revert the skill-only commit.
 4. Remind gates: no auto-commit; L2/L3 need plan; Hard rules frozen without explicit L3.
-5. If agent upgraded mid-feature: separate skill commit or revert skill hunks from the feature PR.
+5. If agent upgraded mid-feature: separate skill commit or revert skill hunks from the feature branch.
 
 ## §16 Skill teaches steps that contradict docs/fork
 
@@ -286,10 +287,10 @@ If `origin` is not `AkumaRealLabs/ggapi`:
 
 ---
 
-## §17 `gh pr create` targets wrong repo (upstream)
+## §17 `gh` targets the wrong repo (upstream)
 
-**Symptom:** GraphQL *No commits between main and …* / blank head/base SHA, while
-local `git log origin/main..HEAD` shows commits on a pushed topic branch.
+**Symptom:** `gh pr` / `gh run` commands list upstream PRs or runs, or report
+*No commits between main and …* for a branch that has commits.
 
 **Cause:** `gh` default repo is `QuantumNous/new-api` (upstream), not
 `AkumaRealLabs/ggapi`.
@@ -300,14 +301,11 @@ gh repo view --json nameWithOwner -q .nameWithOwner
 # good: AkumaRealLabs/ggapi
 
 gh repo set-default AkumaRealLabs/ggapi
-
-# Create PR against team repo explicitly:
-gh api repos/AkumaRealLabs/ggapi/pulls \
-  -f title='…' -f head='<branch>' -f base='main' -f body='…'
 ```
 
-Never open ggapi feature PRs against upstream unless the user is doing Mode G
-(contribute upstream) on purpose.
+Pass `--repo AkumaRealLabs/ggapi` on every `gh` call anyway. Never open PRs
+against upstream unless the user is doing Mode G (contribute upstream) on
+purpose.
 
 ---
 
@@ -369,12 +367,12 @@ aligned across locales.
 
 ---
 
-## §21 「继续」routed wrong (re-coding after PR open)
+## §21 「继续」routed wrong (re-coding after commit or landing)
 
-Symptom: ship unit already at C4 (PR OPEN, clean tip), user says `继续`, agent
-starts new feature edits.
-Fix: **C-continue** — report CI, wait for 合并 wording, or C5 hygiene. Only
-re-enter Mode B if user names a new defect/scope.
+Symptom: ship unit already committed (waiting for 合并) or landed (C4 pushed
+`main`), user says `继续`, agent starts new feature edits.
+Fix: **C-continue** — wait for 合并 wording, or report `main` CI / C5 hygiene.
+Only re-enter Mode B if user names a new defect/scope.
 
 ---
 
@@ -451,7 +449,7 @@ gh pr view <N> --repo AkumaRealLabs/ggapi \
 
 | Observed | Do |
 |----------|-----|
-| MERGED | Continue C5 clean-up; **do not** merge again |
+| MERGED | `git pull --ff-only origin main` on `main` (C6); **do not** merge again |
 | OPEN + auto-merge / merge queue / checks | Poll until MERGED or failure; **never** Mode F on old main |
 | OPEN + no auto-merge + transport flake | Retry `gh pr merge`; REST with pinned `sha`/head; check branch protection |
 | View + REST both fail | Stop; do not assume merged |
@@ -499,7 +497,7 @@ old SHA (SOP §5.1 post-push warning) — human decides re-cut.
 | `reset --hard` lost commits | `git reflog` → recover SHA → branch from it |
 | Force-pushed topic branch | Coordinate with anyone who pulled; avoid force on `main` |
 | Pushed secrets | Rotate credentials; history purge only with team process |
-| Merged bad sync to main | Fix-forward PR; inventory note; avoid another hard reset on shared main |
+| Merged bad sync to main | Fix-forward branch landed via Mode C; inventory note; never hard reset or force-push `main` |
 | Skill auto-edited and confused you | See §15; discard uncommitted skill diffs or revert commit |
 
 Always show reflog recovery options before declaring data lost:

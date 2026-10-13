@@ -69,7 +69,7 @@ make dev-web         # official frontend
 
 ### Goal
 
-Ship one coherent change on a short-lived branch without touching `main` directly.
+Ship one coherent change on a short-lived branch; it reaches `main` only through the Mode C local merge.
 
 ### B0. Classify the change
 
@@ -143,7 +143,7 @@ Manual smoke when behavior is user-visible: login/token, one chat path, admin pa
 
 ### B4. Diff-inventory draft (if permanent)
 
-Before asking to commit/PR, prepare an entry for `docs/fork/diff-inventory.md`:
+Before asking to commit/merge, prepare an entry for `docs/fork/diff-inventory.md`:
 
 - New `GG-xxx` or update existing
 - Risk `low|medium|high`
@@ -164,11 +164,14 @@ Present:
 
 ---
 
-## §C — Ship: commit → push branch → PR → merge hygiene
+## §C — Ship: commit → local merge into main → push main
 
 ### Goal
 
-Land work on `origin/main` via PR. Answer push-vs-PR without ambiguity.
+Land work on `origin/main` by merging a short-lived topic branch into local
+`main` and pushing `main` to `origin`. This repository has a single
+maintainer, so routine work has **no PR step** (skill 4.0.0+). The only PRs
+are Dependabot's (C6) and contributions to upstream (Mode G).
 
 ### C0. Chained ship authorization (one user message)
 
@@ -179,30 +182,28 @@ session without re-asking for each sub-step already listed.
 | User phrase (examples) | Authorized steps |
 |------------------------|------------------|
 | 提交 / commit / 最终提交 | C2 only |
-| 提交并 push / 提交并推上去 | C2 → C3 |
-| 推上去 / push（**无**提交词） | **C3 only** on **existing** commits not on `origin/main`. If worktree dirty → **stop**, ask for 提交 (do **not** invent C2) |
-| 开 PR / 提 PR（**无**提交词） | **C4** (push first if branch has unpushed commits). Dirty tree → **stop**, ask for 提交 |
-| 开 PR 并合并 / 合并清理 | → through C5 (still no silent C2 if dirty without 提交) |
-| 提交 → push → PR → merge | C2 → C3 → C4 → C5 |
-| …→ merge → **发版** / 合并后打 tag | Same as merge chain **plus** Mode F only after PR is **MERGED** (merge verb **required**) |
-| **发版** / tag / 打 tag / GHCR alone | Mode **F only** on already-landed `origin/main`. **Does not** authorize C5/merge |
+| 合并 / 推送 / 推送合并 / 合入 / push（**无**提交词） | **C3 → C4 → C5** on **existing** commits. If worktree dirty → **stop**, ask for 提交 (do **not** invent C2) |
+| 提交并合并 / 提交并推送 | C2 → C3 → C4 → C5 |
+| 推分支 / 备份分支 | **C-backup only**: push the topic branch; does **not** land on `main` |
+| …→ 合并 → **发版** / 合并后打 tag | Same as merge chain **plus** Mode F only after C4 pushed `main` |
+| **发版** / tag / 打 tag / GHCR alone | Mode **F only** on already-landed `origin/main`. **Does not** authorize C3–C5 |
 
 Rules:
 
 - **Missing verb = not authorized.** 「只提交」does **not** imply merge or 发版.
-- **Push/PR wording ≠ commit.** 「推上去」「开 PR」alone never run C2 on a dirty tree; only move **already committed** work.
-- **发版 ≠ merge.** 「提交并发版」without 合并/merge does **not** open C5; either the change is already on `origin/main`, or stop and ask for merge authorization.
-- Still require a **topic branch** for routine ship (no routine commit/push to `main`).
-- Still **never** `git push upstream`.
+- **Merge wording ≠ commit.** 「合并」「推送」alone never run C2 on a dirty tree; only land **already committed** work.
+- **发版 ≠ merge.** 「提交并发版」without 合并/推送 does **not** open C4; either the change is already on `origin/main`, or stop and ask for merge authorization.
+- Routine work still happens on a **topic branch**; the only commit made on `main` is the C4 merge commit.
+- Still **never** `git push upstream`; never force-push `main`.
 - Hard-risk ops (force-push, `reset --hard`, production deploy beyond tag/GHCR)
   still need their **own** explicit confirm even inside a chain.
-- Mode F only when PR is **MERGED** and local `HEAD == origin/main` after fetch (never tag while PR still OPEN).
+- Mode F only when local `HEAD == origin/main` after fetch.
 
 Coach one-liner after parsing:
 
 ```text
 当前模式: C（链式发车）[→ F]
-本句授权: 提交 / push / PR / merge / 发版（勾选实际出现的）
+本句授权: 提交 / 合并 / 发版（勾选实际出现的）
 下一步: <first concrete command>
 ```
 
@@ -211,39 +212,36 @@ Coach one-liner after parsing:
 User phrases: `继续` / `接着` / `/ggapi-fork 继续` **without** new feature/fix
 scope.
 
-**Detect stage first** (preflight: branch, dirty tree, open PR, CI).
+**Detect stage first** (preflight: branch, dirty tree, commits not on
+`origin/main`, latest `main` CI run).
 
-**Resume rules:**
-
-1. **C0 still wins** — `继续` never invents missing verbs (提交 / push / 开 PR / 合并 / 发版).
-2. **C5 remote head:** after C3 pushes the branch, record the pushed
-   `git rev-parse HEAD` as the **merge pin**. Before merge, fetch and require PR
-   `headRefOid` == that pin (same rule as C5 table).
+**Resume rule:** **C0 still wins** — `继续` never invents missing verbs
+(提交 / 合并 / 发版).
 
 | Current stage | What 「继续」means | Do **not** |
 |---------------|-------------------|------------|
 | Mode B coding mid-feature, dirty or unfinished | Resume **B** (implement / verify) | Jump to commit without 提交 verb |
 | Ready to ship, dirty tree, no commit auth yet | Coach next Mode C step; **stop** for 提交 if dirty | Invent C2 |
-| Commits on branch, not pushed | **Coach only:** next is C3; push **only** if chain already has push auth **or** user says 推上去/push now. Prior **提交 alone** ≠ push | Silent C3 |
-| Branch pushed, no PR | **Coach only:** next is C4; open PR **only** if chain has 开 PR **or** user says 开 PR now | Silent C4 from 继续 alone |
-| PR **OPEN**, pin matches remote head | Report CI; if C0 already included 合并/merge → resume **C5**; else wait for **合并** | Invent merge; merge when pin ≠ remote head |
-| PR **MERGED**, local not cleaned | C5 hygiene if merge/cleanup authorized; else coach | Silent merge; 发版 without auth |
+| Commits on topic branch, not on `origin/main` | **Coach only:** next is C3; land **only** if the chain already has 合并/推送 **or** the user says it now. Prior **提交 alone** ≠ merge | Silent C4 |
+| Landed; `main` CI running or failed | Report CI; on failure coach a forward-fix branch (needs new 提交/合并) | Force-push or rewrite `main` |
 | On `main`, 发版 intent | Mode **F** only if 发版 authorized; else ask | |
 
-**Lesson (PR #26):** after the PR is open, `/ggapi-fork 继续` = Mode C
-post-ship (CI / merge auth / cleanup), **not** more product code unless the user
-names a new defect.
+**Lesson (PR #26):** once work has landed, `/ggapi-fork 继续` = Mode C
+post-ship (CI / cleanup), **not** more product code unless the user names a new
+defect.
 
 ### C1. Pre-flight
 
 ```bash
-git branch --show-current   # must NOT be main (except emergency documented hotfix process)
+git branch --show-current   # must NOT be main
 git status -sb
+git fetch origin
 git log --oneline origin/main..HEAD
 git diff origin/main...HEAD --stat
 ```
 
-If currently on `main` with commits: **stop**. Move commits to a topic branch:
+If currently on `main` with commits that are not merge commits from C4:
+**stop**. Move them to a topic branch:
 
 ```bash
 git branch <prefix>/<topic>    # pointer to current commit
@@ -276,143 +274,109 @@ Follow repo commit rules:
 - HEREDOC commit message, why-focused
 - Never update git config; never skip hooks
 
-If change is permanent fork delta, include inventory file in the same PR when possible.
+If change is permanent fork delta, include the inventory update on the same
+topic branch so it lands with the code.
 
-### C3. Push branch (not main)
+### C3. Pre-merge checks (only when 合并/推送 is authorized)
+
+No CI runs before landing, so the local checks are the gate:
+
+1. Make sure the B3 checks for the ship unit (touched Go packages, `web/`
+   checks, C1b) passed on the current tip. Re-run any check whose inputs
+   changed since it last passed, and keep the commands for the report.
+2. Bring in the latest `origin/main`:
+
+```bash
+git fetch origin
+git merge-base --is-ancestor origin/main HEAD || git merge origin/main
+```
+
+If `origin/main` had to be merged in, resolve conflicts per §E and re-run the
+affected checks. Never `reset --hard` to get past a conflict.
+
+### C4. Merge into main and push
+
+```bash
+TOPIC=$(git branch --show-current)
+git checkout main
+git pull --ff-only origin main
+git merge --no-ff --no-edit "$TOPIC"
+git push origin main           # never --force
+```
+
+- `git pull --ff-only` fails → local `main` has commits that are not on
+  `origin/main`: **stop**, troubleshooting §2.
+- Push rejected (non-fast-forward) → `origin/main` moved after C3: run
+  `git pull --no-rebase origin main` on `main`, re-run the affected checks,
+  push again. Never force.
+- The merge commit is signed like any other commit; an SSH agent refusal
+  means the key is locked — ask the user to unlock it, never bypass signing.
+
+### C5. Clean up and watch `main` CI
+
+```bash
+git branch -d "$TOPIC"
+# only if the branch was backed up with C-backup:
+git ls-remote --exit-code --heads origin "$TOPIC" >/dev/null && git push origin --delete "$TOPIC"
+git remote prune origin
+```
+
+Pushing `main` triggers `ci.yml` (GG-003). Find the run for the pushed SHA and
+wait for it:
+
+```bash
+MAIN_SHA=$(git rev-parse HEAD)
+gh run list --repo AkumaRealLabs/ggapi --workflow=ci.yml --branch main \
+  --event push --limit 5 --json databaseId,headSha
+# take the run whose headSha == $MAIN_SHA, then:
+gh run watch <run-id> --repo AkumaRealLabs/ggapi --exit-status
+```
+
+| Result | Coach action |
+|--------|--------------|
+| `success` | Report landed SHA + CI green |
+| `failure` | Do **not** claim done. `gh run view <id> --log-failed`; separate known upstream failures (same code as `upstream/main`) from fork regressions; fork regression → forward-fix topic branch (needs 提交/合并) |
+| No run for the SHA | Check `ci.yml` still has the `push` trigger on `main`; do not borrow another run's result |
+
+C5 leaves you on clean `main`. Next work → new branch from latest
+`origin/main`.
+
+### C-backup. Push a topic branch without landing (only on 推分支)
 
 ```bash
 git push -u origin HEAD
 ```
 
-This is **required** before a PR can exist. Pushing a topic branch ≠ landing on main.
+The branch on `origin` is only a backup; no CI runs and nothing reaches
+`main`. C5 deletes it after the branch lands.
 
-### C4. Open PR
+### C6. Dependabot PRs (the only routine PRs)
 
-**Critical:** `gh` may default to **upstream** `QuantumNous/new-api` in this
-clone (module path / prior checkout). Always target **AkumaRealLabs/ggapi**.
-
-```bash
-# Prefer one-time fix for this clone:
-gh repo set-default AkumaRealLabs/ggapi
-
-# Verify before create:
-gh repo view --json nameWithOwner -q .nameWithOwner
-# must print: AkumaRealLabs/ggapi
-```
-
-Before drafting the PR body, enforce the repository `AGENTS.md` identity rule:
+Dependabot opens PRs against `main` (`.github/dependabot.yml`). Act only on a
+PR the user names (例「合并 #47」「关掉 #47」):
 
 ```bash
-git config user.name
-git config user.email
-git shortlog -sne origin/main | head -20
+gh pr checks <N> --repo AkumaRealLabs/ggapi
+gh pr merge <N> --repo AkumaRealLabs/ggapi --merge --delete-branch \
+  --match-head-commit "$(gh pr view <N> --repo AkumaRealLabs/ggapi --json headRefOid -q .headRefOid)"
 ```
 
-Compare the current identity with recurring core authors in repository history.
-Do not change git config. If the current user is not a historical core
-developer, the PR body must explicitly state that the change is AI-generated
-or AI-assisted.
-
-Always start from `.github/PULL_REQUEST_TEMPLATE.md`, preserve its headings and
-fill the relevant sections. For **AkumaRealLabs/ggapi**, AI-generated and
-AI-assisted content is allowed and the template's verification record is
-optional; this does not waive C1/C1b implementation checks. Complete exactly
-one `Fork Diff Inventory` choice: either no permanent upstream delta, or the
-updated `docs/fork/diff-inventory.md` GG ID.
-
-```bash
-PR_BODY_FILE="$(mktemp)"
-cp .github/PULL_REQUEST_TEMPLATE.md "$PR_BODY_FILE"
-# Fill the copied template; add the required AI disclosure when the identity
-# comparison above says the current user is not a historical core developer.
-```
-
-If `gh pr create` fails with *No commits between main and docs/…* or blank SHAs
-while `git log origin/main..HEAD` shows commits, **do not** open the PR against
-upstream. Use the REST API against the team repo with the same filled template:
-
-```bash
-gh api repos/AkumaRealLabs/ggapi/pulls \
-  -f title='…' \
-  -f head="$(git branch --show-current)" \
-  -f base='main' \
-  -f body="$(<"$PR_BODY_FILE")"
-```
-
-Optional after set-default works:
-
-```bash
-gh pr create --repo AkumaRealLabs/ggapi --base main \
-  --head "$(git branch --show-current)" --title "<title>" \
-  --body-file "$PR_BODY_FILE"
-```
-
-Do not reuse this fork's template or relaxed AI policy when contributing
-**upstream**; Mode G loads the target repository's current rules instead.
-
-### C5. Merge + clean branches (only when user asks)
-
-```bash
-# Merge (example: PR number N)
-gh pr merge <N> --repo AkumaRealLabs/ggapi --merge --delete-branch
-```
-
-**Do not treat CLI transport errors as merge failure.** `gh pr merge` can exit
-non-zero with GraphQL EOF / timeout while GitHub still merged the PR (lesson:
-PR #23). Always **verify** before retrying merge:
-
-```bash
-# Prefer gh pr view (GraphQL). If GraphQL stays down (same EOF class as merge):
-gh pr view <N> --repo AkumaRealLabs/ggapi \
-  --json state,mergedAt,mergeCommit,autoMergeRequest,mergeStateStatus,headRefOid \
-  -q '{state:.state,mergedAt:.mergedAt,sha:.mergeCommit.oid,auto:.autoMergeRequest,mss:.mergeStateStatus,head:.headRefOid}'
-# REST fallback (does not depend on GraphQL):
-# gh api repos/AkumaRealLabs/ggapi/pulls/<N> \
-#   -q '{state:.state,merged:.merged,sha:.merge_commit_sha,head:.head.sha}'
-```
-
-| `state` / signals | Action |
-|-------------------|--------|
-| `MERGED` / REST `merged: true` | Success → clean-up (do **not** re-merge) |
-| `OPEN` + `autoMergeRequest` set / merge queue pending / `mergeStateStatus` waiting on checks | **Wait** (poll view or REST). Do **not** REST-force merge; do **not** enter Mode F or tag old `main` |
-| `OPEN` + no auto-merge, CLI was transport flake | Retry `gh pr merge` once. REST only if user still wants immediate merge, and **pin the pushed head**: `gh api -X PUT repos/AkumaRealLabs/ggapi/pulls/<N>/merge -f merge_method=merge -f sha='<mergePin>'` (or `gh pr merge --match-head-commit <oid>`). Before any merge: fetch and compare remote `headRefOid` to the **merge pin** (the tip pushed in C3); if moved → **stop** and ask the user; do not land a tip you did not push |
-| `CLOSED` unmerged | Stop — not landed |
-| Both GraphQL view and REST fail | Stop; do not guess MERGED; do not Mode F |
-
-**C5 is not done until `state == MERGED`.** Chained 发版 must wait for MERGED
-then `git pull origin main` before Mode F.
-
-Then local hygiene:
-
-```bash
-git fetch origin
-git checkout main
-git pull origin main
-git branch -d <topic-branch>              # local; ignore if already gone
-git remote prune origin                   # drop origin/<topic> tracking
-# if remote branch still listed:
-# git push origin --delete <topic-branch>
-```
-
-Update inventory status if the PR introduced/changed permanent diffs and that
-update was not already in the merged PR.
-
-User phrases like「开 PR 并合并清理」mean: create PR → merge → delete remote/local
-topic branch → leave `main` clean. Still require explicit merge wording; do not
-merge on open alone. Full chains with 提交/push/发版: see **C0**.
-If merge verify fails with flake symptoms → troubleshooting **§23**.
-Ambiguous `继续` while PR is open: see **C-continue** (CI / wait for 合并 — not
-silent merge, not re-code).
+`gh pr merge` can exit non-zero on a transport error after GitHub already
+merged — verify `state` before retrying (troubleshooting §23). Always pass
+`--repo AkumaRealLabs/ggapi`; this clone's `gh` default may be upstream (§17).
+After a merge: `git checkout main && git pull --ff-only origin main`.
 
 ### Decision table (teach the user)
 
 | Situation | Do this |
 |-----------|---------|
-| Finished coding on `feat/x` | `push` branch → open **PR** |
-| Want code on `main` | Merge the **PR** (not direct push) |
-| Docs-only on `docs/…` | Same: push branch + PR |
-| Sync upstream branch | Same: push `sync/…` + PR |
-| Emergency production break | `hotfix/…` branch still preferred; if direct `main` is unavoidable, user must explicitly authorize and document |
+| Finished coding on `feat/x` | 提交 → 合并 (C3 → C4 → C5) |
+| Want code on `main` | Local `git merge --no-ff` + `git push origin main`; no PR |
+| Docs-only on `docs/…` | Same |
+| Sync upstream branch | Same: `sync/…` → local merge → push `main` (§D7) |
+| Emergency production break | `hotfix/…` branch, same landing path |
+| Back up unfinished work | 推分支 (C-backup) |
+| Contribute to upstream | Mode G; the user files the upstream PR |
 
 ---
 
@@ -450,7 +414,7 @@ git checkout -b sync/upstream-$(date +%Y%m%d)
 git merge upstream/main
 ```
 
-Record range for PR body:
+Record range for the report and the sync commit message:
 
 ```bash
 git rev-parse --short upstream/main
@@ -485,12 +449,12 @@ In `docs/fork/diff-inventory.md`:
 - Flip `needs-rebase` → `active` after verification
 - Register any new permanent deltas introduced while resolving
 
-### D7. Ship sync via PR
+### D7. Land the sync on main
 
-```bash
-git push -u origin HEAD
-# PR title: sync: merge upstream/main @ <short-sha>
-```
+After D5/D6 pass and the user says 合并/推送, land `sync/upstream-YYYYMMDD`
+exactly like Mode C **C3 → C4 → C5** (local `git merge --no-ff` into `main`,
+`git push origin main`, watch `main` CI). Commit the upstream merge on the sync
+branch as `chore(sync): merge upstream/main @ <short-sha>`.
 
 **Forbidden on sync branch:** feature commits, push upstream, deleting `active`
 inventory rows without code removal, `reset --hard` without backup/consent.
@@ -586,7 +550,7 @@ make build-web
 
 Confirm Dockerfile still builds and embeds official `web/dist` on the image path.
 Do not run production deploy commands without explicit user request and environment confirmation.
-Chained「…→ merge → 发版」from Mode C: see **C0** — explicit merge verb required before C5; Mode F only on `origin/main` tip (never treat 发版 alone as merge auth).
+Chained「…→ 合并 → 发版」from Mode C: see **C0** — explicit merge verb required before C4; Mode F only on `origin/main` tip (never treat 发版 alone as merge auth).
 
 ---
 
@@ -619,7 +583,7 @@ gh api repos/QuantumNous/new-api/rules/branches/main
    queries. Stop on authentication/permission ambiguity instead of assuming no
    policy.
 6. Security: **no** public issue — follow `.github/SECURITY.md`.
-7. After upstream merges: remove fork patch, set inventory status `upstreamed`, delete dead code in a ggapi PR.
+7. After upstream merges: remove fork patch, set inventory status `upstreamed`, delete dead code on a ggapi topic branch landed via Mode C.
 
 Never push ggapi-only branding or private config to upstream.
 
@@ -631,10 +595,10 @@ Never push ggapi-only branding or private config to upstream.
 
 1. **分级：** L0 只诊断 → L1 安全小补 → L2 扩展能力 → L3 动硬规则。
 2. **可主动：** 文档漂移、实战证明 skill 错、用户要求升级/自检。
-3. **不可乱来：** 业务 PR 顺手大改 skill、削弱 Hard rules、自动 commit/push、无文档依据发明流程。
+3. **不可乱来：** 业务分支顺手大改 skill、削弱 Hard rules、自动 commit/push、无文档依据发明流程。
 4. **L1：** 一句话告知后可改文件 + CHANGELOG + bump version；**不**自动提交。
 5. **L2/L3：** 先出方案，用户确认后再改；L3 必须独立说明规则变更。
-6. **入库：** `docs/ggapi-fork-*` 分支 → 用户授权后 commit → push → PR → merge → 删分支。
+6. **入库：** `docs/ggapi-fork-*` 分支 → 用户说提交后 commit → 用户说合并后本地合入 `main` 并推送 → 删分支。
 7. **真相源：** `docs/fork/*` > skill > 会话临时话。
 8. **对齐清单：** 升级后核对 GG-002 摘要与 `skill_version`；提及的永久差异（GG-003/004/005 等）须与 inventory 一致。
 9. **触发词：** 「自提升」与「自升级 / 升级 skill / Mode I」同等进入本模式。

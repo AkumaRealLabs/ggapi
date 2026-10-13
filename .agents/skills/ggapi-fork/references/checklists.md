@@ -1,10 +1,10 @@
 # ggapi Fork Checklists
 
-Copy into PR bodies or walk verbally with the user. Keep items checkable.
+Walk verbally with the user before landing. Keep items checkable.
 
 ---
 
-## §Pre-PR (feature / fix / docs)
+## §Pre-merge (feature / fix / docs)
 
 ### Git hygiene
 
@@ -30,7 +30,7 @@ Copy into PR bodies or walk verbally with the user. Keep items checkable.
 - [ ] Frontend: from `web/`, run `bun run typecheck` + path-scoped oxlint on **changed files**; full-tree lint optional if baseline-noisy
 - [ ] Manual smoke for user-visible behavior
 - [ ] **C1b** frontend/embed checks (incl. path-scoped lint on touched UI) done **before** C2; re-run affected checks after any resulting edits
-- [ ] Ambiguous `继续`: stage detected (C-continue) — post-PR open → CI/merge coach; never invent push/PR/merge verbs; not silent Mode B
+- [ ] Ambiguous `继续`: stage detected (C-continue) — after commit or landing → merge/CI coach; never invent 提交/合并/发版 verbs; not silent Mode B
 
 ### Fork governance
 
@@ -48,25 +48,23 @@ Copy into PR bodies or walk verbally with the user. Keep items checkable.
 
 ### Ship
 
-- [ ] `git push -u origin HEAD` (branch only)
-- [ ] `gh` targets **AkumaRealLabs/ggapi** (`gh repo view` / `gh repo set-default`)
-- [ ] PR base = `main` on team repo (not QuantumNous/new-api)
-- [ ] Current git name/email compared with recurring core authors in `origin/main`; git config unchanged
-- [ ] Non-core git user: PR body explicitly discloses AI-generated / AI-assisted work; core user marks this N/A (`AGENTS.md`)
-- [ ] PR body preserves and fills `.github/PULL_REQUEST_TEMPLATE.md`; describes what / why, with verification record optional; exactly one Fork Diff Inventory choice is completed
+- [ ] User said 合并/推送 (C0); otherwise stop after the commit
+- [ ] C3: checks pass on the current tip; latest `origin/main` merged in and affected checks re-run
+- [ ] C4: `git merge --no-ff` into local `main`; `git push origin main` without `--force`
+- [ ] C5: topic branch deleted (remote too if backed up); `main` CI run for the pushed SHA watched to completion
 - [ ] No `git push upstream`
 - [ ] If UI strings added: **i18n-translate** from `web/` for all locales including **zh-TW**; `i18n:sync` report clean **and** no English left in `zh-TW` (sync treats zh-TW as non-Latin; if unsure, run skill `find-untranslated` path)
-- [ ] If CI/workflows: existing jobs still use GitHub-hosted `ubuntu-latest` Linux amd64 unless an intentional, inventoried change says otherwise; no anti-slop auto-close gate is restored for **AkumaRealLabs/ggapi** PRs (AI-generated and AI-assisted contributions are allowed locally; upstream policy remains independent) (GG-003)
+- [ ] If CI/workflows: `ci.yml` keeps its `push` trigger on `main`; existing jobs still use GitHub-hosted `ubuntu-latest` Linux amd64 unless an intentional, inventoried change says otherwise; no anti-slop auto-close gate is restored for **AkumaRealLabs/ggapi** PRs (AI-generated and AI-assisted contributions are allowed locally; upstream policy remains independent) (GG-003)
 - [ ] If update-check: server proxy + PAT write-only (GG-004); no PAT in frontend
 - [ ] If frontend/embed wiring changed: official single-frontend checks above
 
 ---
 
-## §Pre-PR (upstream sync branch)
+## §Pre-merge (upstream sync branch)
 
 - [ ] Branch name `sync/upstream-YYYYMMDD`
 - [ ] No feature/fix commits mixed in
-- [ ] `git fetch upstream` done; PR cites upstream short SHA
+- [ ] `git fetch upstream` done; sync merge commit cites upstream short SHA
 - [ ] Conflicts resolved per inventory + Mode E (no whole-tree ours/theirs)
 - [ ] `AGENTS.md` still contains ggapi 二开 section if it was present
 - [ ] Inventory meta: baseline commit + date updated
@@ -74,14 +72,14 @@ Copy into PR bodies or walk verbally with the user. Keep items checkable.
 - [ ] `web/` conflicts use upstream structure first; remaining deltas map only to active inventory rows
 - [ ] Tests: `common` `service` `model` `relay` (and frontend if needed)
 - [ ] Smoke: login/token, chat+billing, admin basic page, inventory `active` items
-- [ ] Push to **origin** only; PR title `sync: merge upstream/main @ <sha>`
+- [ ] Land via C3 → C5; push to **origin** only; sync commit `chore(sync): merge upstream/main @ <sha>`
 
 ---
 
-## §Post-sync (after sync PR merges)
+## §Post-sync (after the sync branch lands)
 
 - [ ] Local `main` pulled
-- [ ] Sync remote branch deleted
+- [ ] Sync branch deleted (remote too if backed up)
 - [ ] Inventory baseline matches what actually landed
 - [ ] Any emergency fix during sync registered as GG-xxx
 - [ ] `web/ggapi`, classic, and multi-theme wiring remain removed (GG-005 stays dropped)
@@ -133,8 +131,8 @@ Risk cheat sheet:
 - [ ] `git fetch upstream` and skim new commits
 - [ ] Behind count: `git rev-list --count main..upstream/main`
 - [ ] Inventory date not stale after last sync
-- [ ] No long-lived topic branches abandoned without PR
-- [ ] No open sync PR older than the agreed window without update
+- [ ] No long-lived topic branches left unmerged
+- [ ] No sync branch older than the agreed window left unmerged
 
 ---
 
@@ -158,8 +156,8 @@ Risk cheat sheet:
 - [ ] No auto-commit / auto-push language introduced
 - [ ] User shown summary; commit only if they asked
 
-### Skill PR
+### Skill landing
 
 - [ ] Branch `docs/ggapi-fork-…` from latest main
-- [ ] PR describes level + why + what not changed
+- [ ] Commit message / report states level + why + what not changed
 - [ ] GG-002 inventory note still accurate (update if role changed)
