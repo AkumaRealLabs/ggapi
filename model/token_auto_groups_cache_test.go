@@ -51,8 +51,11 @@ func TestTokenUpdateSynchronouslyNarrowsPreheatedAutoGroupsCache(t *testing.T) {
 
 	require.NoError(t, token.SetAutoGroups([]string{"vip"}))
 	require.NoError(t, token.Update())
-	// Update 在提交后直接发布数据库权威快照，缓存不能继续提供旧的宽分组值。
-	reloaded, err := cacheGetTokenByKey(token.Key)
+	// Update 是限制性变更：写库前删除缓存并设置 fence。缓存不再提供旧的
+	// 宽分组值，下一次读取必须看到收紧后的分组。
+	_, cacheErr := cacheGetTokenByKey(token.Key)
+	require.Error(t, cacheErr, "the pre-update cache entry must be invalidated")
+	reloaded, err := GetTokenByKey(token.Key, false)
 	require.NoError(t, err)
 	assert.JSONEq(t, `["vip"]`, reloaded.AutoGroups)
 }

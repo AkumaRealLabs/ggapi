@@ -14,28 +14,28 @@ import (
 func GetUserUsableGroups(userGroup string) map[string]string {
 	groupsCopy := setting.GetUserUsableGroupsCopy()
 	if userGroup != "" {
-		// Add the identity group before applying overrides so an explicit
-		// removal rule can keep membership-only groups out of Token routing.
-		if _, ok := groupsCopy[userGroup]; !ok {
-			groupsCopy[userGroup] = "用户分组"
-		}
 		specialSettings, b := ratio_setting.GetGroupRatioSetting().GroupSpecialUsableGroup.Get(userGroup)
 		if b {
 			// 处理特殊可用分组
 			for specialGroup, desc := range specialSettings {
-				if strings.HasPrefix(specialGroup, "-:") {
+				if after, ok := strings.CutPrefix(specialGroup, "-:"); ok {
 					// 移除分组
-					groupToRemove := strings.TrimPrefix(specialGroup, "-:")
+					groupToRemove := after
 					delete(groupsCopy, groupToRemove)
-				} else if strings.HasPrefix(specialGroup, "+:") {
+				} else if after, ok := strings.CutPrefix(specialGroup, "+:"); ok {
 					// 添加分组
-					groupToAdd := strings.TrimPrefix(specialGroup, "+:")
+					groupToAdd := after
 					groupsCopy[groupToAdd] = desc
 				} else {
 					// 直接添加分组
 					groupsCopy[specialGroup] = desc
 				}
 			}
+		}
+		// 如果userGroup不在UserUsableGroups中，返回UserUsableGroups + userGroup。
+		// 描述是英文源文本，由 web 控制台翻译；管理员配置的描述原样显示。
+		if _, ok := groupsCopy[userGroup]; !ok {
+			groupsCopy[userGroup] = "User group"
 		}
 	}
 	return groupsCopy

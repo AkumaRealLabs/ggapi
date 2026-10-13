@@ -22,12 +22,77 @@ type githubReleaseResponse struct {
 	Body             string `json:"body"`
 	HTMLURL          string `json:"html_url"`
 	PublishedAt      string `json:"published_at"`
+	Draft            bool   `json:"draft"`
+	Prerelease       bool   `json:"prerelease"`
 	Message          string `json:"message"` // GitHub error payload
 	DocumentationURL string `json:"documentation_url"`
 }
 
+// updateCheckRelease is the release shape consumed by the dashboard's system
+// update checker.
+type updateCheckRelease struct {
+	TagName     string  `json:"tag_name"`
+	Name        string  `json:"name"`
+	Body        string  `json:"body"`
+	HTMLURL     string  `json:"html_url"`
+	PublishedAt *string `json:"published_at"`
+	Draft       bool    `json:"draft"`
+	Prerelease  bool    `json:"prerelease"`
+}
+
+func newUpdateCheckRelease(release githubReleaseResponse) updateCheckRelease {
+	var publishedAt *string
+	if release.PublishedAt != "" {
+		publishedAt = &release.PublishedAt
+	}
+	return updateCheckRelease{
+		TagName:     release.TagName,
+		Name:        release.Name,
+		Body:        release.Body,
+		HTMLURL:     release.HTMLURL,
+		PublishedAt: publishedAt,
+		Draft:       release.Draft,
+		Prerelease:  release.Prerelease,
+	}
+}
+
+// parseUpdateCheckReleases accepts either a single release (…/releases/latest)
+// or a release list (…/releases) and always returns a non-nil list on success.
+// A nil list without error carries GitHub's error message, if any.
+func parseUpdateCheckReleases(body []byte) ([]updateCheckRelease, string, error) {
+	if strings.HasPrefix(strings.TrimSpace(string(body)), "[") {
+		var releases []githubReleaseResponse
+		if err := common.Unmarshal(body, &releases); err != nil {
+			return nil, "", err
+		}
+		result := make([]updateCheckRelease, 0, len(releases))
+		for _, release := range releases {
+			if release.TagName != "" {
+				result = append(result, newUpdateCheckRelease(release))
+			}
+		}
+		return result, "", nil
+	}
+	var release githubReleaseResponse
+	if err := common.Unmarshal(body, &release); err != nil {
+		return nil, "", err
+	}
+	if release.TagName == "" {
+		return nil, release.Message, nil
+	}
+	return []updateCheckRelease{newUpdateCheckRelease(release)}, "", nil
+}
+
+func isGitHubRateLimited(resp *http.Response) bool {
+	if resp.StatusCode == http.StatusTooManyRequests {
+		return true
+	}
+	return resp.StatusCode == http.StatusForbidden && resp.Header.Get("X-RateLimit-Remaining") == "0"
+}
+
 // CheckUpdate fetches the configured release endpoint server-side so private
-// repos can use a PAT that never leaves the backend. Root-only.
+// repos can use a PAT that never leaves the backend. Any administrator can
+// check; only root can change the endpoint and PAT.
 func CheckUpdate(c *gin.Context) {
 	checkUpdate(c, nil)
 }
@@ -100,6 +165,13 @@ func checkUpdate(c *gin.Context, client *http.Client) {
 		return
 	}
 
+	if isGitHubRateLimited(resp) {
+		c.JSON(http.StatusTooManyRequests, gin.H{
+			"success": false,
+			"message": "release API rate limit reached",
+		})
+		return
+	}
 	if resp.StatusCode == http.StatusNotFound {
 		c.JSON(http.StatusBadGateway, gin.H{
 			"success": false,
@@ -122,16 +194,16 @@ func checkUpdate(c *gin.Context, client *http.Client) {
 		return
 	}
 
-	var release githubReleaseResponse
-	if err := common.Unmarshal(body, &release); err != nil {
+	releases, githubMessage, err := parseUpdateCheckReleases(body)
+	if err != nil {
 		c.JSON(http.StatusBadGateway, gin.H{
 			"success": false,
 			"message": "release API returned non-JSON or unexpected payload",
 		})
 		return
 	}
-	if release.TagName == "" {
-		msg := release.Message
+	if releases == nil {
+		msg := githubMessage
 		if msg == "" {
 			msg = "unexpected release payload (missing tag_name)"
 		}
@@ -145,17 +217,7 @@ func checkUpdate(c *gin.Context, client *http.Client) {
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "",
-		"data": gin.H{
-			"tag_name":         release.TagName,
-			"name":             release.Name,
-			"body":             release.Body,
-			"html_url":         release.HTMLURL,
-			"published_at":     release.PublishedAt,
-			"current":          common.Version,
-			"is_latest":        release.TagName == common.Version,
-			"source_url":       apiURL,
-			"token_configured": token != "",
-		},
+		"data":    releases,
 	})
 }
 

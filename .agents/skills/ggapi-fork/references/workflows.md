@@ -100,7 +100,7 @@ Never start work on a dirty `main` with unrelated files — stash or finish firs
 2. Prefer new files under own dirs.
 3. Follow `AGENTS.md` (JSON wrappers, 3 DBs, pointer optional DTO fields, billing math helpers).
 4. **Official frontend (`web/`, SOP §3.5):**
-   - Add GG-004/006/007 capabilities directly to the matching official feature modules (Bun, `t('English key')`, **i18n-translate**).
+   - Add GG-004/007 capabilities directly to the matching official feature modules (Bun, `t('English key')`, **i18n-translate**).
    - Prefer independent feature files and existing extension points; keep patches to upstream components minimal.
    - Do not recreate the dropped GG-005 third shell, classic frontend, runtime theme selector, or fork-only visual redesign.
 5. If permanent delta: draft inventory row mentally (ID, path, risk, regression).
@@ -676,7 +676,7 @@ inventory rows without code removal, `reset --hard` without backup/consent.
 | Fork-only path (`docs/fork/`, own `pkg/`, own channel) | Keep fork |
 | Both changed same logic | Read upstream commit message; minimal merge; never whole-file blind pick |
 | `AGENTS.md` | Keep ggapi 「二开维护」 section; merge upstream engineering rule edits |
-| `web/**` | Prefer upstream structure/component APIs, then replay only required GG-004/006/007 capability deltas |
+| `web/**` | Prefer upstream structure/component APIs, then replay only required GG-004/007 capability deltas |
 | Removed frontend paths (`web/ggapi`, `web/classic`) | Keep removed; do not restore GG-005 or fork-only visual work |
 
 3. Build/test.

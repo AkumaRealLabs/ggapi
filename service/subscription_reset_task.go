@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -32,7 +31,7 @@ func StartSubscriptionQuotaResetTask() {
 			return
 		}
 		gopool.Go(func() {
-			logger.LogInfo(context.Background(), fmt.Sprintf("subscription quota reset task started: tick=%s", subscriptionResetTickInterval))
+			logger.LogInfo(context.Background(), common.LogText("subscription quota reset task started: tick=%s", subscriptionResetTickInterval))
 			ticker := time.NewTicker(subscriptionResetTickInterval)
 			defer ticker.Stop()
 
@@ -53,11 +52,10 @@ func runSubscriptionQuotaResetOnce() {
 	ctx := context.Background()
 	totalReset := 0
 	totalExpired := 0
-	totalMembershipMaintained := 0
 	for {
 		n, err := model.ExpireDueSubscriptions(subscriptionResetBatchSize)
 		if err != nil {
-			logger.LogWarn(ctx, fmt.Sprintf("subscription expire task failed: %v", err))
+			logger.LogWarn(ctx, common.LogText("subscription expire task failed: %v", err))
 			return
 		}
 		if n == 0 {
@@ -69,24 +67,9 @@ func runSubscriptionQuotaResetOnce() {
 		}
 	}
 	for {
-		// n is users processed (expire-only and/or activate), not only activations.
-		n, err := model.ActivateDueMembershipSubscriptions(subscriptionResetBatchSize)
-		if err != nil {
-			logger.LogWarn(ctx, fmt.Sprintf("scheduled membership activation task failed: %v", err))
-			return
-		}
-		if n == 0 {
-			break
-		}
-		totalMembershipMaintained += n
-		if n < subscriptionResetBatchSize {
-			break
-		}
-	}
-	for {
 		n, err := model.ResetDueSubscriptions(subscriptionResetBatchSize)
 		if err != nil {
-			logger.LogWarn(ctx, fmt.Sprintf("subscription quota reset task failed: %v", err))
+			logger.LogWarn(ctx, common.LogText("subscription quota reset task failed: %v", err))
 			return
 		}
 		if n == 0 {
@@ -103,7 +86,7 @@ func runSubscriptionQuotaResetOnce() {
 			subscriptionCleanupLast.Store(time.Now().Unix())
 		}
 	}
-	if common.DebugEnabled && (totalReset > 0 || totalExpired > 0 || totalMembershipMaintained > 0) {
-		logger.LogDebug(ctx, "subscription maintenance: reset_count=%d, expired_count=%d, membership_maintained_count=%d", totalReset, totalExpired, totalMembershipMaintained)
+	if common.DebugEnabled && (totalReset > 0 || totalExpired > 0) {
+		logger.LogDebug(ctx, "subscription maintenance: reset_count=%d, expired_count=%d", totalReset, totalExpired)
 	}
 }

@@ -30,6 +30,7 @@ const OBFUSCATED_KEYS = [
 ]
 
 const BRAND_AND_LITERAL_KEYS = new Set([
+  '1M token',
   'AI Proxy',
   'AIGC2D',
   'Alipay',
@@ -47,6 +48,7 @@ const BRAND_AND_LITERAL_KEYS = new Set([
   'Client Secret',
   'Cloudflare',
   'Cohere',
+  'credit',
   'DeepSeek',
   'Discord',
   'DoubaoVideo',
@@ -97,10 +99,8 @@ const BRAND_AND_LITERAL_KEYS = new Set([
   'Waffo Pancake MoR',
   'WeChat',
   'WeChat Pay',
-  'Webhook',
   'Webhook URL',
   'Webhook URL:',
-  'Gotify',
   'Well-Known URL',
   'Worker URL',
   'Xinference',
@@ -227,14 +227,12 @@ function isLikelyUntranslated({ locale, baseValue, value }) {
   if (!/[A-Za-z]{3,}/.test(s)) return false
 
   // For locales with non-latin scripts, equality with EN is a strong signal.
-  // zh-TW must be included: otherwise English copy in zh-TW.json reports untranslatedCount: 0.
-  if (locale === 'ja' || locale === 'zh' || locale === 'zh-TW') return true
+  if (locale === 'ja' || locale === 'zh') return true
   if (locale === 'ru') return true
 
   // For fr/vi: still useful but noisier; keep it conservative.
-  if (locale === 'fr' || locale === 'vi') {
+  if (locale === 'fr' || locale === 'vi')
     return /\b(the|and|or|to|with|please)\b/i.test(s)
-  }
 
   return false
 }

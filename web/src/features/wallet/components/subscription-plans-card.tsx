@@ -56,8 +56,9 @@ import type {
   PlanRecord,
   UserSubscriptionRecord,
 } from '@/features/subscriptions/types'
-import { formatLocalCurrencyAmount } from '@/lib/currency'
 import { formatQuota } from '@/lib/format'
+import { handleServerError } from '@/lib/handle-server-error'
+import { requireServerSuccess } from '@/lib/server-error-message'
 import { cn } from '@/lib/utils'
 
 import type { PaymentMethod, TopupInfo } from '../types'
@@ -110,9 +111,6 @@ export function SubscriptionPlansCard({
   >([])
   const [billingPreference, setBillingPreference] =
     useState('subscription_first')
-  const [membershipQueueLimit, setMembershipQueueLimit] = useState<number>()
-  const [pendingMembershipOrderCount, setPendingMembershipOrderCount] =
-    useState(0)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
 
@@ -130,31 +128,28 @@ export function SubscriptionPlansCard({
 
   const fetchPlans = useCallback(async () => {
     try {
-      const res = await getPublicPlans()
+      const res = requireServerSuccess(await getPublicPlans())
       if (res.success) {
         setPlans(res.data || [])
       }
-    } catch {
+    } catch (error) {
+      handleServerError(error)
       setPlans([])
     }
   }, [])
 
   const fetchSelfSubscription = useCallback(async () => {
     try {
-      const res = await getSelfSubscriptionFull()
+      const res = requireServerSuccess(await getSelfSubscriptionFull())
       if (res.success && res.data) {
         setBillingPreference(
           res.data.billing_preference || 'subscription_first'
         )
         setActiveSubscriptions(res.data.subscriptions || [])
         setAllSubscriptions(res.data.all_subscriptions || [])
-        setMembershipQueueLimit(res.data.membership_queue_limit)
-        setPendingMembershipOrderCount(
-          res.data.pending_membership_order_count || 0
-        )
       }
-    } catch {
-      // ignore
+    } catch (error) {
+      handleServerError(error)
     }
   }, [])
 
@@ -186,11 +181,11 @@ export function SubscriptionPlansCard({
         const normalized = res.data?.billing_preference || pref
         setBillingPreference(normalized)
       } else {
-        toast.error(res.message || t('Update failed'))
+        handleServerError(res, t('Update failed'))
         setBillingPreference(previous)
       }
-    } catch {
-      toast.error(t('Request failed'))
+    } catch (error) {
+      handleServerError(error, t('Request failed'))
       setBillingPreference(previous)
     }
   }
@@ -198,29 +193,10 @@ export function SubscriptionPlansCard({
   const hasActive = activeSubscriptions.length > 0
   const hasAny = allSubscriptions.length > 0
   const isAvailable = loading || plans.length > 0 || hasAny
-  const hasActiveQuotaSubscription = activeSubscriptions.some(
-    (sub) => !sub.subscription.membership_only
-  )
-  const hasActiveMembership = activeSubscriptions.some(
-    (sub) => sub.subscription.membership_only === true
-  )
-  const scheduledMembershipCount = allSubscriptions.filter(
-    (sub) =>
-      sub.subscription.membership_only === true &&
-      sub.subscription.status === 'scheduled'
-  ).length
-  const inactiveSubscriptionCount = Math.max(
-    0,
-    allSubscriptions.length -
-      activeSubscriptions.length -
-      scheduledMembershipCount
-  )
-  const disablePref = !hasActiveQuotaSubscription
+  const disablePref = !hasActive
   const isSubPref =
     billingPreference === 'subscription_first' ||
     billingPreference === 'subscription_only'
-  const displayPref =
-    disablePref && isSubPref ? 'wallet_first' : billingPreference
 
   const planPurchaseCountMap = useMemo(() => {
     const map = new Map<number, number>()
@@ -316,19 +292,12 @@ export function SubscriptionPlansCard({
                     {t('No Active')}
                   </span>
                 )}
-                {scheduledMembershipCount > 0 && (
+                {allSubscriptions.length > activeSubscriptions.length && (
                   <>
                     <span className='text-muted-foreground/30'>·</span>
                     <span className='text-muted-foreground'>
-                      {scheduledMembershipCount} {t('Queued')}
-                    </span>
-                  </>
-                )}
-                {inactiveSubscriptionCount > 0 && (
-                  <>
-                    <span className='text-muted-foreground/30'>·</span>
-                    <span className='text-muted-foreground'>
-                      {inactiveSubscriptionCount} {t('expired')}
+                      {allSubscriptions.length - activeSubscriptions.length}{' '}
+                      {t('expired')}
                     </span>
                   </>
                 )}
@@ -364,12 +333,12 @@ export function SubscriptionPlansCard({
                     label: getBillingPreferenceLabel('wallet_only', t),
                   },
                 ]}
-                value={displayPref}
+                value={billingPreference}
                 onValueChange={(v) => v !== null && handlePreferenceChange(v)}
               >
                 <SelectTrigger className='h-8 flex-1 text-xs sm:w-[140px] sm:flex-none'>
                   <SelectValue>
-                    {getBillingPreferenceLabel(displayPref, t)}
+                    {getBillingPreferenceLabel(billingPreference, t)}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent alignItemWithTrigger={false}>
@@ -413,15 +382,15 @@ export function SubscriptionPlansCard({
 
           {disablePref && isSubPref && (
             <p className='text-muted-foreground mt-2 text-xs'>
-              {t(
-                'Preference saved as {{pref}}, but no active quota plan. Wallet will be used automatically.',
-                {
-                  pref:
-                    billingPreference === 'subscription_only'
-                      ? t('Subscription Only')
-                      : t('Subscription First'),
-                }
-              )}
+              {billingPreference === 'subscription_only'
+                ? t(
+                    'Preference saved as {{pref}}, but no active subscription. Requests will be rejected.',
+                    { pref: t('Subscription Only') }
+                  )
+                : t(
+                    'Preference saved as {{pref}}, but no active subscription. Wallet will be used automatically.',
+                    { pref: t('Subscription First') }
+                  )}
             </p>
           )}
 
@@ -431,7 +400,6 @@ export function SubscriptionPlansCard({
               <div className='max-h-64 space-y-3 overflow-y-auto pr-1'>
                 {allSubscriptions.map((sub) => {
                   const subscription = sub.subscription
-                  const membershipOnly = subscription?.membership_only === true
                   const totalAmount = Number(subscription?.amount_total || 0)
                   const usedAmount = Number(subscription?.amount_used || 0)
                   const remainAmount =
@@ -445,7 +413,6 @@ export function SubscriptionPlansCard({
                   const isCancelled = subscription?.status === 'cancelled'
                   const isActive =
                     subscription?.status === 'active' && !isExpired
-                  const isScheduled = subscription?.status === 'scheduled'
                   const nextResetTime = subscription?.next_reset_time ?? 0
                   let statusBadge = (
                     <StatusBadge
@@ -470,25 +437,13 @@ export function SubscriptionPlansCard({
                         copyable={false}
                       />
                     )
-                  } else if (isScheduled) {
-                    statusBadge = (
-                      <StatusBadge
-                        label={t('Queued')}
-                        variant='info'
-                        copyable={false}
-                      />
-                    )
                   }
 
                   let endTimeLabel = t('Expired at')
-                  let statusTime = subscription?.end_time || 0
                   if (isActive) {
                     endTimeLabel = t('Until')
                   } else if (isCancelled) {
                     endTimeLabel = t('Cancelled at')
-                  } else if (isScheduled) {
-                    endTimeLabel = t('Start')
-                    statusTime = subscription?.start_time || 0
                   }
 
                   return (
@@ -515,48 +470,42 @@ export function SubscriptionPlansCard({
                       </div>
                       <div className='text-muted-foreground mt-1.5'>
                         {endTimeLabel}{' '}
-                        {new Date(statusTime * 1000).toLocaleString()}
+                        {new Date(
+                          (subscription?.end_time || 0) * 1000
+                        ).toLocaleString()}
                       </div>
-                      {!membershipOnly && isActive && nextResetTime > 0 && (
+                      {isActive && nextResetTime > 0 && (
                         <div className='text-muted-foreground mt-1'>
                           {t('Next reset')}:{' '}
                           {new Date(nextResetTime * 1000).toLocaleString()}
                         </div>
                       )}
                       <div className='text-muted-foreground mt-1'>
-                        {membershipOnly ? (
-                          <StatusBadge variant='info' copyable={false}>
-                            {t('Membership benefits')}
-                          </StatusBadge>
+                        {t('Total Quota')}:{' '}
+                        {totalAmount > 0 ? (
+                          <Tooltip>
+                            <TooltipTrigger
+                              render={<span className='cursor-help' />}
+                            >
+                              {formatQuota(usedAmount)}/
+                              {formatQuota(totalAmount)} · {t('Remaining')}{' '}
+                              {formatQuota(remainAmount)}
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {t('Raw Quota')}: {usedAmount}/{totalAmount} ·{' '}
+                              {t('Remaining')} {remainAmount}
+                            </TooltipContent>
+                          </Tooltip>
                         ) : (
-                          <>
-                            {t('Total Quota')}:{' '}
-                            {totalAmount > 0 ? (
-                              <Tooltip>
-                                <TooltipTrigger
-                                  render={<span className='cursor-help' />}
-                                >
-                                  {formatQuota(usedAmount)}/
-                                  {formatQuota(totalAmount)} · {t('Remaining')}{' '}
-                                  {formatQuota(remainAmount)}
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  {t('Raw Quota')}: {usedAmount}/{totalAmount} ·{' '}
-                                  {t('Remaining')} {remainAmount}
-                                </TooltipContent>
-                              </Tooltip>
-                            ) : (
-                              t('Unlimited')
-                            )}
-                            {totalAmount > 0 && (
-                              <span className='ml-2'>
-                                {t('Used')} {usagePercent}%
-                              </span>
-                            )}
-                          </>
+                          t('Unlimited')
+                        )}
+                        {totalAmount > 0 && (
+                          <span className='ml-2'>
+                            {t('Used')} {usagePercent}%
+                          </span>
                         )}
                       </div>
-                      {!membershipOnly && totalAmount > 0 && isActive && (
+                      {totalAmount > 0 && isActive && (
                         <Progress value={usagePercent} className='mt-2 h-1.5' />
                       )}
                     </div>
@@ -580,30 +529,20 @@ export function SubscriptionPlansCard({
               const plan = p?.plan
               if (!plan) return null
               const totalAmount = Number(plan.total_amount || 0)
-              const membershipOnly = plan.membership_only === true
-              const price = formatLocalCurrencyAmount(plan.price_amount)
+              const price = Number(plan.price_amount || 0).toFixed(2)
               const isPopular = index === 0 && plans.length > 1
               const limit = Number(plan.max_purchase_per_user || 0)
               const count = planPurchaseCountMap.get(plan.id) || 0
               const reached = limit > 0 && count >= limit
 
-              const resetBenefit =
-                !membershipOnly && formatResetPeriod(plan, t) !== t('No Reset')
-                  ? `${t('Quota Reset')}: ${formatResetPeriod(plan, t)}`
-                  : null
-              let quotaBenefit: string | null = null
-              if (!membershipOnly) {
-                quotaBenefit =
-                  totalAmount > 0
-                    ? `${t('Total Quota')}: ${formatQuota(totalAmount)}`
-                    : `${t('Total Quota')}: ${t('Unlimited')}`
-              }
-
               const benefits = [
                 `${t('Validity Period')}: ${formatDuration(plan, t)}`,
-                membershipOnly ? t('Membership benefits') : null,
-                resetBenefit,
-                quotaBenefit,
+                formatResetPeriod(plan, t) !== t('No Reset')
+                  ? `${t('Quota Reset')}: ${formatResetPeriod(plan, t)}`
+                  : null,
+                totalAmount > 0
+                  ? `${t('Total Quota')}: ${formatQuota(totalAmount)}`
+                  : `${t('Total Quota')}: ${t('Unlimited')}`,
                 limit > 0 ? `${t('Purchase Limit')}: ${limit}` : null,
                 plan.upgrade_group
                   ? `${t('Upgrade Group')}: ${plan.upgrade_group}`
@@ -642,7 +581,7 @@ export function SubscriptionPlansCard({
 
                     <div className='py-2'>
                       <span className='text-primary text-2xl font-bold'>
-                        {price}
+                        ${price}
                       </span>
                     </div>
 
@@ -721,10 +660,6 @@ export function SubscriptionPlansCard({
             ? planPurchaseCountMap.get(selectedPlan.plan.id)
             : undefined
         }
-        hasActiveMembership={hasActiveMembership}
-        scheduledMembershipCount={scheduledMembershipCount}
-        membershipQueueLimit={membershipQueueLimit}
-        pendingMembershipOrderCount={pendingMembershipOrderCount}
       />
     </>
   )

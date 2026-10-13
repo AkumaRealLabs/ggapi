@@ -27,7 +27,7 @@ func SubscriptionRequestStripePay(c *gin.Context) {
 
 	var req SubscriptionStripePayRequest
 	if err := c.ShouldBindJSON(&req); err != nil || req.PlanId <= 0 {
-		common.ApiErrorMsg(c, "Invalid parameters")
+		common.ApiErrorT(c, "Invalid parameters")
 		return
 	}
 
@@ -37,19 +37,19 @@ func SubscriptionRequestStripePay(c *gin.Context) {
 		return
 	}
 	if !plan.Enabled {
-		common.ApiError(c, model.ErrSubscriptionPlanDisabled)
+		common.ApiErrorT(c, "Subscription plan is not enabled")
 		return
 	}
 	if plan.StripePriceId == "" {
-		common.ApiErrorMsg(c, "This plan is not configured for the selected payment provider.")
+		common.ApiErrorT(c, "StripePriceId is not configured for this plan")
 		return
 	}
 	if !strings.HasPrefix(setting.StripeApiSecret, "sk_") && !strings.HasPrefix(setting.StripeApiSecret, "rk_") {
-		common.ApiErrorMsg(c, "The selected payment provider is not configured correctly.")
+		common.ApiErrorT(c, "Stripe is not configured or key is invalid")
 		return
 	}
 	if setting.StripeWebhookSecret == "" {
-		common.ApiErrorMsg(c, "The selected payment provider is not configured correctly.")
+		common.ApiErrorT(c, "Stripe webhook is not configured")
 		return
 	}
 
@@ -60,14 +60,32 @@ func SubscriptionRequestStripePay(c *gin.Context) {
 		return
 	}
 	if user == nil {
-		common.ApiErrorMsg(c, "User not found.")
+		common.ApiErrorT(c, "User does not exist")
 		return
+	}
+
+	if plan.MaxPurchasePerUser > 0 {
+		count, err := model.CountUserSubscriptionsByPlan(userId, plan.Id)
+		if err != nil {
+			common.ApiError(c, err)
+			return
+		}
+		if count >= int64(plan.MaxPurchasePerUser) {
+			common.ApiErrorT(c, "Purchase limit for this plan has been reached")
+			return
+		}
 	}
 
 	reference := fmt.Sprintf("sub-stripe-ref-%d-%d-%s", user.Id, time.Now().UnixMilli(), randstr.String(4))
 	referenceId := "sub_ref_" + common.Sha1([]byte(reference))
 
-	// Lock plan + create pending order before calling Stripe so product/price match the snapshot.
+	payLink, err := genStripeSubscriptionLink(referenceId, user.StripeCustomer, user.Email, plan.StripePriceId)
+	if err != nil {
+		logger.LogError(c.Request.Context(), common.LogText("Stripe failed to create subscription payment link trade_no=%s plan_id=%d error=%q", referenceId, plan.Id, err.Error()))
+		paymentError(c, common.NewMessage("Failed to start payment"))
+		return
+	}
+
 	order := &model.SubscriptionOrder{
 		UserId:          userId,
 		PlanId:          plan.Id,
@@ -78,22 +96,8 @@ func SubscriptionRequestStripePay(c *gin.Context) {
 		CreateTime:      time.Now().Unix(),
 		Status:          common.TopUpStatusPending,
 	}
-	lockedPlan, err := model.InsertPendingSubscriptionOrder(order)
-	if err != nil {
-		common.ApiError(c, err)
-		return
-	}
-	if lockedPlan.StripePriceId == "" {
-		_ = model.ExpireSubscriptionOrder(referenceId, model.PaymentProviderStripe)
-		common.ApiErrorMsg(c, "This plan is not configured for the selected payment provider.")
-		return
-	}
-
-	payLink, err := genStripeSubscriptionLink(referenceId, user.StripeCustomer, user.Email, lockedPlan.StripePriceId)
-	if err != nil {
-		logger.LogError(c.Request.Context(), fmt.Sprintf("Stripe 订阅支付链接创建失败 trade_no=%s plan_id=%d error=%q", referenceId, plan.Id, err.Error()))
-		_ = model.ExpireSubscriptionOrder(referenceId, model.PaymentProviderStripe)
-		common.ApiErrorMsg(c, "Payment request failed")
+	if err := order.Insert(); err != nil {
+		paymentError(c, common.NewMessage("Failed to create order"))
 		return
 	}
 

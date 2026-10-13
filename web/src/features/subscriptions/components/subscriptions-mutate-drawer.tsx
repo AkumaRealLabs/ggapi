@@ -32,6 +32,7 @@ import {
   sideDrawerSwitchItemClassName,
 } from '@/components/drawer-layout'
 import { Button } from '@/components/ui/button'
+import { Combobox } from '@/components/ui/combobox'
 import {
   Form,
   FormControl,
@@ -61,7 +62,9 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { Switch } from '@/components/ui/switch'
+import { getPaymentErrorTranslation } from '@/features/wallet/lib/payment'
 import { getCurrencyDisplay, getCurrencyLabel } from '@/lib/currency'
+import { handleServerError } from '@/lib/handle-server-error'
 
 import {
   createPlan,
@@ -120,7 +123,11 @@ export function SubscriptionsMutateDrawer({
       }
       getGroups()
         .then((res) => {
-          if (res.success) setGroupOptions(res.data || [])
+          if (res.success) {
+            setGroupOptions(res.data || [])
+          } else {
+            handleServerError(res)
+          }
         })
         .catch(() => {})
       // Best-effort — empty list still lets the operator use "+ Create".
@@ -145,7 +152,6 @@ export function SubscriptionsMutateDrawer({
 
   const durationUnit = form.watch('duration_unit')
   const resetPeriod = form.watch('quota_reset_period')
-  const membershipOnly = form.watch('membership_only')
   // Gate "+ Create on Pancake" on the same checks the mint handler runs.
   const watchedTitle = form.watch('title')
   const watchedPrice = form.watch('price_amount')
@@ -165,7 +171,7 @@ export function SubscriptionsMutateDrawer({
           onOpenChange(false)
           triggerRefresh()
         } else {
-          toast.error(t(res.message || 'Request failed'))
+          handleServerError(res)
         }
       } else {
         const res = await createPlan(payload)
@@ -174,11 +180,11 @@ export function SubscriptionsMutateDrawer({
           onOpenChange(false)
           triggerRefresh()
         } else {
-          toast.error(t(res.message || 'Request failed'))
+          handleServerError(res)
         }
       }
-    } catch {
-      toast.error(t('Request failed'))
+    } catch (error) {
+      handleServerError(error, t('Request failed'))
     } finally {
       setIsSubmitting(false)
     }
@@ -234,15 +240,18 @@ export function SubscriptionsMutateDrawer({
           `${t('Waffo Pancake product created')}: ${created.product_id}`
         )
       } else {
-        const reason = typeof res.data === 'string' ? res.data : undefined
-        toast.error(
-          reason
+        const reason =
+          getPaymentErrorTranslation(res) ??
+          (typeof res.data === 'string' ? res.data : undefined)
+        handleServerError(res.data, undefined, {
+          title: reason
             ? `${t('Waffo Pancake product creation failed')}: ${reason}`
-            : t('Waffo Pancake product creation failed')
-        )
+            : t('Waffo Pancake product creation failed'),
+        })
       }
     } catch (err) {
-      toast.error(
+      handleServerError(
+        err,
         `${t('Waffo Pancake product creation failed')}: ${err instanceof Error ? err.message : String(err)}`
       )
     } finally {
@@ -322,13 +331,7 @@ export function SubscriptionsMutateDrawer({
                 )}
               />
 
-              <div
-                className={
-                  membershipOnly
-                    ? 'grid grid-cols-1 gap-3'
-                    : 'grid grid-cols-1 gap-3 sm:grid-cols-2'
-                }
-              >
+              <div className='grid grid-cols-1 gap-3 sm:grid-cols-2'>
                 <FormField
                   control={form.control}
                   name='price_amount'
@@ -358,47 +361,43 @@ export function SubscriptionsMutateDrawer({
                   )}
                 />
 
-                {!membershipOnly && (
-                  <FormField
-                    control={form.control}
-                    name='total_amount'
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>
-                          {t('Quota ({{currency}})', {
-                            currency: currencyLabel,
-                          })}
-                        </FormLabel>
-                        <FormControl>
-                          <Input
-                            {...field}
-                            type='number'
-                            min={0}
-                            step={tokensOnly ? 1 : 0.01}
-                            placeholder={
-                              tokensOnly
-                                ? t('Enter quota in tokens')
-                                : t('Enter quota in {{currency}}', {
-                                    currency: currencyLabel,
-                                  })
-                            }
-                            onChange={(e) =>
-                              field.onChange(
-                                Number.parseFloat(e.target.value) || 0
-                              )
-                            }
-                          />
-                        </FormControl>
-                        <FormDescription>
-                          {t(
-                            'Total quota included in the plan, usable per billing period. 0 means unlimited.'
-                          )}
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                )}
+                <FormField
+                  control={form.control}
+                  name='total_amount'
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        {t('Quota ({{currency}})', { currency: currencyLabel })}
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          type='number'
+                          min={0}
+                          step={tokensOnly ? 1 : 0.01}
+                          placeholder={
+                            tokensOnly
+                              ? t('Enter quota in tokens')
+                              : t('Enter quota in {{currency}}', {
+                                  currency: currencyLabel,
+                                })
+                          }
+                          onChange={(e) =>
+                            field.onChange(
+                              Number.parseFloat(e.target.value) || 0
+                            )
+                          }
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        {t(
+                          'Total quota included in the plan, usable per billing period. 0 means unlimited.'
+                        )}
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </div>
 
               <div className='grid grid-cols-1 gap-3 sm:grid-cols-2'>
@@ -407,50 +406,24 @@ export function SubscriptionsMutateDrawer({
                   name='upgrade_group'
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>
-                        {t('Upgrade Group')}
-                        {membershipOnly && (
-                          <span className='text-destructive ml-0.5'>*</span>
-                        )}
-                      </FormLabel>
-                      <Select
-                        items={[
-                          ...(membershipOnly
-                            ? []
-                            : [{ value: '__none__', label: t('No Upgrade') }]),
-                          ...groupOptions.map((g) => ({ value: g, label: g })),
-                        ]}
-                        onValueChange={(v) =>
-                          field.onChange(v === '__none__' ? '' : v)
-                        }
-                        value={field.value || ''}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue
-                              placeholder={
-                                membershipOnly
-                                  ? t('Upgrade Group')
-                                  : t('No Upgrade')
-                              }
-                            />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent alignItemWithTrigger={false}>
-                          <SelectGroup>
-                            {!membershipOnly && (
-                              <SelectItem value='__none__'>
-                                {t('No Upgrade')}
-                              </SelectItem>
-                            )}
-                            {groupOptions.map((g) => (
-                              <SelectItem key={g} value={g}>
-                                {g}
-                              </SelectItem>
-                            ))}
-                          </SelectGroup>
-                        </SelectContent>
-                      </Select>
+                      <FormLabel>{t('Upgrade Group')}</FormLabel>
+                      <FormControl>
+                        <Combobox
+                          options={[
+                            { value: '__none__', label: t('No Upgrade') },
+                            ...groupOptions.map((g) => ({
+                              value: g,
+                              label: g,
+                            })),
+                          ]}
+                          onValueChange={(v) =>
+                            field.onChange(v === '__none__' ? '' : v)
+                          }
+                          value={field.value || ''}
+                          className='w-full'
+                          placeholder={t('No Upgrade')}
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -462,39 +435,26 @@ export function SubscriptionsMutateDrawer({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>{t('Downgrade Group')}</FormLabel>
-                      <Select
-                        items={[
-                          {
-                            value: '__none__',
-                            label: t('Downgrade to pre-purchase group'),
-                          },
-                          ...groupOptions.map((g) => ({ value: g, label: g })),
-                        ]}
-                        onValueChange={(v) =>
-                          field.onChange(v === '__none__' ? '' : v)
-                        }
-                        value={field.value || ''}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue
-                              placeholder={t('Downgrade to pre-purchase group')}
-                            />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent alignItemWithTrigger={false}>
-                          <SelectGroup>
-                            <SelectItem value='__none__'>
-                              {t('Downgrade to pre-purchase group')}
-                            </SelectItem>
-                            {groupOptions.map((g) => (
-                              <SelectItem key={g} value={g}>
-                                {g}
-                              </SelectItem>
-                            ))}
-                          </SelectGroup>
-                        </SelectContent>
-                      </Select>
+                      <FormControl>
+                        <Combobox
+                          options={[
+                            {
+                              value: '__none__',
+                              label: t('Downgrade to pre-purchase group'),
+                            },
+                            ...groupOptions.map((g) => ({
+                              value: g,
+                              label: g,
+                            })),
+                          ]}
+                          onValueChange={(v) =>
+                            field.onChange(v === '__none__' ? '' : v)
+                          }
+                          value={field.value || ''}
+                          className='w-full'
+                          placeholder={t('Downgrade to pre-purchase group')}
+                        />
+                      </FormControl>
                       <FormDescription>
                         {t(
                           'Downgrade to this group after the subscription expires'
@@ -557,29 +517,6 @@ export function SubscriptionsMutateDrawer({
               <div className='flex flex-col gap-3'>
                 <FormField
                   control={form.control}
-                  name='membership_only'
-                  render={({ field }) => (
-                    <FormItem className={sideDrawerSwitchItemClassName()}>
-                      <div>
-                        <FormLabel>{t('Membership-only plan')}</FormLabel>
-                        <FormDescription>
-                          {t(
-                            'Only grants time-limited group benefits; API usage continues to charge the wallet.'
-                          )}
-                        </FormDescription>
-                      </div>
-                      <FormControl>
-                        <Switch
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
                   name='enabled'
                   render={({ field }) => (
                     <FormItem className={sideDrawerSwitchItemClassName()}>
@@ -614,25 +551,23 @@ export function SubscriptionsMutateDrawer({
                   )}
                 />
 
-                {!membershipOnly && (
-                  <FormField
-                    control={form.control}
-                    name='allow_wallet_overflow'
-                    render={({ field }) => (
-                      <FormItem className={sideDrawerSwitchItemClassName()}>
-                        <FormLabel className='!mt-0'>
-                          {t('Allow wallet balance after quota used up')}
-                        </FormLabel>
-                        <FormControl>
-                          <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                )}
+                <FormField
+                  control={form.control}
+                  name='allow_wallet_overflow'
+                  render={({ field }) => (
+                    <FormItem className={sideDrawerSwitchItemClassName()}>
+                      <FormLabel className='!mt-0'>
+                        {t('Allow wallet balance after quota used up')}
+                      </FormLabel>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
               </div>
             </SideDrawerSection>
 
@@ -731,76 +666,74 @@ export function SubscriptionsMutateDrawer({
             </SideDrawerSection>
 
             {/* Quota Reset */}
-            {!membershipOnly && (
-              <SideDrawerSection>
-                <h3 className='flex items-center gap-2 text-sm font-medium'>
-                  <IconBadge tone='success' size='xs'>
-                    <RefreshCw />
-                  </IconBadge>
-                  {t('Quota Reset')}
-                </h3>
+            <SideDrawerSection>
+              <h3 className='flex items-center gap-2 text-sm font-medium'>
+                <IconBadge tone='success' size='xs'>
+                  <RefreshCw />
+                </IconBadge>
+                {t('Quota Reset')}
+              </h3>
 
-                <div className='grid grid-cols-1 gap-3 sm:grid-cols-2'>
-                  <FormField
-                    control={form.control}
-                    name='quota_reset_period'
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{t('Reset Cycle')}</FormLabel>
-                        <Select
-                          items={resetPeriodOpts.map((o) => ({
-                            value: o.value,
-                            label: o.label,
-                          }))}
-                          onValueChange={field.onChange}
-                          value={field.value}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent alignItemWithTrigger={false}>
-                            <SelectGroup>
-                              {resetPeriodOpts.map((o) => (
-                                <SelectItem key={o.value} value={o.value}>
-                                  {o.label}
-                                </SelectItem>
-                              ))}
-                            </SelectGroup>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name='quota_reset_custom_seconds'
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{t('Custom Seconds')}</FormLabel>
+              <div className='grid grid-cols-1 gap-3 sm:grid-cols-2'>
+                <FormField
+                  control={form.control}
+                  name='quota_reset_period'
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('Reset Cycle')}</FormLabel>
+                      <Select
+                        items={resetPeriodOpts.map((o) => ({
+                          value: o.value,
+                          label: o.label,
+                        }))}
+                        onValueChange={field.onChange}
+                        value={field.value}
+                      >
                         <FormControl>
-                          <Input
-                            {...field}
-                            type='number'
-                            min={0}
-                            disabled={resetPeriod !== 'custom'}
-                            onChange={(e) =>
-                              field.onChange(
-                                Number.parseInt(e.target.value, 10) || 0
-                              )
-                            }
-                          />
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
                         </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              </SideDrawerSection>
-            )}
+                        <SelectContent alignItemWithTrigger={false}>
+                          <SelectGroup>
+                            {resetPeriodOpts.map((o) => (
+                              <SelectItem key={o.value} value={o.value}>
+                                {o.label}
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name='quota_reset_custom_seconds'
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('Custom Seconds')}</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          type='number'
+                          min={0}
+                          disabled={resetPeriod !== 'custom'}
+                          onChange={(e) =>
+                            field.onChange(
+                              Number.parseInt(e.target.value, 10) || 0
+                            )
+                          }
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </SideDrawerSection>
 
             {/* Payment Config */}
             <SideDrawerSection>
@@ -858,23 +791,14 @@ export function SubscriptionsMutateDrawer({
                     <FormItem>
                       <FormLabel>Waffo Pancake Product ID</FormLabel>
                       <div className='flex gap-2'>
-                        <Select
-                          items={items}
+                        <Combobox
+                          options={items}
                           value={field.value || ''}
                           onValueChange={(v) => field.onChange(v)}
                           disabled={items.length === 0}
-                        >
-                          <SelectTrigger className='w-full flex-1'>
-                            <SelectValue placeholder={t('Select a product')} />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {items.map((item) => (
-                              <SelectItem key={item.value} value={item.value}>
-                                {item.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                          className='w-full flex-1'
+                          placeholder={t('Select a product')}
+                        />
                         <Button
                           type='button'
                           variant='outline'

@@ -2,7 +2,6 @@ package controller
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"net/http"
 	"time"
@@ -30,14 +29,14 @@ func SubscriptionRequestCreemPay(c *gin.Context) {
 	// Keep body for debugging consistency (like RequestCreemPay)
 	bodyBytes, err := io.ReadAll(c.Request.Body)
 	if err != nil {
-		logger.LogError(c.Request.Context(), fmt.Sprintf("Creem 订阅支付请求读取失败 error=%q", err.Error()))
-		common.ApiErrorMsg(c, "Failed to read payment request.")
+		logger.LogError(c.Request.Context(), common.LogText("Creem failed to read subscription payment request error=%q", err.Error()))
+		c.JSON(http.StatusOK, gin.H{"message": "error", "data": "read query error"})
 		return
 	}
 	c.Request.Body = io.NopCloser(bytes.NewReader(bodyBytes))
 
 	if err := c.ShouldBindJSON(&req); err != nil || req.PlanId <= 0 {
-		common.ApiErrorMsg(c, "Invalid parameters")
+		paymentError(c, common.NewMessage("Invalid parameters"))
 		return
 	}
 
@@ -47,15 +46,15 @@ func SubscriptionRequestCreemPay(c *gin.Context) {
 		return
 	}
 	if !plan.Enabled {
-		common.ApiError(c, model.ErrSubscriptionPlanDisabled)
+		common.ApiErrorT(c, "Subscription plan is not enabled")
 		return
 	}
 	if plan.CreemProductId == "" {
-		common.ApiErrorMsg(c, "This plan is not configured for the selected payment provider.")
+		common.ApiErrorT(c, "CreemProductId is not configured for this plan")
 		return
 	}
 	if setting.CreemWebhookSecret == "" && !setting.CreemTestMode {
-		common.ApiErrorMsg(c, "The selected payment provider is not configured correctly.")
+		common.ApiErrorT(c, "Creem webhook is not configured")
 		return
 	}
 
@@ -66,14 +65,26 @@ func SubscriptionRequestCreemPay(c *gin.Context) {
 		return
 	}
 	if user == nil {
-		common.ApiErrorMsg(c, "User not found.")
+		common.ApiErrorT(c, "User does not exist")
 		return
+	}
+
+	if plan.MaxPurchasePerUser > 0 {
+		count, err := model.CountUserSubscriptionsByPlan(userId, plan.Id)
+		if err != nil {
+			common.ApiError(c, err)
+			return
+		}
+		if count >= int64(plan.MaxPurchasePerUser) {
+			common.ApiErrorT(c, "Purchase limit for this plan has been reached")
+			return
+		}
 	}
 
 	reference := "sub-creem-ref-" + randstr.String(6)
 	referenceId := "sub_ref_" + common.Sha1([]byte(reference+time.Now().String()+user.Username))
 
-	// create pending order first (locks plan; use returned snapshot for checkout)
+	// create pending order first
 	order := &model.SubscriptionOrder{
 		UserId:          userId,
 		PlanId:          plan.Id,
@@ -84,9 +95,8 @@ func SubscriptionRequestCreemPay(c *gin.Context) {
 		CreateTime:      time.Now().Unix(),
 		Status:          common.TopUpStatusPending,
 	}
-	lockedPlan, err := model.InsertPendingSubscriptionOrder(order)
-	if err != nil {
-		common.ApiError(c, err)
+	if err := order.Insert(); err != nil {
+		paymentError(c, common.NewMessage("Failed to create order"))
 		return
 	}
 
@@ -101,18 +111,17 @@ func SubscriptionRequestCreemPay(c *gin.Context) {
 		currency = "USD"
 	}
 	product := &CreemProduct{
-		ProductId: lockedPlan.CreemProductId,
-		Name:      lockedPlan.Title,
-		Price:     lockedPlan.PriceAmount,
+		ProductId: plan.CreemProductId,
+		Name:      plan.Title,
+		Price:     plan.PriceAmount,
 		Currency:  currency,
 		Quota:     0,
 	}
 
 	checkoutUrl, err := genCreemLink(c.Request.Context(), referenceId, product, user.Email, user.Username)
 	if err != nil {
-		logger.LogError(c.Request.Context(), fmt.Sprintf("Creem 订阅支付链接创建失败 trade_no=%s product_id=%s error=%q", referenceId, product.ProductId, err.Error()))
-		_ = model.ExpireSubscriptionOrder(referenceId, model.PaymentProviderCreem)
-		common.ApiErrorMsg(c, "Payment request failed")
+		logger.LogError(c.Request.Context(), common.LogText("Creem failed to create subscription payment link trade_no=%s product_id=%s error=%q", referenceId, product.ProductId, err.Error()))
+		paymentError(c, common.NewMessage("Failed to start payment"))
 		return
 	}
 

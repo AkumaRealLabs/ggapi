@@ -22,6 +22,7 @@ import { toast } from 'sonner'
 
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { Switch } from '@/components/ui/switch'
+import { handleServerError } from '@/lib/handle-server-error'
 
 import { resetPlanSubscriptions } from '../../api'
 import { useSubscriptions } from '../subscriptions-provider'
@@ -55,10 +56,10 @@ export function ResetSubscriptionsDialog() {
         triggerRefresh()
         setOpen(null)
       } else {
-        toast.error(t(res.message || 'Operation failed'))
+        handleServerError(res)
       }
-    } catch {
-      toast.error(t('Operation failed'))
+    } catch (error) {
+      handleServerError(error, t('Operation failed'))
     } finally {
       setResetting(false)
     }

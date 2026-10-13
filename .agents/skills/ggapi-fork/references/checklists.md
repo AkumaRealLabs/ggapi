@@ -21,7 +21,7 @@ Copy into PR bodies or walk verbally with the user. Keep items checkable.
 - [ ] Billing changes: read `pkg/billingexpr/expr.md`; full pre-consume→settle path checked
 - [ ] DB changes: SQLite + MySQL + PostgreSQL considered
 - [ ] JSON via `common.Marshal/Unmarshal*` (not raw `encoding/json` calls)
-- [ ] Frontend work stays in official **`web/`** and is limited to the smallest active GG-004/006/007 capability delta; **lint ship-unit paths** (not full-tree baseline)
+- [ ] Frontend work stays in official **`web/`** and is limited to the smallest active GG-004/007 capability delta; **lint ship-unit paths** (not full-tree baseline)
 - [ ] Frontend: i18n keys via **i18n-translate** skill; keys under `translation`; all locales incl. **zh-TW**
 
 ### Verification

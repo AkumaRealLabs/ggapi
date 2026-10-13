@@ -21,8 +21,6 @@ import (
 
 var ErrUserAuthCachePending = errors.New("user authentication state update is pending")
 
-var ErrUserQuotaCachePending = errors.New("user quota update is pending")
-
 var ErrUserAuthVersionConflict = errors.New("user authentication version update conflicted")
 
 func getUserAuthFenceKey(userId int) string {
@@ -40,10 +38,7 @@ func getUserAuthVersionKey(userId int) string {
 // recover without an operator repairing Redis.
 func userAuthFenceTTLSeconds() int {
 	cacheTTL := userCacheTTLSeconds()
-	extra := cacheTTL
-	if extra < 60 {
-		extra = 60
-	}
+	extra := max(cacheTTL, 60)
 	return cacheTTL + extra
 }
 
@@ -68,9 +63,6 @@ local current = tonumber(redis.call('HGET', KEYS[1], 'AuthVersion') or '0')
 if pending > incoming or committed > incoming or current > incoming then
   return 0
 end
-if ARGV[10] == '1' and (redis.call('EXISTS', KEYS[4]) == 1 or redis.call('EXISTS', KEYS[5]) == 1) then
-  return 2
-end
 if committed < incoming then
   redis.call('SET', KEYS[3], ARGV[1])
 end
@@ -90,7 +82,7 @@ end
 redis.call('EXPIRE', KEYS[1], ARGV[12])
 return 1`
 	result, err := common.RDB.Eval(context.Background(), script,
-		[]string{getUserCacheKey(user.Id), getUserAuthFenceKey(user.Id), getUserAuthVersionKey(user.Id), getUserQuotaCacheFenceKey(user.Id), getUserQuotaCacheDirtyKey(user.Id)},
+		[]string{getUserCacheKey(user.Id), getUserAuthFenceKey(user.Id), getUserAuthVersionKey(user.Id)},
 		user.AuthVersion, user.Id, user.Group, user.Email, user.Status, user.Role,
 		user.Username, user.Setting, user.CacheSchema, includeQuotaArg, user.Quota, ttl,
 	).Int()
@@ -99,9 +91,6 @@ return 1`
 	}
 	if result == 0 {
 		return ErrUserAuthCachePending
-	}
-	if result == 2 {
-		return ErrUserQuotaCachePending
 	}
 	return nil
 }
@@ -194,10 +183,7 @@ func IncrementUserAuthVersionWithTx(tx *gorm.DB, userId int) (int64, error) {
 		if err := lockForUpdate(tx.Unscoped()).Select("id", "auth_version").Where("id = ?", userId).First(&user).Error; err != nil {
 			return 0, err
 		}
-		current := user.AuthVersion
-		if current < 1 {
-			current = 1
-		}
+		current := max(user.AuthVersion, 1)
 		next := current + 1
 		if err := SetUserAuthVersionFence(userId, next); err != nil {
 			return 0, err
@@ -248,7 +234,7 @@ func InitializeUserAuthVersions() error {
 	return DB.Model(&User{}).Where("auth_version IS NULL OR auth_version < ?", 1).Update("auth_version", 1).Error
 }
 
-func updateUserCacheFieldAtVersion(userId int, field string, value interface{}, authVersion int64) error {
+func updateUserCacheFieldAtVersion(userId int, field string, value any, authVersion int64) error {
 	if !common.RedisEnabled {
 		return nil
 	}

@@ -480,7 +480,7 @@ Canonical: `docs/fork/README.md` §前端, SOP §3.5. Inventory **GG-005** is `d
 
 ### Where frontend changes belong
 
-The only frontend is `web/`. GG-004/006/007 changes belong in matching official
+The only frontend is `web/`. GG-004/007 changes belong in matching official
 feature modules and should stay minimal relative to upstream. Do not recreate
 `web/ggapi`, classic, multi-theme routing, or fork-only visual redesigns.
 

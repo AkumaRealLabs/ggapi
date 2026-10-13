@@ -24,7 +24,6 @@ import { BadgeCell } from '@/components/data-table'
 import { GroupBadge } from '@/components/group-badge'
 import { StatusBadge } from '@/components/status-badge'
 import { TableId } from '@/components/table-id'
-import { formatLocalCurrencyAmount } from '@/lib/currency'
 import { formatQuota } from '@/lib/format'
 
 import { formatDuration, formatResetPeriod } from '../lib'
@@ -70,7 +69,7 @@ export function useSubscriptionsColumns(): ColumnDef<PlanRecord>[] {
         header: t('Price'),
         cell: ({ row }) => (
           <span className='font-semibold text-emerald-600'>
-            {formatLocalCurrencyAmount(row.original.plan.price_amount)}
+            ${Number(row.original.plan.price_amount || 0).toFixed(2)}
           </span>
         ),
         size: 100,
@@ -116,14 +115,14 @@ export function useSubscriptionsColumns(): ColumnDef<PlanRecord>[] {
         cell: ({ row }) =>
           row.original.plan.enabled ? (
             <StatusBadge
-              label={t('Enable')}
+              label={t('Enabled')}
               variant='success'
               copyable={false}
               className='-ml-1.5'
             />
           ) : (
             <StatusBadge
-              label={t('Disable')}
+              label={t('Disabled')}
               variant='neutral'
               copyable={false}
               className='-ml-1.5'
@@ -166,13 +165,6 @@ export function useSubscriptionsColumns(): ColumnDef<PlanRecord>[] {
         header: t('Plan Quota'),
         meta: { mobileHidden: true },
         cell: ({ row }) => {
-          if (row.original.plan.membership_only) {
-            return (
-              <StatusBadge variant='info'>
-                {t('Membership benefits')}
-              </StatusBadge>
-            )
-          }
           const total = Number(row.original.plan.total_amount || 0)
           return (
             <span className='text-muted-foreground'>

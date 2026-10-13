@@ -14,7 +14,7 @@ description: >
   including plain “提交/commit” (Mode C C2-pre). For skill changes, follow
   Mode I/self-upgrade policy.
 metadata:
-  skill_version: "2.0.0"
+  skill_version: "2.0.1"
 ---
 
 # ggapi Fork Maintenance Playbook
@@ -185,8 +185,9 @@ aligned with active rows (not replace them):
 | GG-003 | GitHub-hosted `ubuntu-latest` Linux amd64; **tag → GHCR**; no Docker Hub `calciumion/new-api`; bare binary optional (manual) |
 | GG-004 | Server-side update check URL + GitHub PAT |
 | GG-005 | **Dropped:** former third frontend shell and multi-theme wiring; do not restore |
-| GG-006 | VIP membership-only plans and scheduled membership queue |
+| GG-006 | **Dropped (2026-10-13):** VIP membership-only plans; startup migration retires old data; do not restore |
 | GG-007 | Auditable first-level affiliate commissions |
+| GG-010 | Strip unsupported penalty fields for official OpenAI/Azure Responses routes |
 
 ## Official frontend placement
 
@@ -194,7 +195,7 @@ aligned with active rows (not replace them):
 |------|------|
 | `web/` | The only frontend source, dev server, build input, and embedded distribution |
 
-Rule of thumb (canonical: `docs/fork` SOP §3.5): keep upstream `web/` as the base and add only the smallest GG-004/006/007 capability delta. Do not recreate `web/ggapi`, classic, runtime theme selection, or fork-only visual redesigns. Local: `make dev` / `make dev-web` / `make build-web`.
+Rule of thumb (canonical: `docs/fork` SOP §3.5): keep upstream `web/` as the base and add only the smallest GG-004/007 capability delta. Do not recreate `web/ggapi`, classic, runtime theme selection, or fork-only visual redesigns. Local: `make dev` / `make dev-web` / `make build-web`.
 
 ## Related skills (hand off, do not reimplement)
 

@@ -194,7 +194,7 @@ func finishAffiliateInvite(inviteeId int, inviterId int) {
 	if operation_setting.IsPaymentComplianceConfirmed() {
 		if common.QuotaForInvitee > 0 {
 			_ = IncreaseUserQuota(inviteeId, common.QuotaForInvitee, true)
-			RecordLog(inviteeId, LogTypeSystem, fmt.Sprintf("使用邀请码赠送 %s", logger.LogQuota(common.QuotaForInvitee)))
+			RecordLog(inviteeId, LogTypeSystem, common.NewMessage("Invitation code bonus {{quota}}", map[string]any{"quota": logger.FormatQuota(common.QuotaForInvitee)}))
 		}
 		inviterReward = common.QuotaForInviter
 	}
@@ -203,7 +203,7 @@ func finishAffiliateInvite(inviteeId int, inviterId int) {
 		return
 	}
 	if inviterReward > 0 {
-		RecordLog(inviterId, LogTypeSystem, fmt.Sprintf("邀请用户赠送 %s", logger.LogQuota(inviterReward)))
+		RecordLog(inviterId, LogTypeSystem, common.NewMessage("Bonus for inviting a user {{quota}}", map[string]any{"quota": logger.FormatQuota(inviterReward)}))
 	}
 }
 

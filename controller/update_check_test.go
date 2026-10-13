@@ -141,3 +141,89 @@ func TestCheckUpdateBlocksPATRedirectsOutsideTrustedHTTPSHost(t *testing.T) {
 		})
 	}
 }
+
+func runUpdateCheckWithResponse(t *testing.T, status int, header http.Header, body string) *httptest.ResponseRecorder {
+	t.Helper()
+	setUpdateCheckOptions(t, "https://api.github.com/repos/AkumaRealLabs/ggapi/releases/latest", "")
+	if header == nil {
+		header = make(http.Header)
+	}
+	client := &http.Client{Transport: updateCheckRoundTripFunc(func(req *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: status,
+			Header:     header,
+			Body:       io.NopCloser(strings.NewReader(body)),
+			Request:    req,
+		}, nil
+	})}
+	return runUpdateCheck(t, client)
+}
+
+func TestCheckUpdateReturnsReleaseList(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	tests := []struct {
+		name string
+		body string
+		want []string
+	}{
+		{
+			name: "latest release object",
+			body: `{"tag_name":"v1.0.0-rc.25.1","html_url":"https://github.com/AkumaRealLabs/ggapi/releases/tag/v1.0.0-rc.25.1","published_at":"2026-10-01T00:00:00Z"}`,
+			want: []string{"v1.0.0-rc.25.1"},
+		},
+		{
+			name: "release list",
+			body: `[{"tag_name":"v1.0.0-rc.25.2","draft":true},{"tag_name":""},{"tag_name":"v1.0.0-rc.25.1","prerelease":true}]`,
+			want: []string{"v1.0.0-rc.25.2", "v1.0.0-rc.25.1"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			w := runUpdateCheckWithResponse(t, http.StatusOK, nil, tt.body)
+
+			require.Equal(t, http.StatusOK, w.Code)
+			var body struct {
+				Success bool                 `json:"success"`
+				Data    []updateCheckRelease `json:"data"`
+			}
+			require.NoError(t, common.Unmarshal(w.Body.Bytes(), &body))
+			assert.True(t, body.Success)
+			tags := make([]string, 0, len(body.Data))
+			for _, release := range body.Data {
+				tags = append(tags, release.TagName)
+			}
+			assert.Equal(t, tt.want, tags)
+		})
+	}
+}
+
+func TestCheckUpdateOmitsEmptyPublishedAt(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	w := runUpdateCheckWithResponse(t, http.StatusOK, nil, `{"tag_name":"v1.0.0-rc.25.1","published_at":""}`)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"published_at":null`)
+}
+
+func TestCheckUpdateReportsRateLimit(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	limited := make(http.Header)
+	limited.Set("X-RateLimit-Remaining", "0")
+	tests := []struct {
+		name   string
+		status int
+		header http.Header
+		want   int
+	}{
+		{name: "too many requests", status: http.StatusTooManyRequests, want: http.StatusTooManyRequests},
+		{name: "exhausted primary limit", status: http.StatusForbidden, header: limited, want: http.StatusTooManyRequests},
+		{name: "forbidden token", status: http.StatusForbidden, want: http.StatusBadGateway},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			w := runUpdateCheckWithResponse(t, tt.status, tt.header, `{"message":"limited"}`)
+
+			assert.Equal(t, tt.want, w.Code)
+		})
+	}
+}
