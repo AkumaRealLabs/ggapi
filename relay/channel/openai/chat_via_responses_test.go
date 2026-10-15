@@ -144,6 +144,53 @@ func TestOaiResponsesToChatStreamHandlerConvertsClaudeSSETerminalsAndUsage(t *te
 	)
 }
 
+func TestOaiResponsesToChatStreamHandlerIgnoresHeartbeatBeforeClaudeTools(t *testing.T) {
+	oldMode := gin.Mode()
+	gin.SetMode(gin.TestMode)
+	t.Cleanup(func() { gin.SetMode(oldMode) })
+	oldTimeout := constant.StreamingTimeout
+	constant.StreamingTimeout = 30
+	t.Cleanup(func() { constant.StreamingTimeout = oldTimeout })
+
+	body := strings.Join([]string{
+		`data: {"type":"response.output_text.delta","item_id":"SSE-Keep-Alive","output_index":0,"content_index":0,"delta":"","SSE-Keep-Alive":true}`,
+		`data: {"type":"response.created","response":{"id":"resp_1","model":"gpt-test"}}`,
+		`data: {"type":"response.output_item.added","output_index":0,"item":{"type":"reasoning","id":"rs_1","summary":[]}}`,
+		`data: {"type":"response.reasoning_summary_text.delta","output_index":0,"item_id":"rs_1","delta":"plan"}`,
+		`data: {"type":"response.output_item.done","output_index":0,"item":{"type":"reasoning","id":"rs_1","summary":[{"type":"summary_text","text":"plan"}]}}`,
+		`data: {"type":"response.output_item.added","output_index":1,"item":{"type":"function_call","id":"fc_1","call_id":"call_1","name":"lookup"}}`,
+		`data: {"type":"response.function_call_arguments.delta","output_index":1,"item_id":"fc_1","delta":"{\"q\":\"x\"}"}`,
+		`data: {"type":"response.output_item.done","output_index":1,"item":{"type":"function_call","id":"fc_1","call_id":"call_1","name":"lookup","arguments":"{\"q\":\"x\"}"}}`,
+		`data: {"type":"response.completed","response":{"status":"completed","usage":{"input_tokens":2,"output_tokens":3,"total_tokens":5}}}`,
+		`data: [DONE]`,
+		``,
+	}, "\n")
+	c, recorder, resp, info := newResponsesChatTestContext(t, body, true)
+	info.RelayFormat = types.RelayFormatClaude
+
+	usage, apiErr := OaiResponsesToChatStreamHandler(c, info, resp)
+	require.Nil(t, apiErr)
+	require.NotNil(t, usage)
+	assert.Equal(t, 5, usage.TotalTokens)
+	got := recorder.Body.String()
+	assert.NotContains(t, got, "SSE-Keep-Alive")
+	assert.Equal(t, 1, strings.Count(got, "event: message_start\n"))
+	assert.Equal(t, 2, strings.Count(got, "event: content_block_start\n"))
+	assert.Equal(t, 2, strings.Count(got, "event: content_block_stop\n"))
+	assert.Equal(t, 1, strings.Count(got, "event: message_stop\n"))
+	assert.Contains(t, got, `"id":"resp_1"`)
+	assert.Contains(t, got, `"thinking":"plan"`)
+	assert.Contains(t, got, `"id":"call_1"`)
+	assert.Contains(t, got, `"name":"lookup"`)
+	assert.Contains(t, got, `"partial_json":"{\"q\":\"x\"}"`)
+	assert.Contains(t, got, `"stop_reason":"tool_use"`)
+	assert.Contains(t, got, `"input_tokens":2`)
+	assert.Contains(t, got, `"output_tokens":3`)
+	requireOrderedSubstrings(t, got,
+		"event: message_start\n", `"thinking":"plan"`, `"name":"lookup"`,
+		"event: message_delta\n", "event: message_stop\n")
+}
+
 func TestOaiResponsesToChatBufferedStreamHandlerReturnsJSONFromSSE(t *testing.T) {
 	oldMode := gin.Mode()
 	gin.SetMode(gin.TestMode)

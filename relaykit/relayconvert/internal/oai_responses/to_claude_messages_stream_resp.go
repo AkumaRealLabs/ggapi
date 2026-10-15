@@ -116,6 +116,10 @@ func (s *ResponsesToClaudeStreamState) ConvertChunk(event *dto.ResponsesStreamRe
 		}
 		return responses, s.Usage, nil
 	case responsesEventOutputTextDelta:
+		// Empty deltas can be upstream heartbeats, so they must not claim an output item.
+		if event.Delta == "" {
+			return nil, s.Usage, nil
+		}
 		block, err := s.ensureBlock(event, "text")
 		if err != nil {
 			return nil, s.Usage, err
